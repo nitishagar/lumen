@@ -1,0 +1,61 @@
+name: Deploy Worker
+
+# P6b deploy layer (ci-deploy PLAN Phase 5): deploy the MCP Cloudflare Worker
+# from packages/mcp when main changes touch it.
+#
+# Skip-cleanly semantics (IMPLICIT_SPEC E2): `secrets` and `env` contexts are
+# NOT available in job-level `if`, so the secret check is a guard STEP — the
+# token is injected via step `env`, tested in shell, and the result exported
+# as a step output that conditions every later step. With no
+# CLOUDFLARE_API_TOKEN configured (the expected state until the user adds
+# credentials) the job ends green in seconds with a ::notice:: and wrangler is
+# never reached.
+#
+# Requires the surfaces-merge contract: packages/mcp/wrangler.jsonc with
+# committed account_id + main entry, and `npm run build -w @lumen-seo/mcp`
+# producing deployable output.
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/mcp/**', '.github/workflows/deploy-worker.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+permissions: { contents: read }
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard — skip cleanly when CLOUDFLARE_API_TOKEN is absent
+        id: guard
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CF_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN not configured — skipping Worker deploy (Worker remains deployable-but-not-deployed; add the secret to activate)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        if: steps.guard.outputs.skip != 'true'
+      - uses: actions/setup-node@v5
+        if: steps.guard.outputs.skip != 'true'
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+        if: steps.guard.outputs.skip != 'true'
+      - run: npm run build -w @lumen-seo/mcp
+        if: steps.guard.outputs.skip != 'true'
+      - name: wrangler deploy
+        if: steps.guard.outputs.skip != 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # optional override; account_id normally committed in packages/mcp/wrangler.jsonc
+          command: deploy
+          workingDirectory: packages/mcp
