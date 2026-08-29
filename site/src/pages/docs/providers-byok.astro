@@ -1,0 +1,166 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import { u } from '../../utils/site';
+import locked from '../../data/locked-names.json';
+
+interface ProviderRow {
+  readonly name: string;
+  readonly kind: 'official' | 'gray' | 'heuristic';
+  readonly boundary: string;
+  readonly key: string;
+  readonly leaves: string;
+  readonly note: string;
+}
+
+const providers: readonly ProviderRow[] = [
+  {
+    name: 'google-suggest',
+    kind: 'heuristic',
+    boundary: 'keywords',
+    key: '—',
+    leaves: 'Your seed term, to Google’s public autocomplete endpoint.',
+    note: 'Undocumented endpoint (gray): cached aggressively, degrades without drama on 429s. Ideas are labeled autocomplete-derived, never volumes.',
+  },
+  {
+    name: 'wikipedia-demand',
+    kind: 'official',
+    boundary: 'keywords',
+    key: '—',
+    leaves: 'Article titles derived from your seed, to the Wikimedia Pageviews API.',
+    note: 'No key. lumen sends an identifying User-Agent with a contact URL per Wikimedia policy; pageview counts are a demand proxy, labeled as such.',
+  },
+  {
+    name: 'pagespeed',
+    kind: 'official',
+    boundary: 'pagespeed',
+    key: 'LUMEN_PSI_KEY',
+    leaves: 'The target page URL, to the PageSpeed Insights API.',
+    note: 'Key optional for occasional trial use, required for automated queries. Without it, lab/field page data is simply reported not-configured.',
+  },
+  {
+    name: 'crux',
+    kind: 'official',
+    boundary: 'crux',
+    key: 'LUMEN_CRUX_KEY',
+    leaves: 'The target page URL and form factor, to the CrUX API.',
+    note: 'Requires a free Google Cloud API key (BYOK). Returned field data carries CC BY 4.0 attribution — see attributions.',
+  },
+  {
+    name: 'openpagerank',
+    kind: 'official',
+    boundary: 'authority',
+    key: 'LUMEN_OPR_KEY',
+    leaves: 'The domains you ask about, to the Open PageRank API (Bearer auth).',
+    note: 'Free tier with monthly quota. Returns page-rank scores as authority signals, labeled with the provider.',
+  },
+  {
+    name: 'tranco',
+    kind: 'official',
+    boundary: 'authority',
+    key: '—',
+    leaves: 'Nothing per query — the daily Tranco list is fetched and cached locally; lookups are local.',
+    note: 'No key. Use requires attribution — see attributions.',
+  },
+  {
+    name: 'ddg-serp',
+    kind: 'gray',
+    boundary: 'serp',
+    key: '—',
+    leaves: 'Your keyword, to DuckDuckGo’s HTML endpoint.',
+    note: 'Default SERP provider, best-effort by nature: bot protection can degrade it at any time. Rank results are labeled gray and best-effort.',
+  },
+];
+
+const kindBadge: Record<ProviderRow['kind'], string> = {
+  official: 'badge badge-green',
+  heuristic: 'badge badge-amber',
+  gray: 'badge badge-amber',
+};
+---
+<DocsLayout
+  title="Providers & BYOK"
+  description="lumen's seven built-in data providers: what kind of source each is, which need keys, and exactly what leaves your machine."
+  activeHref="/docs/providers-byok/"
+  toc={[
+    { id: 'model', label: 'The model' },
+    { id: 'table', label: 'Built-in providers' },
+    { id: 'byok', label: 'BYOK semantics' },
+    { id: 'etiquette', label: 'Rate-limit etiquette' },
+  ]}
+>
+  <p>
+    Every external number in lumen comes through the provider interface —
+    five boundaries (keywords, serp, pagespeed, crux, authority), seven
+    built-in sources, zero vendor calls anywhere else. Providers are selected
+    per boundary in <code>{locked.configFile}</code>; an unknown name is a
+    config error listing the valid options.
+  </p>
+
+  <h2 id="model">The model</h2>
+  <ul>
+    <li><strong>Kind labels are part of the output.</strong> Every value carries its source: official, community, heuristic, lab or field.</li>
+    <li><strong>No key, no call.</strong> A BYOK provider without its key is skipped with an explicit <em>not configured</em> result — never a crash, never a keyless call to an endpoint whose terms require one.</li>
+    <li><strong>Keys are names, not values.</strong> The config stores environment variable names; values are read at call time and never persisted or logged.</li>
+  </ul>
+
+  <h2 id="table">Built-in providers</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Provider</th>
+        <th scope="col">Kind</th>
+        <th scope="col">Boundary</th>
+        <th scope="col">Key</th>
+        <th scope="col">What leaves your machine</th>
+      </tr>
+    </thead>
+    <tbody>
+      {providers.map((p) => (
+        <tr>
+          <td><code>{p.name}</code></td>
+          <td><span class={kindBadge[p.kind]}>{p.kind}</span></td>
+          <td>{p.boundary}</td>
+          <td>{p.key === '—' ? p.key : <code>{p.key}</code>}</td>
+          <td>{p.leaves}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h3>Notes per provider</h3>
+  <dl>
+    {providers.map((p) => (
+      <Fragment>
+        <dt><code>{p.name}</code></dt>
+        <dd>{p.note}</dd>
+      </Fragment>
+    ))}
+  </dl>
+
+  <h2 id="byok">BYOK semantics</h2>
+  <p>
+    Three providers take keys, via environment variables only:
+  </p>
+  <ul>
+    {locked.envVars.map((name) => (
+      <li><code>{name}</code></li>
+    ))}
+  </ul>
+  <p>
+    Export the ones you have; leave the rest unset. Nothing about the
+    unconfigured providers appears as an error — their sections of any report
+    are marked unavailable, and everything else works. See
+    <a href={u('/docs/configuration/')}>configuration</a> for the
+    <code>byok</code> block if you prefer non-default variable names.
+  </p>
+
+  <h2 id="etiquette">Rate-limit etiquette</h2>
+  <p>
+    lumen treats shared free endpoints the way you’d want a stranger to treat
+    yours: identifying User-Agent with a contact URL, per-host rate limiting
+    on crawls, bounded retries with exponential backoff and jitter,
+    <code>Retry-After</code> honored on 429s, and aggressive caching on gray
+    sources. Provider failures surface as typed errors with the provider name
+    attached — never as silent zeros.
+  </p>
+</DocsLayout>

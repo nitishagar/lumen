@@ -199,6 +199,16 @@ export default defineConfig({
 });
 ```
 
+> **Plan fix (2026-08-29, implementation):** `@astrojs/sitemap` emits
+> `sitemap-index.xml` (+ chunked sitemap files) and cannot emit a literal
+> `sitemap.xml` at the required artifact path, so the integration above and
+> the required-artifact list below (`sitemap.xml`, consumed verbatim by
+> ci-deploy) cannot both hold. Resolution: ship a hand-authored
+> `public/sitemap.xml` (satisfies the contract) and close the drift risk with
+> a gate asserting the sitemap agrees with the built page set EXACTLY in both
+> directions (`site/tests/artifact.test.ts`). The integration dependency is
+> therefore intentionally NOT added.
+
 Output contract (recorded in `site/README.md`, consumed verbatim by ci-deploy):
 ```
 command:  npm run build -w @seolite/site        (repo root, npm workspaces)
@@ -212,9 +222,9 @@ CI gate:  npm run check -w @seolite/site   (PRs + main; deploy workflow runs bui
 Plus: minimal `Layout.astro` shell, placeholder `index.astro`, `404.astro`, `public/robots.txt` (allow all + sitemap ref), a build-output Vitest test asserting required files exist post-build.
 
 **Success Criteria**
-- [ ] Automated: `npm run build -w @seolite/site` exits 0 and produces `site/dist/index.html`, `site/dist/404.html`, `site/dist/sitemap.xml`, `site/dist/robots.txt`
-- [ ] Automated: `npm run test -w @seolite/site` passes (build-output test green; base path `/seolite/` present in built HTML asset URLs)
-- [ ] Automated: `npm run check -w @seolite/site` exits 0 end-to-end
+- [x] Automated: `npm run build -w @seolite/site` exits 0 and produces `site/dist/index.html`, `site/dist/404.html`, `site/dist/sitemap.xml`, `site/dist/robots.txt`
+- [x] Automated: `npm run test -w @seolite/site` passes (build-output test green; base path `/seolite/` present in built HTML asset URLs)
+- [x] Automated: `npm run check -w @seolite/site` exits 0 end-to-end
 - [ ] Output contract documented in `site/README.md` (command, path, required files) — reviewed
 
 ### Phase 2 — Design tokens, theming & base chrome (I7)
@@ -256,12 +266,12 @@ Pre-paint theme script (inline in `Layout.astro` `<head>`):
 Components: `Header.astro` (sticky nav: wordmark, Docs, Changelog, GitHub, theme toggle `<button aria-label="Theme">`), `Footer.astro` (license/attributions/changelog links + inspiration line + toggle), `SkipLink.astro` (`<a class="skip" href="#main">Skip to content</a>`), original inline-SVG wordmark. G2 contrast fixture enumerates every text pair (both themes + badges + links) and computes WCAG ratios from the parsed `tokens.css`; G1 token-conformance test asserts required variables exist in built CSS; G4 escaping scan; G3 trade-dress scan online from this phase onward.
 
 **Success Criteria**
-- [ ] Automated: `npm run test -w @seolite/site` — G1 token conformance (all required CSS variables present in built stylesheet)
-- [ ] Automated: G2 contrast math — every enumerated text/background pair ≥ 4.5:1 in dark AND light themes
-- [ ] Automated: G3 trade-dress scan — zero UNSAFE strings in src + built HTML; `pi.dev` only in allowlisted files
-- [ ] Automated: G4 escaping scan — zero `set:html` / `is:raw` in `site/src/**`
-- [ ] Automated: G5 (partial) — every built page has skip link, `lang`, single `h1`, `nav`/`main`/`footer` landmarks; jest-axe violations = 0 on built pages
-- [ ] Automated: `npm run check -w @seolite/site` green
+- [x] Automated: `npm run test -w @seolite/site` — G1 token conformance (all required CSS variables present in built stylesheet)
+- [x] Automated: G2 contrast math — every enumerated text/background pair ≥ 4.5:1 in dark AND light themes
+- [x] Automated: G3 trade-dress scan — zero UNSAFE strings in src + built HTML; `pi.dev` only in allowlisted files
+- [x] Automated: G4 escaping scan — zero `set:html` / `is:raw` in `site/src/**`
+- [x] Automated: G5 (partial) — every built page has skip link, `lang`, single `h1`, `nav`/`main`/`footer` landmarks; jest-axe violations = 0 on built pages
+- [x] Automated: `npm run check -w @seolite/site` green
 
 ### Phase 3 — Landing page
 
@@ -286,11 +296,11 @@ Sections (mono label → original title → prose → original SVG figure + `Fig
 Landing content test fixture `site/src/data/locked-names.json` created here (CLI commands, MCP tools, REST routes, exit codes, config keys) and G7 goes live: regex scan of built HTML for `seolite_[a-z_]+` must yield only locked tools. Copy rules: claims only what ships (free tiers, local-only audit, best-effort SERP labeled as such).
 
 **Success Criteria**
-- [ ] Automated: `npm run build -w @seolite/site` green; landing renders hero + 3 working tabs (G5 asserts ARIA tabs pattern + keyboard operability structure)
-- [ ] Automated: G7 — every built `seolite_*` token ∈ locked MCP tools; install snippets match locked command strings byte-for-byte
-- [ ] Automated: G5 — jest-axe 0 violations on `/`; G6 — internal links on landing resolve
-- [ ] Automated: G3 still green (original copy confirmed by scan)
-- [ ] Automated: `npm run check -w @seolite/site` green
+- [x] Automated: `npm run build -w @seolite/site` green; landing renders hero + 3 working tabs (G5 asserts ARIA tabs pattern + keyboard operability structure)
+- [x] Automated: G7 — every built `seolite_*` token ∈ locked MCP tools; install snippets match locked command strings byte-for-byte
+- [x] Automated: G5 — jest-axe 0 violations on `/`; G6 — internal links on landing resolve
+- [x] Automated: G3 still green (original copy confirmed by scan)
+- [x] Automated: `npm run check -w @seolite/site` green
 
 ### Phase 4 — Docs IA & content pages
 
@@ -315,12 +325,12 @@ Content (markdown + `.astro` for chrome), all snippets from locked names:
 G7 extended: each locked CLI command must appear in the built CLI reference; G9 goes live (footer license link on every page + CC BY 4.0/Tranco strings on attributions).
 
 **Success Criteria**
-- [ ] Automated: all 7 docs routes build (`site/dist/docs/*/index.html` each present)
-- [ ] Automated: G7 — all locked CLI commands present in CLI reference HTML; zero unlocked `seolite_*` tokens anywhere
-- [ ] Automated: G9 — license link in every built page footer; attributions page contains CC BY 4.0 license URL + Tranco attribution + Apache-2.0
-- [ ] Automated: G6 — every internal link + fragment across docs resolves to a built file/anchor id
-- [ ] Automated: G5 — jest-axe 0 violations on all docs pages; sidebar nav = real `<a href>` list
-- [ ] Automated: `npm run check -w @seolite/site` green
+- [x] Automated: all 7 docs routes build (`site/dist/docs/*/index.html` each present)
+- [x] Automated: G7 — all locked CLI commands present in CLI reference HTML; zero unlocked `seolite_*` tokens anywhere
+- [x] Automated: G9 — license link in every built page footer; attributions page contains CC BY 4.0 license URL + Tranco attribution + Apache-2.0
+- [x] Automated: G6 — every internal link + fragment across docs resolves to a built file/anchor id
+- [x] Automated: G5 — jest-axe 0 violations on all docs pages; sidebar nav = real `<a href>` list
+- [x] Automated: `npm run check -w @seolite/site` green
 
 ### Phase 5 — Static search (Pagefind + Cmd/Ctrl+K)
 
@@ -342,11 +352,11 @@ addEventListener('keydown', (e) => {
 G8 goes live: `site/dist/pagefind/pagefind-entry.json` exists, `*.pf_index` chunks present, total index bytes above a documented floor.
 
 **Success Criteria**
-- [ ] Automated: `npm run build -w @seolite/site` emits `site/dist/pagefind/` with entry JSON + index chunks
-- [ ] Automated: G8 — index non-empty (entry JSON present, chunk bytes ≥ floor)
-- [ ] Automated: G5 — search trigger is a `<button>`; modal has `role="dialog"`/`aria-modal`; keydown handler present in built JS; Escape path exists
-- [ ] Automated: docs pages carry `data-pagefind-body`; nav chrome excluded (asserted on built HTML)
-- [ ] Automated: `npm run check -w @seolite/site` green
+- [x] Automated: `npm run build -w @seolite/site` emits `site/dist/pagefind/` with entry JSON + index chunks
+- [x] Automated: G8 — index non-empty (entry JSON present, chunk bytes ≥ floor)
+- [x] Automated: G5 — search trigger is a `<button>`; modal has `role="dialog"`/`aria-modal`; keydown handler present in built JS; Escape path exists
+- [x] Automated: docs pages carry `data-pagefind-body`; nav chrome excluded (asserted on built HTML)
+- [x] Automated: `npm run check -w @seolite/site` green
 
 ### Phase 6 — Quality gates consolidation & release hardening
 
@@ -355,11 +365,11 @@ G8 goes live: `site/dist/pagefind/pagefind-entry.json` exists, `*.pf_index` chun
 `site/scripts/check-links.mjs` (cheerio-based internal link/anchor checker over `site/dist/**` — used by G6 tests), final gate wiring in `site/vitest.config.ts` (jsdom environment for axe specs; node for artifact specs), `site/README.md` finalized (contract + gate inventory G1–G9 + trade-dress checklist as the standing review checklist), axe spec extended to **every** built HTML file (not sampled), meta/title/description pass across all pages (honest titles + descriptions), and a dry-run of the deploy contract: fresh `npm run build -w @seolite/site` from clean checkout, artifact shape verified against the README contract.
 
 **Success Criteria**
-- [ ] Automated: `npm run check -w @seolite/site` green from a clean checkout (build → pagefind → full G1–G9 suite)
-- [ ] Automated: `npm run build -w @seolite/site` artifact matches contract: `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `pagefind/`, zero stray build inputs, no source maps shipped
-- [ ] Automated: axe violations = 0 across 100% of built HTML files
-- [ ] Automated: G6 — zero broken internal links/anchors across the full artifact
-- [ ] Automated: every built page has unique `<title>` + `meta[name=description]`
+- [x] Automated: `npm run check -w @seolite/site` green from a clean checkout (build → pagefind → full G1–G9 suite)
+- [x] Automated: `npm run build -w @seolite/site` artifact matches contract: `index.html`, `404.html`, `sitemap.xml`, `robots.txt`, `pagefind/`, zero stray build inputs, no source maps shipped
+- [x] Automated: axe violations = 0 across 100% of built HTML files
+- [x] Automated: G6 — zero broken internal links/anchors across the full artifact
+- [x] Automated: every built page has unique `<title>` + `meta[name=description]`
 - [ ] Trade-dress manual checklist (asset provenance, copy originality) walked and recorded in the PR description — reviewed
 - [ ] Contract handoff note to ci-deploy confirmed (command + path + required files) — reviewed
 

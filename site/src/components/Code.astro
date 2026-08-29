@@ -1,0 +1,17 @@
+---
+// Terminal-style code block. `code` is always a JS string interpolated into
+// the template — Astro escapes it (I13); no raw HTML ever enters the page.
+interface Line {
+  readonly kind: 'cmd' | 'out';
+  readonly text: string;
+}
+const { lines, label } = Astro.props as { lines: readonly Line[]; label?: string };
+---
+<div class="code-block">
+  {label && <p class="mono-label" role="doc-subtitle">{label}</p>}
+  <pre><code>{lines.map((line) => (
+    <span class="terminal-line">
+      {line.kind === 'cmd' && <span class="prompt">$ </span>}{line.text}{'\n'}
+    </span>
+  ))}</code></pre>
+</div>

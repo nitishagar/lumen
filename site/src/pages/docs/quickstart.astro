@@ -1,0 +1,105 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import Code from '../../components/Code.astro';
+import { u } from '../../utils/site';
+import locked from '../../data/locked-names.json';
+
+const auditExample = [
+  { kind: 'cmd' as const, text: `lumen audit https://example.com --max-pages 50` },
+  { kind: 'out' as const, text: 'crawling · robots ok · 3 sitemap hints' },
+  { kind: 'out' as const, text: '42 pages · 6 issues (2 error, 4 warning) · score 84/100' },
+  { kind: 'out' as const, text: 'exit code 1 — issues at or above failThreshold (error)' },
+];
+const ciExample = [
+  { kind: 'cmd' as const, text: 'lumen audit "$SITE_URL" --json --out report.json' },
+  { kind: 'out' as const, text: 'exit 0 ok · exit 1 threshold breached · exit 2 config error' },
+];
+---
+<DocsLayout
+  title="Quickstart"
+  description="Install lumen, run your first site audit, read the exit codes, and wire it into CI with --json."
+  activeHref="/docs/quickstart/"
+  toc={[
+    { id: 'install', label: 'Install' },
+    { id: 'first-audit', label: 'First audit' },
+    { id: 'exit-codes', label: 'Exit codes' },
+    { id: 'json', label: 'JSON output' },
+    { id: 'history', label: 'Local history' },
+    { id: 'next', label: 'Next' },
+  ]}
+>
+  <p>
+    lumen is one npm package and a config file you mostly don’t need. Ten
+    minutes from zero to a CI gate that fails when your site regresses.
+  </p>
+
+  <h2 id="install">Install</h2>
+  <p>
+    Install globally, or skip installation entirely with npx —
+    <code>{locked.packages.cli}</code> is the only package you need:
+  </p>
+  <Code
+    lines={[
+      { kind: 'cmd', text: locked.snippets.installGlobal },
+      { kind: 'out', text: `# or, no install:` },
+      { kind: 'cmd', text: locked.snippets.npxAudit },
+    ]}
+  />
+
+  <h2 id="first-audit">First audit</h2>
+  <p>
+    Point <code>lumen audit</code> at a site you control. The crawler is
+    bounded (100 pages by default) and polite (robots.txt respected,
+    rate-limited per host, identifying User-Agent):
+  </p>
+  <Code lines={auditExample} />
+  <p>
+    Add <code>--out report.json</code> to keep the full report — every issue
+    carries a rule id, evidence, and a fix hint. The 18 rules are documented in
+    the <a href={u('/docs/rules-reference/')}>rules reference</a>.
+  </p>
+
+  <h2 id="exit-codes">Exit codes</h2>
+  <p>
+    Exit codes are a contract, made for CI:
+  </p>
+  <table>
+    <thead>
+      <tr><th scope="col">Code</th><th scope="col">Meaning</th></tr>
+    </thead>
+    <tbody>
+      {locked.exitCodes.map((exit) => (
+        <tr><td><code>{exit.code}</code></td><td>{exit.meaning}</td></tr>
+      ))}
+    </tbody>
+  </table>
+  <p>
+    The threshold is <code>failThreshold</code> in
+    <code>{locked.configFile}</code> (<code>error</code> by default; see
+    <a href={u('/docs/configuration/')}>configuration</a>).
+  </p>
+
+  <h2 id="json">JSON output</h2>
+  <p>
+    Every command takes <code>--json</code>. In CI, that plus the exit code is
+    usually all you need:
+  </p>
+  <Code lines={ciExample} />
+
+  <h2 id="history">Local history</h2>
+  <p>
+    <code>lumen rank</code> appends each check to a JSONL history file under
+    <code>{locked.historyDir}/</code> in the current directory — rank movement
+    over time without any server. It stays on your machine unless a provider
+    needs the query (each provider’s
+    <a href={u('/docs/providers-byok/')}>what-leaves-your-machine line</a> says
+    exactly when that is).
+  </p>
+
+  <h2 id="next">Next</h2>
+  <ul>
+    <li><a href={u('/docs/mcp-onboarding/')}>Give your agent the lumen tools</a></li>
+    <li><a href={u('/docs/providers-byok/')}>Turn on PSI / CrUX with your own keys</a></li>
+    <li><a href={u('/docs/cli-reference/')}>Read the full CLI reference</a></li>
+  </ul>
+</DocsLayout>

@@ -8,7 +8,7 @@ import tseslint from 'typescript-eslint';
  */
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/', '**/dist/', '**/coverage/', 'thoughts/'],
+    ignores: ['**/node_modules/', '**/dist/', '**/coverage/', 'thoughts/', '**/.astro/'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

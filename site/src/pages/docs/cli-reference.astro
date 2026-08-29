@@ -1,0 +1,90 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import Code from '../../components/Code.astro';
+import locked from '../../data/locked-names.json';
+
+const commands = [
+  { cmd: 'lumen audit <url>', what: 'crawl a site (bounded, robots-safe) and print the audit report; use --max-pages to bound, --out to save' },
+  { cmd: 'lumen report <url>', what: 'single-page report: PSI + CrUX when BYOK keys are configured, plus a local meta fetch' },
+  { cmd: 'lumen keywords <seed>', what: 'keyword ideas for a seed term, with source labels; no fake volumes' },
+  { cmd: 'lumen rank <keyword> --domain <domain>', what: 'best-effort SERP position check; appends to local history in .lumen/' },
+  { cmd: 'lumen authority <domain>', what: 'domain authority signals (Open PageRank, Tranco) as labeled signals' },
+  { cmd: 'lumen mcp', what: 'run the MCP server over stdio (for agents and IDEs)' },
+  { cmd: 'lumen config show', what: 'print the resolved config — budgets, providers, thresholds, defaults included' },
+];
+const flags = [
+  { flag: '--max-pages N', what: 'page budget for a crawl (default 100, hard ceiling 10,000)' },
+  { flag: '--out <file>', what: 'write the full report JSON to a file' },
+  { flag: '--json', what: 'machine-readable output on stdout (every command)' },
+  { flag: '--domain <domain>', what: 'target domain for lumen rank' },
+];
+const example = [
+  { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },
+  { kind: 'cmd' as const, text: 'lumen keywords "broadfork" --json | jq \'.[0:5]\'' },
+  { kind: 'cmd' as const, text: 'lumen rank "garden tools" --domain example.com' },
+  { kind: 'out' as const, text: 'position 14 (ddg-serp · gray, best-effort) — appended to .lumen/history.jsonl' },
+];
+---
+<DocsLayout
+  title="CLI reference"
+  description="All seven lumen commands, the four shared flags, and the exit-code contract used as a CI gate."
+  activeHref="/docs/cli-reference/"
+  toc={[
+    { id: 'commands', label: 'Commands' },
+    { id: 'flags', label: 'Flags' },
+    { id: 'exit-codes', label: 'Exit codes' },
+    { id: 'examples', label: 'Examples' },
+  ]}
+>
+  <p>
+    Seven commands, one binary. Every command is the CLI face of an MCP tool —
+    same engine, same provenance rules, same exit codes.
+  </p>
+
+  <h2 id="commands">Commands</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Command</th><th scope="col">What it does</th></tr>
+    </thead>
+    <tbody>
+      {commands.map((row) => (
+        <tr><td><code>{row.cmd}</code></td><td>{row.what}</td></tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2 id="flags">Flags</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Flag</th><th scope="col">Meaning</th></tr>
+    </thead>
+    <tbody>
+      {flags.map((row) => (
+        <tr><td><code>{row.flag}</code></td><td>{row.what}</td></tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2 id="exit-codes">Exit codes</h2>
+  <p>
+    Stable across commands — designed to be wired straight into CI:
+  </p>
+  <table>
+    <thead>
+      <tr><th scope="col">Code</th><th scope="col">Meaning</th></tr>
+    </thead>
+    <tbody>
+      {locked.exitCodes.map((exit) => (
+        <tr><td><code>{exit.code}</code></td><td>{exit.meaning}</td></tr>
+      ))}
+    </tbody>
+  </table>
+  <p>
+    Which severities count as “failure” is <code>failThreshold</code> in
+    <code>{locked.configFile}</code> (<code>error</code> by default; can be
+    <code>warning</code>, <code>info</code>, or <code>off</code>).
+  </p>
+
+  <h2 id="examples">Examples</h2>
+  <Code lines={example} />
+</DocsLayout>

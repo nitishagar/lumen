@@ -1,0 +1,14 @@
+---
+// Cmd/Ctrl+K search modal shell. The behavior lives in the Base layout
+// script; the Pagefind index is loaded lazily on first open from
+// `{base}pagefind/pagefind.js` (data-base carries the Pages project base).
+import { u } from '../utils/site';
+---
+<div class="search-modal" data-search-modal data-base={u('/')} hidden>
+  <div class="search-backdrop" data-search-close></div>
+  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search lumen docs">
+    <input type="search" data-search-input placeholder="Search the docs…" aria-label="Search query" autocomplete="off" />
+    <ul class="search-results" data-search-results></ul>
+    <p class="search-hint">Enter to follow a result · Esc to close · index ships with the page, no server</p>
+  </div>
+</div>

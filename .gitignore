@@ -11,3 +11,6 @@ coverage/
 # lumen local runtime state + incremental build artifacts (PLAN.md Phase 1)
 .lumen/
 *.tsbuildinfo
+
+# astro generated types (site workspace)
+.astro/

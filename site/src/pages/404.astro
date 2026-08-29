@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import { u } from '../utils/site';
+---
+<Base title="Page not found — lumen" description="This lumen page does not exist." noindex>
+  <div class="wrap error-page" data-pagefind-exclude>
+    <p class="mono-label">error 404</p>
+    <h1>404</h1>
+    <p>Nothing here — the crawl came back empty, which at least is an honest result.</p>
+    <p><a href={u('/')}>Back to the landing page</a> · <a href={u('/docs/quickstart/')}>Read the docs</a></p>
+  </div>
+</Base>

@@ -1,0 +1,69 @@
+{
+  "product": "lumen",
+  "tagline": "See your site clearly.",
+  "repoUrl": "https://github.com/nitishagar/lumen",
+  "siteUrl": "https://nitishagar.github.io/lumen/",
+  "changelogUrl": "https://github.com/nitishagar/lumen/blob/main/CHANGELOG.md",
+  "licenseUrl": "https://github.com/nitishagar/lumen/blob/main/LICENSE",
+  "packages": {
+    "cli": "@lumen-seo/cli",
+    "mcp": "@lumen-seo/mcp",
+    "site": "@lumen-seo/site"
+  },
+  "cliBin": "lumen",
+  "cliCommands": [
+    "audit",
+    "report",
+    "keywords",
+    "rank",
+    "authority",
+    "mcp",
+    "config show"
+  ],
+  "cliFlags": ["--max-pages", "--out", "--json", "--domain"],
+  "exitCodes": [
+    { "code": 0, "meaning": "ok — no issues at or above failThreshold" },
+    { "code": 1, "meaning": "issues at or above failThreshold" },
+    { "code": 2, "meaning": "config or provider error" }
+  ],
+  "mcpTools": [
+    "lumen_audit_site",
+    "lumen_page_report",
+    "lumen_keyword_ideas",
+    "lumen_rank_check",
+    "lumen_authority"
+  ],
+  "responseFormatNote": "response_format",
+  "envVars": ["LUMEN_PSI_KEY", "LUMEN_CRUX_KEY", "LUMEN_OPR_KEY"],
+  "configFile": "lumen.config.json",
+  "configKeys": [
+    "providers",
+    "severityOverrides",
+    "crawl",
+    "failThreshold",
+    "byok",
+    "plugins"
+  ],
+  "historyDir": ".lumen",
+  "providers": [
+    "google-suggest",
+    "wikipedia-demand",
+    "pagespeed",
+    "crux",
+    "openpagerank",
+    "tranco",
+    "ddg-serp"
+  ],
+  "restRoutes": [
+    "POST /mcp",
+    "GET /api/v1/page-report?url=",
+    "GET /api/v1/keyword-ideas?q=",
+    "GET /healthz"
+  ],
+  "snippets": {
+    "installGlobal": "npm install -g @lumen-seo/cli",
+    "npxAudit": "npx -y @lumen-seo/cli audit https://example.com",
+    "claudeMcpAdd": "claude mcp add --transport stdio lumen -- npx -y @lumen-seo/cli mcp",
+    "mcpServersJson": "{\"mcpServers\":{\"lumen\":{\"command\":\"npx\",\"args\":[\"-y\",\"@lumen-seo/cli\",\"mcp\"]}}}"
+  }
+}
