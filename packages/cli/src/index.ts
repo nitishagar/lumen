@@ -8,3 +8,5 @@ export type { CliContext } from './run.js';
 export { clean, cleanLines } from './term.js';
 export { UsageError } from './usage-error.js';
 export { loadCliConfig, resolveConfigPath, resolveHistoryDir } from './cli-config.js';
+export { JsonlHistoryStore, domainDir } from './history/jsonl-store.js';
+export { normalizeDomain, matchesDomain } from './domain.js';

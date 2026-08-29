@@ -28,4 +28,10 @@ export default tseslint.config(
     files: ['scripts/**/*.mjs', 'test/**/*.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
+  {
+    // Package bin entries are plain Node scripts (the CLI bin boots the
+    // TypeScript sources — BA-13 no-build convention).
+    files: ['packages/*/bin/**/*.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
 );

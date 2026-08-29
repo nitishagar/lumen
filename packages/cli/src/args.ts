@@ -83,6 +83,7 @@ export const extractConfigFlag = (
   let config: string | undefined;
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
+    if (a === undefined) continue;
     if (a === '--config') {
       const v = argv[i + 1];
       if (v === undefined) throw new UsageError('--config requires a path value');

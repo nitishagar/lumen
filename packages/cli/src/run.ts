@@ -10,7 +10,10 @@
 import { AbortedError, ConfigError, EXIT, LumenError } from '@lumen-seo/core';
 import type { CommandName } from './args.js';
 import { interceptHelp, parseCommand } from './args.js';
+import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
+import { execute as keywords } from './cmd/keywords.js';
+import { execute as rank } from './cmd/rank.js';
 import type { Io } from './io.js';
 import { ioFromProcess } from './io.js';
 import { clean } from './term.js';
@@ -22,6 +25,7 @@ export { EXIT };
 export interface CliContext {
   readonly io: Io;
   readonly signal: AbortSignal;
+  readonly positionals: readonly string[];
   readonly flags: Readonly<Record<string, string | boolean>>;
   readonly configPathFlag?: string;
 }
@@ -45,7 +49,11 @@ const reportError = (err: unknown, io: Io): number => {
   return EXIT.CONFIG_ERROR;
 };
 
-export const run = async (argv: readonly string[], io: Io = ioFromProcess()): Promise<number> => {
+export const run = async (
+  argv: readonly string[],
+  io: Io = ioFromProcess(),
+  deps?: import('./composition/node.js').CommandDeps,
+): Promise<number> => {
   const ac = new AbortController();
   const onSigint = (): void => {
     ac.abort(new AbortedError('SIGINT'));
@@ -57,10 +65,11 @@ export const run = async (argv: readonly string[], io: Io = ioFromProcess()): Pr
     const ctx: CliContext = {
       io,
       signal: ac.signal,
+      positionals: invocation.positionals,
       flags: invocation.flags,
       configPathFlag: invocation.configPathFlag,
     };
-    return await dispatch(invocation.command, ctx);
+    return await dispatch(invocation.command, ctx, deps);
   } catch (err) {
     if (ac.signal.aborted) {
       io.err('cancelled\n');
@@ -72,10 +81,25 @@ export const run = async (argv: readonly string[], io: Io = ioFromProcess()): Pr
   }
 };
 
-const dispatch = (command: CommandName, ctx: CliContext): Promise<number> => {
+const dispatch = (
+  command: CommandName,
+  ctx: CliContext,
+  deps?: import('./composition/node.js').CommandDeps,
+): Promise<number> => {
   switch (command) {
     case 'config':
       return configShow(ctx);
+    case 'rank':
+      return rank(ctx, deps);
+    case 'keywords':
+      return keywords(ctx, deps);
+    case 'authority':
+      return authority(ctx, deps);
+    case 'audit':
+    case 'report':
+    case 'mcp':
+      // Wired in phases 3-4 (audit/report commands, mcp launcher).
+      throw new Error(`command "${command}" is not wired yet`);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);
