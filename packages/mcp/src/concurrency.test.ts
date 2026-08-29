@@ -10,7 +10,11 @@ import type { AuditInput, AuditRunner } from './ports.js';
 import { connectClient, fixtureDeps, fixtureAuditRunner, MemoryHistoryStore } from './testkit/index.js';
 
 describe('interleaved tool calls (E13)', () => {
-  it('25 concurrent calls (mix incl. rank saves) all resolve; history has exactly 25 intact lines', async () => {
+  it('25 interleaved calls (mix incl. rank saves) all resolve; handlers stay non-interfering', async () => {
+    // Scope note (TEST_VALIDATION MINOR): this exercises HANDLER-level
+    // non-interference (pure functions of args+deps) via a recording store.
+    // The store-level cross-write race is covered against the REAL
+    // JsonlHistoryStore in packages/cli/src/history.test.ts (O_APPEND/B6).
     const history = new MemoryHistoryStore();
     const client = await connectClient({ ...fixtureDeps(), history });
     const calls = Array.from({ length: 25 }, (_, i) =>
@@ -23,7 +27,7 @@ describe('interleaved tool calls (E13)', () => {
     );
     const results = await Promise.all(calls);
     for (const r of results) expect(r.isError).toBeUndefined();
-    // 13 rank saves (even indices) — exactly one well-formed line each, none lost or torn.
+    // 13 rank saves (even indices) — one recorded line each, in order.
     expect(history.entries.length).toBe(13);
     for (const entry of history.entries) {
       expect(entry.keyword).toMatch(/^kw-\d+$/);

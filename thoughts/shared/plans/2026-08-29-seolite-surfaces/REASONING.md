@@ -110,3 +110,25 @@
   warning (each run registers its own SIGINT handler per the plan's E14 wiring — real CLI
   usage is one handler per process). Functionally correct; documented rather than worked
   around in production code.
+
+## 2026-08-29 — review verdicts and MINOR dispositions
+
+- **Implementation review: PASS** (fresh agent via `claude -p`, artifact IMPLEMENTATION_VALIDATION.md).
+  One MINOR, inherited from the plan itself: `WORKER_ENABLE_PSI` gates the REST page-report
+  leg but not the MCP `page_report` tool path (the plan's own Phase 5 snippets only apply
+  the switch to REST). Disposition for the orchestrator's REBASE COMMIT: in
+  `worker/providers.ts`, have `workerConfig(env)` omit the pagespeed provider when
+  `WORKER_ENABLE_PSI === "false"` — the tool path then inherits the kill-switch through
+  the composition (the plan's own R7 mechanism), with no change to index.ts/composition.ts.
+  No live effect pre-rebase (fixture providers).
+- **Test review: PASS** (TEST_VALIDATION.md). Two MINOR observations, both addressed:
+  (1) `mcp/concurrency.test.ts`'s history claim over-stated what a MemoryHistoryStore can
+  prove — reworded to claim handler-level non-interference, pointing at
+  `cli/history.test.ts` for the real store-level O_APPEND race; (2) the real-SIGINT test's
+  process-isolation assumption is documented in the artifact (forks pool +
+  handler-registered-before-signal ordering via vi.waitFor) — accepted, no flake observed.
+- **Security review: PASS** (SECURITY_VALIDATION.md) — no blocking or non-blocking findings;
+  SSRF composition, BYOK flows, output encoding, and telemetry hygiene verified with
+  test-backed assertions. (The reviewer noted an injected block of unrelated fictional
+  content in its context via system reminders and disregarded it — recorded here for
+  transparency; the code review itself is unaffected.)
