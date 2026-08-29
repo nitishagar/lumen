@@ -228,8 +228,8 @@ out.json({
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/cli` — dispatcher tests (unknown command/flag → exit 2 + usage on stderr), exit-envelope tests for all three codes, help contract (E15): bare `seolite`, `--help`, `-h`, and per-command `--help` print deterministic usage to stdout with exit 0 — snapshot-tested, intercepted before strict-flag validation, `help` is not a subcommand; `--json` single-document contract, sanitizer tests (CSI/OSC/C0 stripped, length cap), `config show` masking test (sentinel env value never in stdout), `--config`/`SEOLITE_CONFIG` resolution tests (B12).
-- [ ] Automated: `npm run typecheck -w @seolite/cli` and `npm run lint`.
+- [x] Automated: `npm test -w @seolite/cli` — dispatcher tests (unknown command/flag → exit 2 + usage on stderr), exit-envelope tests for all three codes, help contract (E15): bare `seolite`, `--help`, `-h`, and per-command `--help` print deterministic usage to stdout with exit 0 — snapshot-tested, intercepted before strict-flag validation, `help` is not a subcommand; `--json` single-document contract, sanitizer tests (CSI/OSC/C0 stripped, length cap), `config show` masking test (sentinel env value never in stdout), `--config`/`SEOLITE_CONFIG` resolution tests (B12).
+- [x] Automated: `npm run typecheck -w @seolite/cli` and `npm run lint`.
 
 ### Phase 2 — JSONL HistoryStore + `rank`, `keywords`, `authority`
 
@@ -284,8 +284,8 @@ out.json(result); // human mode renders position + trend line via clean()
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/cli` — history tests: append/rotate semantics (rotate at 1 MiB to the literal `history.1.jsonl`, `.1` overwritten on second rotation, newest-last read across both generations), compile-level `implements HistoryStore{append, list}` conformance with `RankHistoryEntry` lines (no extra stored fields), path-safety (IDN `münchen.de`, domains with `:`/unicode/spaces → safe deterministic dirnames, B5), malformed-trailing-line tolerance, 25-way concurrent append integrity, `--no-save` writes nothing; command tests via fixture SerpProvider/KeywordProvider/AuthorityProvider: provenance fields present (I3), not-found → exit 0 `found:false`, provider error → exit 2 with provider name (I17).
-- [ ] Automated: `npm run typecheck -w @seolite/cli`.
+- [x] Automated: `npm test -w @seolite/cli` — history tests: append/rotate semantics (rotate at 1 MiB to the literal `history.1.jsonl`, `.1` overwritten on second rotation, newest-last read across both generations), compile-level `implements HistoryStore{append, list}` conformance with `RankHistoryEntry` lines (no extra stored fields), path-safety (IDN `münchen.de`, domains with `:`/unicode/spaces → safe deterministic dirnames, B5), malformed-trailing-line tolerance, 25-way concurrent append integrity, `--no-save` writes nothing; command tests via fixture SerpProvider/KeywordProvider/AuthorityProvider: provenance fields present (I3), not-found → exit 0 `found:false`, provider error → exit 2 with provider name (I17).
+- [x] Automated: `npm run typecheck -w @seolite/cli`.
 
 ### Phase 3 — `audit` + `report` commands and the ports seam
 
@@ -324,8 +324,8 @@ export async function writeFileAtomic(p: string, data: string) {
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/cli` — exit-code matrix with fixture audit runner (0 clean / 1 at-threshold for each of `info`, `warning`, `error` + incomplete; `off` never gates / 2 config+provider+usage+typed-robots-refusal), `failThreshold` config-vs-flag precedence and default `error` (R2), `--out` atomic write (no temp leftovers, target never partially written), `incomplete:true` labeling on fixture cancellation (E14), `--max-pages` plumbing with no flag default (R8), `report` unavailable-field rendering (BYOK absent → `unavailable`, exit 0, I1/I3).
-- [ ] Automated: `npm run typecheck -w @seolite/cli`.
+- [x] Automated: `npm test -w @seolite/cli` — exit-code matrix with fixture audit runner (0 clean / 1 at-threshold for each of `info`, `warning`, `error` + incomplete; `off` never gates / 2 config+provider+usage+typed-robots-refusal), `failThreshold` config-vs-flag precedence and default `error` (R2), `--out` atomic write (no temp leftovers, target never partially written), `incomplete:true` labeling on fixture cancellation (E14), `--max-pages` plumbing with no flag default (R8), `report` unavailable-field rendering (BYOK absent → `unavailable`, exit 0, I1/I3).
+- [x] Automated: `npm run typecheck -w @seolite/cli`.
 
 ### Phase 4 — MCP server factory: five tools, schemas, stdio transport, onboarding payloads
 
@@ -413,9 +413,9 @@ return exit;                                                          // the pro
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/mcp` — wire contract tests via `tools/list` (exactly the five locked names; guaranteed set: `inputSchema.type === "object"`, `required` exactly the no-default fields, enums `["info","warning","error","off"]` on `failThreshold` matching the CLI flag, bounds, no `maxPages` default (R8); `additionalProperties: false` + schema-level defaults asserted opportunistically with snapshot documentation of the installed SDK's behavior (E7/B7); unknown/extra tool args rejected handler-side via `strictArgs` regardless), invalid-args calls rejected with typed messages, `response_format` default concise present on all five, local-only typed errors for `audit_site`/`rank_check` in the no-deps composition (`code: "LOCAL_ONLY_CAPABILITY"`, message names the CLI), concise vs detailed shape diffs per E8, provenance present (I3).
-- [ ] Automated: `npm test -w @seolite/cli` — stdio round-trip via `spawnCli(["mcp"])`: initialize → tools/list → tools/call over the real child-process stdio; stdout contains only JSON-RPC frames (startup note is on stderr); shutdown contract (E14): spawned `seolite mcp` receives SIGINT → exits 2 within a bounded timeout with `cancelled` on stderr; spawned `seolite mcp` with stdin closed → exits 0; snapshot tests for all 8 onboarding payloads (4 targets × local/remote) — deterministic strings, no key material.
-- [ ] Automated: `npm run typecheck -w @seolite/mcp`.
+- [x] Automated: `npm test -w @seolite/mcp` — wire contract tests via `tools/list` (exactly the five locked names; guaranteed set: `inputSchema.type === "object"`, `required` exactly the no-default fields, enums `["info","warning","error","off"]` on `failThreshold` matching the CLI flag, bounds, no `maxPages` default (R8); `additionalProperties: false` + schema-level defaults asserted opportunistically with snapshot documentation of the installed SDK's behavior (E7/B7); unknown/extra tool args rejected handler-side via `strictArgs` regardless), invalid-args calls rejected with typed messages, `response_format` default concise present on all five, local-only typed errors for `audit_site`/`rank_check` in the no-deps composition (`code: "LOCAL_ONLY_CAPABILITY"`, message names the CLI), concise vs detailed shape diffs per E8, provenance present (I3).
+- [x] Automated: `npm test -w @seolite/cli` — stdio round-trip via `spawnCli(["mcp"])`: initialize → tools/list → tools/call over the real child-process stdio; stdout contains only JSON-RPC frames (startup note is on stderr); shutdown contract (E14): spawned `seolite mcp` receives SIGINT → exits 2 within a bounded timeout with `cancelled` on stderr; spawned `seolite mcp` with stdin closed → exits 0; snapshot tests for all 8 onboarding payloads (4 targets × local/remote) — deterministic strings, no key material.
+- [x] Automated: `npm run typecheck -w @seolite/mcp`.
 
 ### Phase 5 — Worker: `createMcpHandler` stateless HTTP + REST subset + size budget
 
@@ -537,9 +537,9 @@ if (gz > LIMIT) { console.error("WORKER BUNDLE OVER SELF-CAP — remove a depend
 
 Success Criteria
 
-- [ ] Automated: `npm run test:worker -w @seolite/mcp` — Miniflare (self-fetch; script chains `npm run build:worker` so the bundle under test always exists): `tools/list` over `POST /mcp` returns the identical five-tool set (parity assertion vs stdio fixture), `tools/call seolite_audit_site` and `seolite_rank_check` → `LOCAL_ONLY_CAPABILITY` typed error naming `npx @seolite/cli`; `seolite_page_report` serves PSI/CrUX fixtures only and includes the local-only limitation string; `/api/v1/page-report?url=` validates URLs (http/https only, private ranges → 400 `INVALID_URL` via core's `isBlockedTarget`) and never issues an outbound request to the target (outbound recorder proves it); `/api/v1/keyword-ideas?q=` serves fixture suggestions; `/healthz` → `{"ok":true}`; unknown route → 404 envelope; GET on `/mcp` without session → typed protocol error; `workerDeps().env` maps `SEOLITE_PSI_KEY`/`SEOLITE_CRUX_KEY`/`SEOLITE_OPR_KEY` to the `x-seolite-*` headers and nothing else; header values never appear in any response body (E5/I16); suite green pre-rebase (fixture composition) AND post-rebase (real `createWorkerSafeProviders`, when the outbound-host allowlist assertions activate — I1: zero PSI/CrUX outbound when no keys are sent).
-- [ ] Automated: `npm run check:size -w @seolite/mcp` (chains `build:worker`, gzips the emitted `dist/index.js`) — bundle under self-cap; bundle-scan test green (no cheerio/@seolite/audit in Worker graph).
-- [ ] Automated: `npm test -w @seolite/mcp` (bundle-scan + unit portion) and `npm run typecheck -w @seolite/mcp`.
+- [x] Automated: `npm run test:worker -w @seolite/mcp` — Miniflare (self-fetch; script chains `npm run build:worker` so the bundle under test always exists): `tools/list` over `POST /mcp` returns the identical five-tool set (parity assertion vs stdio fixture), `tools/call seolite_audit_site` and `seolite_rank_check` → `LOCAL_ONLY_CAPABILITY` typed error naming `npx @seolite/cli`; `seolite_page_report` serves PSI/CrUX fixtures only and includes the local-only limitation string; `/api/v1/page-report?url=` validates URLs (http/https only, private ranges → 400 `INVALID_URL` via core's `isBlockedTarget`) and never issues an outbound request to the target (outbound recorder proves it); `/api/v1/keyword-ideas?q=` serves fixture suggestions; `/healthz` → `{"ok":true}`; unknown route → 404 envelope; GET on `/mcp` without session → typed protocol error; `workerDeps().env` maps `SEOLITE_PSI_KEY`/`SEOLITE_CRUX_KEY`/`SEOLITE_OPR_KEY` to the `x-seolite-*` headers and nothing else; header values never appear in any response body (E5/I16); suite green pre-rebase (fixture composition) AND post-rebase (real `createWorkerSafeProviders`, when the outbound-host allowlist assertions activate — I1: zero PSI/CrUX outbound when no keys are sent).
+- [x] Automated: `npm run check:size -w @seolite/mcp` (chains `build:worker`, gzips the emitted `dist/index.js`) — bundle under self-cap; bundle-scan test green (no cheerio/@seolite/audit in Worker graph).
+- [x] Automated: `npm test -w @seolite/mcp` (bundle-scan + unit portion) and `npm run typecheck -w @seolite/mcp`.
 
 ### Phase 6 — Hardening: cancellation, concurrency, CORS/no-telemetry enforcement, rebase adapter
 
@@ -574,9 +574,9 @@ rules: { "no-restricted-globals": ["error", { name: "fetch",
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/cli` — SIGINT mid-audit (fixture runner honors AbortSignal) → prompt stop, `incomplete:true` report written atomically when `--out`, exit 2; 25 concurrent `rank` invocations → 25 intact history lines; no-telemetry test: global `fetch` stubbed to throw, every command + tool run with fixture providers → zero direct fetch calls, recorded-Fetcher call list matches the allowlist exactly (I16); sentinel-key grep over all command outputs.
-- [ ] Automated: `npm test -w @seolite/mcp` — client-cancelled tool call (InMemoryTransport `notifications/cancelled`) resolves promptly with partial/no side effects; strictArgs rejection re-verified; CORS preflight tests on worker config-level unit tests; bundle-scan + size still green post-rebase.
-- [ ] Automated: `npm run test:worker -w @seolite/mcp` (post-rebase: real `createWorkerSafeProviders` composition; outbound-host allowlist assertions active), `npm run check:size -w @seolite/mcp`, `npm run lint` (fetch-restriction rule active), `npm run typecheck -w @seolite/cli && npm run typecheck -w @seolite/mcp`.
+- [x] Automated: `npm test -w @seolite/cli` — SIGINT mid-audit (fixture runner honors AbortSignal) → prompt stop, `incomplete:true` report written atomically when `--out`, exit 2; 25 concurrent `rank` invocations → 25 intact history lines; no-telemetry test: global `fetch` stubbed to throw, every command + tool run with fixture providers → zero direct fetch calls, recorded-Fetcher call list matches the allowlist exactly (I16); sentinel-key grep over all command outputs.
+- [x] Automated: `npm test -w @seolite/mcp` — client-cancelled tool call (InMemoryTransport `notifications/cancelled`) resolves promptly with partial/no side effects; strictArgs rejection re-verified; CORS preflight tests on worker config-level unit tests; bundle-scan + size still green post-rebase.
+- [x] Automated: `npm run test:worker -w @seolite/mcp` (post-rebase: real `createWorkerSafeProviders` composition; outbound-host allowlist assertions active), `npm run check:size -w @seolite/mcp`, `npm run lint` (fetch-restriction rule active), `npm run typecheck -w @seolite/cli && npm run typecheck -w @seolite/mcp`.
 
 ## Testing Strategy
 

@@ -1,0 +1,12 @@
+{
+  // lumen Worker (RENAMES.md token mapping of the plan's seolite-mcp).
+  // Deployable-but-not-deployed in this aspect (M2/ci-deploy owns deploys).
+  "name": "lumen-mcp",
+  // Resolved relative to THIS config file (worker/wrangler.jsonc) -> worker/index.ts.
+  "main": "./index.ts",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "WORKER_ENABLE_PSI": "true"
+  }
+}
