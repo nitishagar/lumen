@@ -87,6 +87,7 @@ jobs:
       - name: Run tests
         run: |
           if [ "${{ steps.sel.outputs.scope }}" = "ALL" ]; then
+            npm run build:worker --if-present -w @lumen-seo/mcp   # mcp bundle-scan gate tests the BUILT worker bundle — build explicitly first (stub-safe via --if-present)
             npm test
           else
             read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @lumen-seo/x -w @lumen-seo/y" (charset-restricted, Phase 1)

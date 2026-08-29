@@ -360,3 +360,36 @@ Companion: `.wt/` (this project's documented local worktree layout) added to
 eslint's flat-config ignores — it is gitignored, CI never sees it, and without
 this the local M2 `npm run validate` gate on a worktree-bearing checkout is
 impossible to pass.
+
+## M2 integration fixes round 2 — scope=ALL artifact build + cli-smoke config surface (orchestrator, during P4 surfaces PR)
+
+CI on the surfaces PR (pull_request events run scope=ALL by design) exposed two
+more integration seams the parallel plans could not see:
+
+1. **mcp bundle-scan is an artifact-gate too.** `src/bundle-scan.test.ts` sits
+   in the mcp node vitest project, so the root suite (scope=ALL on PRs/main)
+   runs it — and it fails fast without the built worker bundle
+   (`dist/metafile.json`), exactly like the site gate suite. The scoped
+   branch-push path never hit this because `npm test -w @lumen-seo/mcp` chains
+   `test:worker` → `build:worker` first. Fix mirrors the site one: the
+   scope=ALL path (and `npm run validate`) now run
+   `npm run build:worker --if-present -w @lumen-seo/mcp` before `npm test`
+   (`--if-present` keeps the pre-surfaces stub green).
+
+2. **cli-smoke check (b) used a surface the CLI deliberately does not have.**
+   The Phase 7 sketch said `config show` prints JSON, but ARCHITECTURE and the
+   surfaces plan lock `config show [--json]` — human-readable by default, JSON
+   behind the flag ("`--json` on every command"). Against the real CLI the
+   smoke therefore failed check (b) in a fresh checkout (state-only repro:
+   standalone runs in a dev worktree passed; a pristine clone failed). Fix:
+   the smoke runs `config show --json`. TDD: the fixture bin now mirrors the
+   real surface (human output without the flag), turning the compliant-fixture
+   tests red before the fix.
+
+3. **cli-smoke "real repo stub" test was repo-state-dependent.** It asserted a
+   skip against the live repo's `packages/cli` — true while the stub had no
+   `bin`, silently flipping to "full real smoke" the moment the surfaces
+   branch merged. Replaced with a synthetic bin-less fixture (`--cli-dir`),
+   deterministic regardless of repo state. The real-repo smoke coverage
+   remains `npm run validate` (release.yml tag path + the orchestrator's M2
+   gate), which self-activates on the real CLI.
