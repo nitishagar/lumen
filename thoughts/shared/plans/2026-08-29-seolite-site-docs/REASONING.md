@@ -248,5 +248,14 @@ headless sessions; artifacts:
   contract's literal `sitemap.xml`; the hand-authored file + both-direction
   agreement gate satisfies the stronger, ci-deploy-locked contract.
 
-Reviewer resume confirmations: both sessions resumed with the fix list;
-verdicts recorded below (appended after confirmations).
+## Resume confirmations (same sessions, capped)
+
+- Implementation reviewer (session d81f906b, resumed): all four findings
+  verified resolved; the sitemap plan-fix path and the badge-AA-over-family
+  justification both adjudicated as sound. **VERDICT: PASS.**
+- Test reviewer (session b0cfeab5, resumed): all five findings verified
+  resolved. **VERDICT: PASS.**
+- Security reviewer (fresh session, final diff incl. 87c11d0):
+  **VERDICT: PASS, no findings** (XSS sinks, third-party-request/privacy,
+  supply-chain pins, gate-script fs/exec surface, secrets all clean; report
+  in `SECURITY_VALIDATION.md`).
