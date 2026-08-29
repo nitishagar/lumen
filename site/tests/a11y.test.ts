@@ -14,8 +14,8 @@ expect.extend(toHaveNoViolations);
 const pages = builtHtmlFiles();
 
 describe('G5 structure (every built page)', () => {
-  test('page set is non-empty', () => {
-    expect(pages.length).toBeGreaterThan(0);
+  test('axe covers the full page set (landing + 404 + all docs)', () => {
+    expect(pages.length).toBeGreaterThanOrEqual(9);
   });
 
   for (const page of pages) {

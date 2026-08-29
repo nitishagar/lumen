@@ -110,7 +110,8 @@ const tabs = [
         boundaries — keywords, serp, pagespeed, crux, authority. The built-ins
         cover seven sources; you select and swap them in
         <code>{locked.configFile}</code>, and bring-your-own-key providers stay
-        dormant until their environment variable (<code>{locked.envVars.join('</code>, <code>')}</code>)
+        dormant until their environment variable
+        ({locked.envVars.map((name, i) => (<Fragment>{i > 0 && ', '}<code>{name}</code></Fragment>))})
         shows up. No key, no call, no crash — the capability is reported as
         <em>not configured</em> and everything else keeps working.
       </p>

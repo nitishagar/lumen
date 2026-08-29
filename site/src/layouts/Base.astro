@@ -6,7 +6,11 @@ import Footer from '../components/Footer.astro';
 import SearchModal from '../components/SearchModal.astro';
 import { u } from '../utils/site';
 
-const { title, description } = Astro.props as { title: string; description: string };
+const { title, description, noindex = false } = Astro.props as {
+  title: string;
+  description: string;
+  noindex?: boolean;
+};
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 <!doctype html>
@@ -16,7 +20,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <link rel="icon" type="image/svg+xml" href={u('/favicon.svg')} />
     <link rel="sitemap" href={u('/sitemap.xml')} />
     <meta property="og:title" content={title} />

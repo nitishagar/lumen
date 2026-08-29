@@ -124,7 +124,7 @@ const toolTable = [
 
   <p>
     Keys for BYOK providers are read from the environment
-    (<code>{locked.envVars.join('</code>, <code>')}</code>) — see
+    ({locked.envVars.map((name, i) => (<Fragment>{i > 0 && ', '}<code>{name}</code></Fragment>))}) — see
     <a href={u('/docs/providers-byok/')}>providers &amp; BYOK</a>.
   </p>
 </DocsLayout>
