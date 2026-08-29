@@ -1,0 +1,34 @@
+---
+import Wordmark from './Wordmark.astro';
+import { u, docsNav } from '../utils/site';
+import locked from '../data/locked-names.json';
+---
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="footer-id">
+      <a class="wordmark" href={u('/')}>
+        <Wordmark size={18} />
+        <span>lumen</span>
+      </a>
+      <p>{locked.tagline} Apache-2.0 · Copyright 2026 Nitish Agarwal.</p>
+    </div>
+    <div class="footer-col">
+      <h2>Docs</h2>
+      <ul>
+        {docsNav.flatMap((group) => group.items).map((item) => (
+          <li><a href={u(item.href)}>{item.title}</a></li>
+        ))}
+      </ul>
+    </div>
+    <div class="footer-col footer-meta">
+      <h2>Project</h2>
+      <ul>
+        <li><a href={locked.licenseUrl}>Apache-2.0 license</a></li>
+        <li><a href={u('/docs/attributions/')}>Attributions</a></li>
+        <li><a href={locked.changelogUrl}>Changelog</a></li>
+        <li><a href={locked.repoUrl}>GitHub</a></li>
+        <li><a href="https://www.npmjs.com/package/@lumen-seo/cli">npm · {locked.packages.cli}</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

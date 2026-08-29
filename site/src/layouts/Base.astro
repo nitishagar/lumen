@@ -1,0 +1,183 @@
+---
+import '../styles/tokens.css';
+import '../styles/base.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import SearchModal from '../components/SearchModal.astro';
+import { u } from '../utils/site';
+
+const { title, description } = Astro.props as { title: string; description: string };
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={u('/favicon.svg')} />
+    <link rel="sitemap" href={u('/sitemap.xml')} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <script is:inline>
+      // Pre-paint theme resolution (no FOUC). Without JS the CSS media
+      // query keeps OS-preference theming working.
+      (function () {
+        try {
+          var t = localStorage.getItem('lumen-theme');
+          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <Header />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+    <SearchModal />
+    <script>
+      // --- theme toggle: auto -> light -> dark -> auto -------------------
+      const cycle = ['auto', 'light', 'dark'];
+      const applyTheme = (next: string) => {
+        const root = document.documentElement;
+        if (next === 'auto') delete root.dataset.theme;
+        else root.dataset.theme = next;
+        try {
+          if (next === 'auto') localStorage.removeItem('lumen-theme');
+          else localStorage.setItem('lumen-theme', next);
+        } catch {}
+        document.querySelectorAll('[data-theme-label]').forEach((el) => {
+          el.textContent = next;
+        });
+        document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
+          btn.setAttribute('aria-label', `Theme: ${next}`);
+        });
+      };
+      document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const cur = document.documentElement.dataset.theme ?? 'auto';
+          applyTheme(cycle[(cycle.indexOf(cur) + 1) % cycle.length] ?? 'auto');
+        });
+      });
+
+      // --- install tabs: ARIA tabs pattern --------------------------------
+      const tablist = document.querySelector('[data-install-tabs]');
+      if (tablist instanceof HTMLElement) {
+        const tabs = [...tablist.querySelectorAll('[role="tab"]')] as HTMLElement[];
+        const select = (tab: HTMLElement) => {
+          tabs.forEach((t) => {
+            const on = t === tab;
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+            t.tabIndex = on ? 0 : -1;
+            const panel = document.getElementById(t.getAttribute('aria-controls') ?? '');
+            if (panel) panel.hidden = !on;
+          });
+        };
+        tabs.forEach((tab, i) => {
+          tab.addEventListener('click', () => select(tab));
+          tab.addEventListener('keydown', (ev) => {
+            const dir =
+              ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : ev.key === 'Home' ? -i : ev.key === 'End' ? tabs.length - 1 - i : 0;
+            if (dir === 0) return;
+            ev.preventDefault();
+            const next = tabs[(i + dir + tabs.length) % tabs.length];
+            if (next) {
+              select(next);
+              next.focus();
+            }
+          });
+        });
+      }
+
+      // --- search modal ----------------------------------------------------
+      const modal = document.querySelector('[data-search-modal]');
+      if (modal instanceof HTMLElement) {
+        const input = modal.querySelector<HTMLInputElement>('[data-search-input]');
+        const resultsEl = modal.querySelector<HTMLElement>('[data-search-results]');
+        let lastFocus: HTMLElement | null = null;
+        let pagefind: { search: (q: string) => Promise<{ results: { data: () => Promise<{ url: string; meta?: { title?: string } }> }[] }> } | null = null;
+
+        const close = () => {
+          modal.hidden = true;
+          if (lastFocus instanceof HTMLElement) lastFocus.focus();
+        };
+        const open = (trigger: HTMLElement | null) => {
+          lastFocus = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+          modal.hidden = false;
+          if (input) input.focus();
+        };
+
+        document.querySelectorAll('[data-search-trigger]').forEach((btn) => {
+          btn.addEventListener('click', () => open(btn instanceof HTMLElement ? btn : null));
+        });
+        modal.querySelector('[data-search-close]')?.addEventListener('click', close);
+        document.addEventListener('keydown', (ev) => {
+          if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
+            ev.preventDefault();
+            if (modal.hidden) open(null);
+            else close();
+          }
+          if (ev.key === 'Escape' && !modal.hidden) close();
+        });
+
+        const loadIndex = async () => {
+          if (pagefind) return pagefind;
+          const base = modal.dataset.base ?? '/';
+          pagefind = (await import(/* @vite-ignore */ `${base}pagefind/pagefind.js`)) as typeof pagefind;
+          return pagefind;
+        };
+
+        const emptyRow = (message: string) => {
+          const li = document.createElement('li');
+          const p = document.createElement('p');
+          p.className = 'search-empty';
+          p.textContent = message;
+          li.appendChild(p);
+          return li;
+        };
+
+        input?.addEventListener('input', async () => {
+          const q = (input.value ?? '').trim();
+          if (!resultsEl) return;
+          resultsEl.textContent = '';
+          if (q.length === 0) return;
+          let api;
+          try {
+            api = await loadIndex();
+          } catch {
+            resultsEl.appendChild(emptyRow('Search index failed to load.'));
+            return;
+          }
+          const res = await api.search(q);
+          const base = modal.dataset.base ?? '/';
+          const top = res.results.slice(0, 8);
+          if (top.length === 0) {
+            resultsEl.appendChild(emptyRow('No matches.'));
+            return;
+          }
+          for (const r of top) {
+            const d = await r.data();
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = d.url.startsWith(base) ? d.url : base + d.url.replace(/^\//, '');
+            const t = document.createElement('span');
+            t.textContent = d.meta?.title ?? d.url;
+            const s = document.createElement('span');
+            s.className = 'search-url';
+            s.textContent = a.pathname;
+            a.appendChild(t);
+            a.appendChild(s);
+            li.appendChild(a);
+            resultsEl.appendChild(li);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

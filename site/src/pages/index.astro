@@ -1,15 +1,11 @@
 ---
-// Phase 1 scaffold placeholder — replaced by the real landing page in Phase 3.
+import Base from '../layouts/Base.astro';
+import locked from '../data/locked-names.json';
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>lumen — See your site clearly.</title>
-    <meta name="description" content="lumen is a lightweight, pluggable, MCP-first SEO toolkit. Scaffold placeholder." />
-  </head>
-  <body>
-    <main id="main"><h1>See your site clearly.</h1></main>
-  </body>
-</html>
+<Base title="lumen — See your site clearly." description="lumen is a lightweight, pluggable, MCP-first SEO toolkit for developers and PMs. Local audits, free-tier data sources, provenance on every number.">
+  <div class="wrap hero">
+    <p class="mono-label">{locked.product} · open-source seo toolkit</p>
+    <h1>{locked.tagline}</h1>
+    <p class="lede">Landing page under construction — the scaffold and gates landed first.</p>
+  </div>
+</Base>

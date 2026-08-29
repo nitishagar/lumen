@@ -1,0 +1,41 @@
+---
+// Install box — ARIA tabs pattern (keyboard operable; see Base layout
+// script). Panel contents are plain strings from the locked-names fixture,
+// interpolated (and therefore escaped) — never raw HTML.
+interface Tab {
+  readonly id: string;
+  readonly label: string;
+  readonly lines: readonly { kind: 'cmd' | 'out'; text: string }[];
+}
+const { tabs } = Astro.props as { tabs: readonly Tab[] };
+---
+<div class="install-box">
+  <div class="install-tabs" role="tablist" aria-label="Install and run lumen" data-install-tabs>
+    {tabs.map((tab, i) => (
+      <button
+        type="button"
+        role="tab"
+        id={`install-tab-${tab.id}`}
+        aria-controls={`install-panel-${tab.id}`}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? undefined : '-1'}
+      >
+        {tab.label}
+      </button>
+    ))}
+  </div>
+  {tabs.map((tab, i) => (
+    <div
+      role="tabpanel"
+      id={`install-panel-${tab.id}`}
+      aria-labelledby={`install-tab-${tab.id}`}
+      hidden={i === 0 ? undefined : true}
+    >
+      <pre><code>{tab.lines.map((line) => (
+        <span class="terminal-line">
+          {line.kind === 'cmd' && <span class="prompt">$ </span>}{line.text}{'\n'}
+        </span>
+      ))}</code></pre>
+    </div>
+  ))}
+</div>

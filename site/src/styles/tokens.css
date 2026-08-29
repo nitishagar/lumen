@@ -1,0 +1,123 @@
+/*
+ * lumen design tokens — dark-first.
+ *
+ * The token VOCABULARY (dark zinc family, one warm accent, system font
+ * stacks, mono micro-labels, 8/6/4px radii, 18px root) is derived from
+ * documented public design practice; every concrete value here is ours and
+ * chosen for WCAG AA in both themes (verified by the G2 contrast gate,
+ * which parses THIS file — keep the fixture and this file in sync).
+ *
+ * Theming: dark on :root; light via [data-theme="light"]; no-JS auto-light
+ * via the prefers-color-scheme media block (which must stay token-identical
+ * to the light block — asserted by G2).
+ */
+:root {
+  /* surfaces */
+  --bg: #09090b;
+  --surface: #18181b;
+  --border: #27272a;
+  --hover: #3f3f46;
+
+  /* text */
+  --text: #fafafa;
+  --dim: #a1a1aa;
+
+  /* single warm accent (labels, badges, buttons — never body links) */
+  --accent: #f97316;
+
+  /* the ONE pinned link pair, site-wide */
+  --link: #65a0ff;
+
+  /* badge tints: 400-family text on ~12% tints over surface */
+  --badge-green: #4ade80;
+  --badge-green-bg: #1e3027;
+  --badge-blue: #60a5fa;
+  --badge-blue-bg: #212936;
+  --badge-purple: #c084fc;
+  --badge-purple-bg: #2c2536;
+  --badge-amber: #fbbf24;
+  --badge-amber-bg: #332c1c;
+  --badge-red: #f87171;
+  --badge-red-bg: #332325;
+
+  /* type */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  --root-size: 18px;
+
+  /* shape + motion */
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --radius-code: 4px;
+  --radius-pill: 999px;
+  --speed: 0.2s;
+
+  /* layout */
+  --max-landing: 72rem;
+  --max-prose: 48rem;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --border: #e4e4e7;
+  --hover: #d4d4d8;
+
+  --text: #18181b;
+  --dim: #52525b;
+
+  --accent: #c2410c;
+  --link: #0066cc;
+
+  --badge-green: #166534;
+  --badge-green-bg: #e8f2ec;
+  --badge-blue: #1d4ed8;
+  --badge-blue-bg: #e8edfb;
+  --badge-purple: #7e22ce;
+  --badge-purple-bg: #f2e9fa;
+  --badge-amber: #92400e;
+  --badge-amber-bg: #f6efe6;
+  --badge-red: #b91c1c;
+  --badge-red-bg: #eee8e8;
+}
+
+/* No-JS auto theming: light tokens unless the visitor explicitly forced
+   dark. Must stay token-identical to the [data-theme="light"] block (G2). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --border: #e4e4e7;
+    --hover: #d4d4d8;
+
+    --text: #18181b;
+    --dim: #52525b;
+
+    --accent: #c2410c;
+    --link: #0066cc;
+
+    --badge-green: #166534;
+    --badge-green-bg: #e8f2ec;
+    --badge-blue: #1d4ed8;
+    --badge-blue-bg: #e8edfb;
+    --badge-purple: #7e22ce;
+    --badge-purple-bg: #f2e9fa;
+    --badge-amber: #92400e;
+    --badge-amber-bg: #f6efe6;
+    --badge-red: #b91c1c;
+    --badge-red-bg: #eee8e8;
+  }
+}
+
+/* Reduced motion: transitions and animations off (I7 requirement). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,34 @@
+---
+import Wordmark from './Wordmark.astro';
+import { u } from '../utils/site';
+import locked from '../data/locked-names.json';
+---
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="wordmark" href={u('/')}>
+      <Wordmark />
+      <span>lumen</span>
+    </a>
+    <nav class="site-nav" aria-label="Site">
+      <a href={u('/docs/quickstart/')}>docs</a>
+      <a href={locked.changelogUrl}>changelog</a>
+      <a href={locked.repoUrl}>github</a>
+    </nav>
+    <div class="header-actions">
+      <button type="button" class="icon-btn" data-search-trigger aria-label="Search (Ctrl+K)">
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.7"></circle>
+          <line x1="10.8" y1="10.8" x2="15" y2="15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></line>
+        </svg>
+        <kbd>Ctrl K</kbd>
+      </button>
+      <button type="button" class="icon-btn" data-theme-toggle aria-label="Theme: auto">
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"></circle>
+          <path d="M 8 2.5 A 5.5 5.5 0 0 1 8 13.5 Z" fill="currentColor"></path>
+        </svg>
+        <span data-theme-label>auto</span>
+      </button>
+    </div>
+  </div>
+</header>
