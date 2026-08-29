@@ -33,7 +33,18 @@ describe('build artifact contract', () => {
   test('robots.txt references the sitemap at the canonical Pages URL', () => {
     const robots = readDist('robots.txt');
     expect(robots).toContain('Sitemap: https://nitishagar.github.io/lumen/sitemap.xml');
+  });
+
+  test('sitemap and built pages agree exactly', () => {
     const sitemap = readFileSync(join(distDir, 'sitemap.xml'), 'utf8');
-    expect(sitemap).toContain('<loc>https://nitishagar.github.io/lumen/</loc>');
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1] as string);
+    const pageUrls = builtHtmlFiles()
+      .filter((p) => p !== '404.html')
+      .map((p) =>
+        p === 'index.html'
+          ? 'https://nitishagar.github.io/lumen/'
+          : `https://nitishagar.github.io/lumen/${p.replace(/index\.html$/, '')}`,
+      );
+    expect(locs.sort()).toEqual(pageUrls.sort());
   });
 });

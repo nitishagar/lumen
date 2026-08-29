@@ -1,0 +1,88 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import locked from '../../data/locked-names.json';
+---
+<DocsLayout
+  title="Attributions"
+  description="Licenses and data-source attributions for lumen: Apache-2.0, CrUX CC BY 4.0, Tranco, Open PageRank, Wikimedia, and design notes."
+  activeHref="/docs/attributions/"
+  toc={[
+    { id: 'license', label: 'License' },
+    { id: 'crux', label: 'CrUX' },
+    { id: 'tranco', label: 'Tranco' },
+    { id: 'openpagerank', label: 'Open PageRank' },
+    { id: 'wikimedia', label: 'Wikimedia' },
+    { id: 'design', label: 'Design note' },
+    { id: 'trademarks', label: 'Trademarks' },
+  ]}
+>
+  <p>
+    lumen is honest about its sources because it has to be — and because
+    attribution is the polite settlement for building on things people give
+    away. This page is the complete list.
+  </p>
+
+  <h2 id="license">License</h2>
+  <p>
+    lumen is released under the
+    <a href={locked.licenseUrl}>Apache License 2.0</a>. The canonical text
+    lives in the repository root.
+  </p>
+
+  <h2 id="crux">Chrome UX Report (CrUX)</h2>
+  <p>
+    Field data — real-user Core Web Vitals — comes from the Chrome UX Report.
+    Per Google’s terms: <em>“The CrUX datasets from Google are licensed under
+    the Creative Commons Attribution 4.0 International license.”</em>
+    Accordingly, any CrUX-derived value lumen shows is labeled with its
+    source, and this notice applies wherever that data appears.
+  </p>
+  <ul>
+    <li><a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0 license text</a></li>
+    <li><a href="https://developer.chrome.com/docs/crux/methodology">CrUX methodology</a></li>
+  </ul>
+
+  <h2 id="tranco">Tranco</h2>
+  <p>
+    Top-site ranking data comes from the
+    <a href="https://tranco-list.eu/">Tranco list</a>, whose terms require
+    attribution: Victor Le Pochat, Tom Van Goethem, Samaneh
+    Tajalizadehkhoob, Maciej Korczyński, and Wouter Joosen, “Tranco: A
+    Research-Oriented Top Sites Ranking Hardened Against Manipulation”,
+    28th USENIX Security Symposium (2019). lumen caches the list locally and
+    labels every derived rank with its source.
+  </p>
+
+  <h2 id="openpagerank">Open PageRank</h2>
+  <p>
+    Domain page-rank scores come from
+    <a href="https://openpagerank.keywordseverywhere.com/docs">Open PageRank</a>
+    (browser-extension crawl data, distributed via Keywords Everywhere).
+    Factual reference; scores are labeled with the provider wherever shown.
+  </p>
+
+  <h2 id="wikimedia">Wikimedia</h2>
+  <p>
+    Pageview counts used as a demand proxy come from the
+    <a href="https://www.mediawiki.org/wiki/Wikimedia_APIs/Guidelines">Wikimedia
+    APIs</a>, whose guidelines require a meaningful User-Agent with contact
+    information — lumen sends one, and honors 429s and Retry-After.
+  </p>
+
+  <h2 id="design">Design note</h2>
+  <p>
+    Visual design inspired by pi.dev; tokens reimplemented from scratch. The
+    resemblance is a matter of palette and typography vocabulary — every
+    asset, wordmark, figure and sentence on this site was authored for
+    lumen.
+  </p>
+
+  <h2 id="trademarks">Trademarks</h2>
+  <p>
+    Product names and marks mentioned here — Google, Chrome, Lighthouse,
+    PageSpeed Insights, CrUX, Tranco, Open PageRank, DuckDuckGo, Wikipedia,
+    Claude, Cursor, VS Code, pi.dev — are property of their respective
+    owners. They appear for factual reference only, and their appearance
+    implies no endorsement of lumen.
+  </p>
+</DocsLayout>

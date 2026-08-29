@@ -1,0 +1,130 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import Code from '../../components/Code.astro';
+import { u } from '../../utils/site';
+import locked from '../../data/locked-names.json';
+
+const claudeLines = [{ kind: 'cmd' as const, text: locked.snippets.claudeMcpAdd }];
+const cursorJson = `{
+  "mcpServers": {
+    "lumen": {
+      "command": "npx",
+      "args": ["-y", "@lumen-seo/cli", "mcp"]
+    }
+  }
+}`;
+const vscodeJson = `{
+  "servers": {
+    "lumen": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@lumen-seo/cli", "mcp"]
+    }
+  }
+}`;
+const toolTable = [
+  { tool: 'lumen_audit_site', what: 'crawl a site and return the audit report (bounded, robots-safe) — local/stdio only' },
+  { tool: 'lumen_page_report', what: 'single page: PSI + CrUX when keys are configured, plus a local meta fetch' },
+  { tool: 'lumen_keyword_ideas', what: 'keyword ideas from the configured keyword provider, provenance attached' },
+  { tool: 'lumen_rank_check', what: 'best-effort SERP position for keyword + domain' },
+  { tool: 'lumen_authority', what: 'domain authority signals (Open PageRank, Tranco)' },
+];
+---
+<DocsLayout
+  title="MCP onboarding"
+  description="Wire the lumen MCP server into Claude Code, Cursor, VS Code, or any mcpServers-compatible client with one stdio command."
+  activeHref="/docs/mcp-onboarding/"
+  toc={[
+    { id: 'claude-code', label: 'Claude Code' },
+    { id: 'cursor', label: 'Cursor' },
+    { id: 'vscode', label: 'VS Code' },
+    { id: 'universal', label: 'Universal JSON' },
+    { id: 'tools', label: 'The five tools' },
+    { id: 'remote-gateway', label: 'Remote gateway' },
+    { id: 'local-only', label: 'Local-only audit' },
+  ]}
+>
+  <p>
+    lumen is an MCP server first. One stdio command, five tools, no account.
+    The same server binary runs wherever Node runs.
+  </p>
+
+  <h2 id="claude-code">Claude Code</h2>
+  <Code lines={claudeLines} label="one-liner" />
+  <p>
+    Verify with <code>/mcp</code> inside Claude Code; the five
+    <code>lumen_*</code> tools should be listed.
+  </p>
+
+  <h2 id="cursor">Cursor</h2>
+  <p>
+    Add the server to <code>.cursor/mcp.json</code> in your project (or
+    <code>~/.cursor/mcp.json</code> globally):
+  </p>
+  <pre><code>{cursorJson}</code></pre>
+  <p>
+    Cursor also supports one-click installs via its deeplink format
+    (<code>cursor://anysphere.cursor-deeplink/mcp/install?…</code> with a
+    base64-encoded config); the JSON block above is the same config that
+    deeplink carries.
+  </p>
+
+  <h2 id="vscode">VS Code</h2>
+  <p>
+    Use <code>.vscode/mcp.json</code>:
+  </p>
+  <pre><code>{vscodeJson}</code></pre>
+  <p>
+    VS Code offers a <code>vscode:mcp/install?{'{…}'}</code> deeplink that
+    pre-fills this file; the stdio command is identical either way.
+  </p>
+
+  <h2 id="universal">Universal JSON</h2>
+  <p>For any client that speaks <code>mcpServers</code>:</p>
+  <pre><code>{locked.snippets.mcpServersJson}</code></pre>
+
+  <h2 id="tools">The five tools</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Tool</th><th scope="col">What it does</th></tr>
+    </thead>
+    <tbody>
+      {toolTable.map((row) => (
+        <tr><td><code>{row.tool}</code></td><td>{row.what}</td></tr>
+      ))}
+    </tbody>
+  </table>
+  <p>
+    Every tool accepts an optional <code>{locked.responseFormatNote}</code> of
+    <code>concise</code> (default) or <code>detailed</code>. Concise is built
+    for agents — the high-signal summary first — while detailed returns the
+    full payload. Both carry provenance labels on every value.
+  </p>
+
+  <h2 id="remote-gateway">Remote gateway (optional)</h2>
+  <p>
+    The repo ships a thin Cloudflare Worker that exposes the same tools over
+    Streamable HTTP plus the REST subset (<code>POST /mcp</code>,
+    <code>GET /api/v1/page-report?url=</code>,
+    <code>GET /api/v1/keyword-ideas?q=</code>, <code>GET /healthz</code>). It
+    is deployable from the free Workers tier, but nothing in lumen requires
+    it: stdio is the primary path and the Worker is not deployed by default.
+    BYOK keys pass per-request via headers and are never logged.
+  </p>
+
+  <h2 id="local-only">The audit stays local</h2>
+  <p>
+    <code>lumen_audit_site</code> is a local-only capability by design — a
+    crawl needs CPU and politeness budgets that a shared free tier can’t
+    offer. Over the remote gateway the tool returns a typed
+    <em>local-only capability</em> error pointing at
+    <code>npx {locked.packages.cli}</code> instead of silently doing less. The
+    other tools work the same everywhere.
+  </p>
+
+  <p>
+    Keys for BYOK providers are read from the environment
+    (<code>{locked.envVars.join('</code>, <code>')}</code>) — see
+    <a href={u('/docs/providers-byok/')}>providers &amp; BYOK</a>.
+  </p>
+</DocsLayout>

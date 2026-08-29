@@ -1,0 +1,54 @@
+---
+import Base from './Base.astro';
+import { u, docsNav } from '../utils/site';
+
+interface TocItem {
+  readonly id: string;
+  readonly label: string;
+}
+const { title, description, toc = [], activeHref } = Astro.props as {
+  title: string;
+  description: string;
+  toc?: readonly TocItem[];
+  activeHref: string;
+};
+---
+<Base title={`${title} — lumen docs`} description={description}>
+  <div class="wrap docs-grid">
+    <aside class="docs-sidebar">
+      <nav aria-label="Docs">
+        {docsNav.map((group) => (
+          <Fragment>
+            <h2>{group.label}</h2>
+            <ul>
+              {group.items.map((item) => (
+                <li>
+                  <a
+                    href={u(item.href)}
+                    aria-current={item.href === activeHref ? 'page' : undefined}
+                  >
+                    {item.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Fragment>
+        ))}
+      </nav>
+    </aside>
+    <article class="docs-prose" data-pagefind-body>
+      <h1>{title}</h1>
+      {toc.length > 0 && (
+        <nav class="on-this-page" aria-label="On this page">
+          <h2>On this page</h2>
+          <ul>
+            {toc.map((item) => (
+              <li><a href={`#${item.id}`}>{item.label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      <slot />
+    </article>
+  </div>
+</Base>

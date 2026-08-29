@@ -14,9 +14,21 @@ import { builtHtmlFiles, readDist } from './helpers';
  */
 const allHtml = () => builtHtmlFiles().map((p) => readDist(p)).join('\n');
 
+/**
+ * Astro escapes interpolated text (quotes as &quot; etc.) — compare against
+ * the decoded text so "byte-exact" means what a visitor reads.
+ */
+const decodeHtml = (s: string): string =>
+  s
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
 describe('G7 locked names', () => {
   test('install snippets are byte-exact on the landing page', () => {
-    const index = readDist('index.html');
+    const index = decodeHtml(readDist('index.html'));
     for (const snippet of [
       locked.snippets.installGlobal,
       locked.snippets.npxAudit,
@@ -59,5 +71,42 @@ describe('G7 locked names', () => {
 
   test('tagline renders on the landing page', () => {
     expect(readDist('index.html')).toContain(locked.tagline);
+  });
+
+  test('all seven locked CLI commands appear in the CLI reference', () => {
+    const html = readDist('docs/cli-reference/index.html');
+    for (const command of locked.cliCommands) {
+      expect(html, `command "${command}" missing from CLI reference`).toContain(`lumen ${command}`);
+    }
+  });
+
+  test('all seven locked providers appear on the providers page', () => {
+    const html = readDist('docs/providers-byok/index.html');
+    for (const provider of locked.providers) {
+      expect(html, `provider "${provider}" missing from providers page`).toContain(provider);
+    }
+  });
+
+  test('all five locked MCP tools + universal JSON appear on the MCP page', () => {
+    const html = decodeHtml(readDist('docs/mcp-onboarding/index.html'));
+    for (const tool of locked.mcpTools) {
+      expect(html).toContain(tool);
+    }
+    expect(html).toContain(locked.snippets.claudeMcpAdd);
+    expect(html).toContain(locked.snippets.mcpServersJson);
+    for (const route of locked.restRoutes) {
+      expect(html, `route "${route}" missing`).toContain(route);
+    }
+  });
+
+  test('config + history + threshold tokens appear in the docs', () => {
+    const union = [
+      readDist('docs/configuration/index.html'),
+      readDist('docs/cli-reference/index.html'),
+      readDist('docs/quickstart/index.html'),
+    ].join('\n');
+    for (const token of [locked.configFile, 'failThreshold', locked.historyDir, ...locked.cliFlags]) {
+      expect(union, `token "${token}" missing from docs`).toContain(token);
+    }
   });
 });

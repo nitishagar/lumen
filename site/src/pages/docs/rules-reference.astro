@@ -1,0 +1,139 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import { u } from '../../utils/site';
+import locked from '../../data/locked-names.json';
+
+interface Rule {
+  readonly id: string;
+  readonly severity: 'error' | 'warning' | 'info';
+  readonly categories: readonly string[];
+  readonly fires: string;
+}
+
+const rules: readonly Rule[] = [
+  { id: 'title-missing', severity: 'error', categories: ['meta'], fires: 'no <title> or empty after trim' },
+  { id: 'title-length', severity: 'warning', categories: ['meta'], fires: 'title longer than 65 or shorter than 15 characters' },
+  { id: 'description-missing', severity: 'error', categories: ['meta'], fires: 'no meta description or empty' },
+  { id: 'description-length', severity: 'warning', categories: ['meta'], fires: 'description longer than 165 or shorter than 50 characters' },
+  { id: 'h1-missing', severity: 'error', categories: ['content'], fires: 'zero <h1> elements' },
+  { id: 'h1-multiple', severity: 'info', categories: ['content'], fires: 'more than one <h1>' },
+  { id: 'canonical-present', severity: 'info', categories: ['meta'], fires: 'no <link rel="canonical"> (multiple canonicals raise to warning)' },
+  { id: 'lang-attr', severity: 'warning', categories: ['content'], fires: '<html lang> missing or not a plausible BCP-47 primary tag' },
+  { id: 'viewport-meta', severity: 'warning', categories: ['technical'], fires: 'no <meta name="viewport">' },
+  { id: 'image-alt-coverage', severity: 'warning', categories: ['content', 'accessibility'], fires: 'any <img> without an alt attribute (alt="" counts as present)' },
+  { id: 'broken-internal-link', severity: 'error', categories: ['links'], fires: 'same-host link target fetched during the crawl returned status >= 400' },
+  { id: 'redirect-chain', severity: 'warning', categories: ['links', 'technical'], fires: 'page needed two or more redirect hops to resolve' },
+  { id: 'robots-noindex', severity: 'info', categories: ['meta', 'technical'], fires: 'noindex via meta robots or X-Robots-Tag header' },
+  { id: 'status-error', severity: 'error', categories: ['technical'], fires: 'fetched page status >= 400' },
+  { id: 'insecure-http', severity: 'warning', categories: ['technical'], fires: 'page served over plain http:' },
+  { id: 'mixed-content', severity: 'error', categories: ['technical'], fires: 'http: subresources on an https: page' },
+  { id: 'response-latency', severity: 'warning', categories: ['performance'], fires: 'measured response time above the threshold (default 1500 ms)' },
+  { id: 'og-tags-missing', severity: 'info', categories: ['social'], fires: 'any of og:title / og:description / og:image absent' },
+];
+
+const sevBadge: Record<Rule['severity'], string> = {
+  error: 'badge badge-red',
+  warning: 'badge badge-amber',
+  info: 'badge badge-blue',
+};
+
+const issueExample = `{
+  "ruleId": "title-length",
+  "severity": "warning",
+  "message": "title is 72 characters (max 65)",
+  "evidence": { "selector": "head > title", "snippet": "<title>Acme Garden Tools — hand-forged broadf…</title>" },
+  "fixHint": "shorten the title to 65 characters or fewer"
+}`;
+
+const incompleteExample = `{
+  "id": "example-2026-08-29t10-31-04z",
+  "incomplete": true,
+  "summary": { "pagesAudited": 37, "pagesSkipped": 3 },
+  "stopReason": "time_budget"
+}`;
+---
+<DocsLayout
+  title="Audit rules"
+  description="The 18 built-in lumen audit rules: severities, categories, what fires them, how scoring and failThreshold work."
+  activeHref="/docs/rules-reference/"
+  toc={[
+    { id: 'severity', label: 'Severity model' },
+    { id: 'scoring', label: 'Scoring' },
+    { id: 'rules', label: 'The 18 rules' },
+    { id: 'overrides', label: 'Overrides' },
+    { id: 'examples', label: 'Issue + incomplete reports' },
+  ]}
+>
+  <p>
+    lumen’s audit engine ships 18 built-in rules across meta, content, links,
+    technical, performance, accessibility and social categories. Rules are
+    small, evidence-first, and plugin-shaped — the audit engine accepts
+    additional rules via the plugin registry.
+  </p>
+
+  <h2 id="severity">Severity model</h2>
+  <p>
+    Three severities, no vibes:
+  </p>
+  <table>
+    <thead>
+      <tr><th scope="col">Severity</th><th scope="col">Weight</th><th scope="col">Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge badge-red">error</span></td><td>10</td><td>wrong or broken for search</td></tr>
+      <tr><td><span class="badge badge-amber">warning</span></td><td>3</td><td>likely costing you something</td></tr>
+      <tr><td><span class="badge badge-blue">info</span></td><td>0</td><td>worth knowing, not a failure</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <code>failThreshold</code> (in <code>{locked.configFile}</code>) picks the
+    lowest severity that fails the run — <code>error</code> by default.
+  </p>
+
+  <h2 id="scoring">Scoring</h2>
+  <p>
+    Per-page score = 100 minus the weight of that page’s issues, floored at 0.
+    Report score = the mean over <em>audited</em> pages. A site where nothing
+    was actually audited scores 0 — honest, not generous.
+  </p>
+
+  <h2 id="rules">The 18 rules</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Rule id</th><th scope="col">Default</th><th scope="col">Categories</th><th scope="col">Fires when</th></tr>
+    </thead>
+    <tbody>
+      {rules.map((rule) => (
+        <tr>
+          <td><code>{rule.id}</code></td>
+          <td><span class={sevBadge[rule.severity]}>{rule.severity}</span></td>
+          <td>{rule.categories.join(', ')}</td>
+          <td>{rule.fires}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="note">
+    Length thresholds (title, description) and the latency threshold are
+    configurable; everything else is fixed behavior. Crawl rules
+    (<code>broken-internal-link</code>, <code>redirect-chain</code>) only fire
+    on evidence gathered during the crawl itself — a link target that was
+    never fetched is reported as unknown, not invented.
+  </p>
+
+  <h2 id="overrides">Overrides</h2>
+  <p>
+    Per-rule severity overrides live in <code>severityOverrides</code> in
+    <code>{locked.configFile}</code>. An unknown rule id is a config error
+    listing the valid ids — see
+    <a href={u('/docs/configuration/')}>configuration</a>.
+  </p>
+
+  <h2 id="examples">Issue + incomplete reports</h2>
+  <p>An <code>Issue</code> looks like this (evidence snippets are escaped):</p>
+  <pre><code>{issueExample}</code></pre>
+  <p>
+    Interrupted runs are labeled rather than dressed up as finished:
+  </p>
+  <pre><code>{incompleteExample}</code></pre>
+</DocsLayout>

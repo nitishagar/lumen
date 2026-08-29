@@ -60,5 +60,12 @@ describe('G3 trade-dress scan', () => {
         if (mentions) expect(page, `${urlOf(page)} mentions pi.dev`).toBe(ATTRIBUTIONS_PAGE);
       }
     });
+
+    test('the attributions page exists and carries the inspiration note', () => {
+      expect(builtHtmlFiles()).toContain(ATTRIBUTIONS_PAGE);
+      const html = readDist(ATTRIBUTIONS_PAGE).toLowerCase();
+      expect(html).toContain('pi.dev');
+      expect(html).toContain('reimplemented from scratch');
+    });
   });
 });

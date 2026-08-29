@@ -1,0 +1,118 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import { u } from '../../utils/site';
+import locked from '../../data/locked-names.json';
+
+const configExample = `{
+  "providers": {
+    "keywords": "wikipedia-demand",
+    "serp": "ddg-serp"
+  },
+  "severityOverrides": {
+    "og-tags-missing": "warning"
+  },
+  "crawl": {
+    "maxPages": 250,
+    "maxDepth": 4,
+    "maxDurationMs": 600000,
+    "maxConcurrency": 5,
+    "perHostMinDelayMs": 500
+  },
+  "failThreshold": "warning",
+  "byok": {
+    "pagespeed": "LUMEN_PSI_KEY",
+    "crux": "LUMEN_CRUX_KEY",
+    "openpagerank": "LUMEN_OPR_KEY"
+  },
+  "plugins": []
+}`;
+
+const keys = [
+  { key: 'providers', what: 'provider name per boundary (keywords, serp, pagespeed, crux, authority); unknown names are a config error listing the options' },
+  { key: 'severityOverrides', what: 'per-rule severity overrides by rule id' },
+  { key: 'crawl', what: 'budgets: maxPages, maxDepth, maxDurationMs, maxConcurrency, perHostMinDelayMs' },
+  { key: 'failThreshold', what: 'lowest severity that fails a run: error | warning | info | off (default error)' },
+  { key: 'byok', what: 'env-var NAMES for provider keys (values never enter the file)' },
+  { key: 'plugins', what: 'local plugin files implementing extra audit rules (Node-only)' },
+];
+---
+<DocsLayout
+  title="Configuration"
+  description="lumen.config.json: providers, severity overrides, crawl budgets, failThreshold, BYOK env-var names, and plugins — plus error behavior."
+  activeHref="/docs/configuration/"
+  toc={[
+    { id: 'file', label: 'The file' },
+    { id: 'keys', label: 'Keys' },
+    { id: 'defaults', label: 'Crawl defaults' },
+    { id: 'errors', label: 'Error behavior' },
+    { id: 'safety', label: 'Fetch safety & etiquette' },
+  ]}
+>
+  <p>
+    lumen works with zero configuration. <code>{locked.configFile}</code> in
+    your project root (or the path in <code>LUMEN_CONFIG</code>) is for when
+    you want to tune budgets, swap providers, or move the failure line.
+  </p>
+
+  <h2 id="file">The file</h2>
+  <pre><code>{configExample}</code></pre>
+  <p>
+    A missing file means full defaults. A malformed file, a non-object root,
+    or an unknown key at a closed-vocabulary level is a
+    <code>ConfigError</code> that lists the valid keys — lumen would rather
+    refuse than guess what you meant.
+  </p>
+
+  <h2 id="keys">Keys</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Key</th><th scope="col">What it controls</th></tr>
+    </thead>
+    <tbody>
+      {keys.map((row) => (
+        <tr><td><code>{row.key}</code></td><td>{row.what}</td></tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2 id="defaults">Crawl defaults</h2>
+  <table>
+    <thead>
+      <tr><th scope="col">Budget</th><th scope="col">Default</th><th scope="col">Note</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>maxPages</code></td><td>100</td><td>hard-clamped at 10,000</td></tr>
+      <tr><td><code>maxDepth</code></td><td>5</td><td>link depth from the seed</td></tr>
+      <tr><td><code>maxDurationMs</code></td><td>300,000</td><td>wall-clock stop; the report is marked incomplete</td></tr>
+      <tr><td><code>maxConcurrency</code></td><td>5</td><td>global in-flight cap</td></tr>
+      <tr><td><code>perHostMinDelayMs</code></td><td>250</td><td>per-host politeness floor</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="errors">Error behavior</h2>
+  <ul>
+    <li><strong>Unknown config keys</strong> fail loudly with the list of valid keys — at any closed-vocabulary level.</li>
+    <li><strong>Boundary inputs have defined behavior:</strong> non-http(s) URLs are rejected, oversized pages and sitemaps are capped and skipped with a reason, malformed robots.txt falls back to the conservative default, IDN hostnames are normalized.</li>
+    <li><strong>Provider failures are typed</strong> and carry the provider name, after bounded retries with exponential backoff and jitter (Retry-After honored).</li>
+    <li><strong>Interrupted runs</strong> produce a report labeled <code>incomplete: true</code> with a stop reason, safe to re-run without duplicated side effects.</li>
+    <li><strong>Plugins</strong> are Node-only — dynamically loaded local rule files; they never load in the Worker.</li>
+  </ul>
+
+  <h2 id="safety">Fetch safety &amp; etiquette</h2>
+  <p>
+    All fetching goes through one guarded layer: http/https only, private /
+    loopback / link-local targets refused, re-validated after every redirect
+    hop, per-request timeouts. On the crawl side, robots.txt is respected by
+    default (with a documented override if you own the site and insist), the
+    User-Agent identifies lumen with a contact URL, sitemaps feed discovery,
+    and each host is rate-limited. Treat other people’s servers the way
+    you’d want your logs to look.
+  </p>
+
+  <p>
+    For provider keys and what each one sends, see
+    <a href={u('/docs/providers-byok/')}>providers &amp; BYOK</a>. For the
+    rules all this feeds, see the
+    <a href={u('/docs/rules-reference/')}>rules reference</a>.
+  </p>
+</DocsLayout>
