@@ -72,6 +72,23 @@ describe('G5 structure (every built page)', () => {
   }
 });
 
+describe('G5 install tabs (landing page)', () => {
+  const html = readDist('index.html');
+
+  test('ARIA tabs pattern present', () => {
+    expect(html.match(/role="tab"/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(html).toMatch(/role="tablist"/);
+    expect(html).toMatch(/aria-selected="true"/);
+    expect(html.match(/role="tabpanel"/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  });
+
+  test('tab keyboard semantics ship in the bundle', () => {
+    const js = builtJs();
+    expect(js).toMatch(/ArrowRight/);
+    expect(js).toMatch(/ArrowLeft/);
+  });
+});
+
 describe('G5 client behavior ships in the bundle', () => {
   test('theme cycling persists via localStorage key', () => {
     const js = builtJs();

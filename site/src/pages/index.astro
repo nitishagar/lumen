@@ -1,11 +1,277 @@
 ---
 import Base from '../layouts/Base.astro';
+import InstallTabs from '../components/InstallTabs.astro';
+import { u } from '../utils/site';
 import locked from '../data/locked-names.json';
+
+const tabs = [
+  {
+    id: 'npm',
+    label: 'npm',
+    lines: [
+      { kind: 'cmd' as const, text: locked.snippets.installGlobal },
+      { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 50' },
+      { kind: 'out' as const, text: '42 pages crawled · 6 issues (2 error, 4 warning) · exit code 1' },
+    ],
+  },
+  {
+    id: 'npx',
+    label: 'npx',
+    lines: [
+      { kind: 'cmd' as const, text: locked.snippets.npxAudit },
+      { kind: 'out' as const, text: 'same audit, nothing installed, no account' },
+    ],
+  },
+  {
+    id: 'claude',
+    label: 'claude',
+    lines: [
+      { kind: 'cmd' as const, text: locked.snippets.claudeMcpAdd },
+      { kind: 'out' as const, text: 'the lumen_* tools are now available to your agent' },
+    ],
+  },
+];
 ---
-<Base title="lumen — See your site clearly." description="lumen is a lightweight, pluggable, MCP-first SEO toolkit for developers and PMs. Local audits, free-tier data sources, provenance on every number.">
-  <div class="wrap hero">
-    <p class="mono-label">{locked.product} · open-source seo toolkit</p>
-    <h1>{locked.tagline}</h1>
-    <p class="lede">Landing page under construction — the scaffold and gates landed first.</p>
+<Base
+  title="lumen — See your site clearly."
+  description="lumen is a lightweight, pluggable, MCP-first SEO toolkit for developers and PMs. Local site audits, free-tier data sources, bring-your-own keys, provenance on every number."
+>
+  <div class="wrap">
+
+    <section class="hero" data-pagefind-body>
+      <p class="mono-label">lumen · open-source seo toolkit</p>
+      <h1>{locked.tagline}</h1>
+      <p class="lede">
+        lumen crawls your site from your own machine, asks the data sources that
+        actually let you ask, and labels every number with where it came from.
+        Pluggable providers, MCP-first, Apache-2.0. It runs on free services —
+        yours and ours.
+      </p>
+      <InstallTabs tabs={tabs} />
+    </section>
+
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">01 · why</p>
+      <h2>The checks you need, none of the index you can’t have</h2>
+      <p>
+        <strong>What ships:</strong> a bounded, polite technical audit of your own
+        site (18 rules — meta, content, links, performance basics), page reports
+        from PageSpeed Insights and CrUX when you bring keys, keyword ideas from
+        sources that exist without a paid account, best-effort rank checks, and
+        authority proxies from Open PageRank and Tranco.
+      </p>
+      <p>
+        <strong>What deliberately doesn’t:</strong> there is no free search-volume
+        database, no free backlink graph, and no free clickstream panel — so lumen
+        doesn’t fabricate one. A number with no source isn’t a metric, it’s a
+        costume. When the honest answer is “no free source exists for this”, that
+        is the answer you get.
+      </p>
+      <figure>
+        <svg viewBox="0 0 640 252" role="img" aria-labelledby="fig01-title">
+          <title id="fig01-title">Two lists: what lumen can tell you from free sources, and what it refuses to invent.</title>
+          <text x="0" y="14" fill="var(--accent)" font-size="11" letter-spacing="2">SHIPS</text>
+          <text x="360" y="14" fill="var(--dim)" font-size="11" letter-spacing="2">NOT FAKING</text>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="0" y="26" width="330" height="34" rx="8"></rect>
+            <rect x="0" y="68" width="330" height="34" rx="8"></rect>
+            <rect x="0" y="110" width="330" height="34" rx="8"></rect>
+            <rect x="0" y="152" width="330" height="34" rx="8"></rect>
+            <rect x="0" y="194" width="330" height="34" rx="8"></rect>
+          </g>
+          <g fill="var(--text)" font-size="13">
+            <text x="16" y="47">local site audit — 18 rules, robots-safe</text>
+            <text x="16" y="89">page reports — PSI + CrUX (BYOK)</text>
+            <text x="16" y="131">keyword ideas — suggest + demand proxies</text>
+            <text x="16" y="173">rank checks — best-effort, labeled</text>
+            <text x="16" y="215">authority — Open PageRank + Tranco</text>
+          </g>
+          <g fill="none" stroke="var(--border)" stroke-dasharray="4 4">
+            <rect x="360" y="26" width="280" height="34" rx="8"></rect>
+            <rect x="360" y="68" width="280" height="34" rx="8"></rect>
+            <rect x="360" y="110" width="280" height="34" rx="8"></rect>
+          </g>
+          <g fill="var(--dim)" font-size="13">
+            <text x="376" y="47">search-volume database</text>
+            <text x="376" y="89">backlink index</text>
+            <text x="376" y="131">traffic / clickstream estimates</text>
+          </g>
+          <text x="376" y="170" fill="var(--dim)" font-size="12">no free source → no number.</text>
+        </svg>
+        <figcaption>Fig. 01 | Everything lumen can tell you without a paid index — and the things it declines to invent.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">02 · pluggable</p>
+      <h2>Every data source is a plugin</h2>
+      <p>
+        All external data flows through one provider interface with five
+        boundaries — keywords, serp, pagespeed, crux, authority. The built-ins
+        cover seven sources; you select and swap them in
+        <code>{locked.configFile}</code>, and bring-your-own-key providers stay
+        dormant until their environment variable (<code>{locked.envVars.join('</code>, <code>')}</code>)
+        shows up. No key, no call, no crash — the capability is reported as
+        <em>not configured</em> and everything else keeps working.
+      </p>
+      <p>
+        An unknown provider name in your config is a config error that lists the
+        valid options, not a stack trace at 2 a.m. And the config stores env-var
+        names, never values — keys are read at call time and never written down.
+      </p>
+      <figure>
+        <svg viewBox="0 0 640 240" role="img" aria-labelledby="fig02-title">
+          <title id="fig02-title">Seven provider chips feeding one registry, which feeds one engine surface.</title>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="0" y="18" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="56" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="94" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="132" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="170" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="208" width="190" height="26" rx="13"></rect>
+          </g>
+          <g font-size="12">
+            <text x="14" y="35" fill="var(--text)">google-suggest</text>
+            <text x="14" y="73" fill="var(--text)">wikipedia-demand</text>
+            <text x="14" y="111" fill="var(--text)">pagespeed · BYOK</text>
+            <text x="14" y="149" fill="var(--text)">crux · BYOK</text>
+            <text x="14" y="187" fill="var(--text)">openpagerank · BYOK</text>
+            <text x="14" y="225" fill="var(--text)">tranco · ddg-serp</text>
+          </g>
+          <g stroke="var(--hover)" stroke-dasharray="3 3">
+            <line x1="190" y1="31" x2="272" y2="112"></line>
+            <line x1="190" y1="69" x2="272" y2="116"></line>
+            <line x1="190" y1="107" x2="272" y2="120"></line>
+            <line x1="190" y1="145" x2="272" y2="124"></line>
+            <line x1="190" y1="183" x2="272" y2="128"></line>
+            <line x1="190" y1="221" x2="272" y2="132"></line>
+          </g>
+          <rect x="276" y="88" width="130" height="68" rx="8" fill="var(--surface)" stroke="var(--accent)"></rect>
+          <text x="292" y="115" fill="var(--accent)" font-size="12">provider</text>
+          <text x="292" y="131" fill="var(--accent)" font-size="12">registry</text>
+          <line x1="406" y1="122" x2="452" y2="122" stroke="var(--hover)"></line>
+          <rect x="456" y="88" width="184" height="68" rx="8" fill="var(--surface)" stroke="var(--border)"></rect>
+          <text x="472" y="109" fill="var(--text)" font-size="12">one engine,</text>
+          <text x="472" y="125" fill="var(--text)" font-size="12">one surface:</text>
+          <text x="472" y="145" fill="var(--dim)" font-size="11">cli · mcp · thin worker</text>
+        </svg>
+        <figcaption>Fig. 02 | Every external number enters through the provider interface. Swap a source, keep the commands.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">03 · agents first</p>
+      <h2>Built for agents, usable by humans</h2>
+      <p>
+        Every capability is an MCP tool first — <code>{locked.mcpTools[0]}</code>,
+        <code>{locked.mcpTools[1]}</code>, <code>{locked.mcpTools[2]}</code>,
+        <code>{locked.mcpTools[3]}</code>, <code>{locked.mcpTools[4]}</code> — and
+        each is also a CLI command, because terminals are still a UI. Tools take an
+        optional <code>{locked.responseFormatNote}</code> (<code>concise</code> by
+        default) so an agent gets high-signal output without drowning in JSON.
+      </p>
+      <p>
+        Locally you run the stdio server with one command; remotely, a thin
+        gateway can serve the API-shaped subset from a free Cloudflare Worker.
+        The audit itself always runs where the CPU is free — your machine — and
+        the gateway says so instead of pretending to crawl.
+      </p>
+      <figure>
+        <svg viewBox="0 0 640 240" role="img" aria-labelledby="fig03-title">
+          <title id="fig03-title">One engine with three doors: CLI terminal, local stdio MCP for agents, and a thin remote gateway.</title>
+          <rect x="230" y="88" width="180" height="64" rx="8" fill="var(--surface)" stroke="var(--accent)"></rect>
+          <text x="264" y="114" fill="var(--text)" font-size="13">one engine</text>
+          <text x="258" y="134" fill="var(--dim)" font-size="11">crawl · judge · label</text>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="8" y="16" width="180" height="56" rx="8"></rect>
+            <rect x="8" y="92" width="180" height="56" rx="8"></rect>
+            <rect x="8" y="168" width="180" height="56" rx="8"></rect>
+          </g>
+          <g font-size="12" fill="var(--text)">
+            <text x="22" y="38">cli — human</text>
+            <text x="22" y="56" fill="var(--dim)" font-size="11">lumen audit · keywords · rank</text>
+            <text x="22" y="114">stdio mcp — agent</text>
+            <text x="22" y="132" fill="var(--dim)" font-size="11">lumen_audit_site + 4 more</text>
+            <text x="22" y="190">worker gateway</text>
+            <text x="22" y="208" fill="var(--dim)" font-size="11">thin subset; crawl stays local</text>
+          </g>
+          <g stroke="var(--hover)">
+            <line x1="188" y1="44" x2="230" y2="100"></line>
+            <line x1="188" y1="120" x2="230" y2="120"></line>
+            <line x1="188" y1="196" x2="230" y2="140"></line>
+          </g>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="452" y="16" width="180" height="56" rx="8"></rect>
+            <rect x="452" y="92" width="180" height="56" rx="8"></rect>
+            <rect x="452" y="168" width="180" height="56" rx="8"></rect>
+          </g>
+          <g font-size="12">
+            <text x="466" y="38" fill="var(--text)">exit codes for CI</text>
+            <text x="466" y="56" fill="var(--dim)" font-size="11">0 ok · 1 threshold · 2 config</text>
+            <text x="466" y="114" fill="var(--text)">provenance labels</text>
+            <text x="466" y="132" fill="var(--dim)" font-size="11">source on every value</text>
+            <text x="466" y="190" fill="var(--text)">--json everywhere</text>
+            <text x="466" y="208" fill="var(--dim)" font-size="11">pipe straight into anything</text>
+          </g>
+          <g stroke="var(--hover)">
+            <line x1="410" y1="100" x2="452" y2="44"></line>
+            <line x1="410" y1="120" x2="452" y2="120"></line>
+            <line x1="410" y1="140" x2="452" y2="196"></line>
+          </g>
+        </svg>
+        <figcaption>Fig. 03 | One engine, three doors: the CLI, a stdio MCP server for agents, and a thin remote gateway that never pretends to crawl.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">04 · data honesty</p>
+      <h2>If we don’t know, we say so</h2>
+      <p>
+        Every metric lumen emits is wrapped with its provenance — which provider
+        produced it, what kind of source it is (official, community, heuristic,
+        lab, or field), and when it was retrieved. Autocomplete-derived ideas are
+        labeled as autocomplete-derived ideas. A heuristic difficulty score is a
+        heuristic, not a Google number wearing a lab coat.
+      </p>
+      <p>
+        Missing data is reported as missing — never zero-filled. An interrupted
+        audit is marked <code>incomplete: true</code> rather than quietly shipping
+        half a report as the whole truth. Boring? Maybe. But you can put these
+        numbers in a doc without an asterisk the size of your conscience.
+      </p>
+      <figure>
+        <svg viewBox="0 0 640 196" role="img" aria-labelledby="fig04-title">
+          <title id="fig04-title">Three example metric cards: one field source, one gray source, and one honest no-source gap.</title>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="0" y="16" width="196" height="120" rx="8"></rect>
+            <rect x="222" y="16" width="196" height="120" rx="8"></rect>
+            <rect x="444" y="16" width="196" height="120" rx="8"></rect>
+          </g>
+          <text x="16" y="48" fill="var(--text)" font-size="22">2.4 s</text>
+          <text x="16" y="74" fill="var(--dim)" font-size="12">LCP p75</text>
+          <text x="16" y="118" fill="var(--badge-green)" font-size="11">source: crux · field</text>
+          <text x="238" y="48" fill="var(--text)" font-size="22">12</text>
+          <text x="238" y="74" fill="var(--dim)" font-size="12">keyword ideas</text>
+          <text x="238" y="118" fill="var(--badge-amber)" font-size="11">source: google-suggest · gray</text>
+          <text x="460" y="48" fill="var(--dim)" font-size="22">—</text>
+          <text x="460" y="74" fill="var(--dim)" font-size="12">search volume</text>
+          <text x="460" y="118" fill="var(--dim)" font-size="11">no free source → not shown</text>
+          <text x="0" y="178" fill="var(--dim)" font-size="12">every value carries {`{ value, source: { provider, kind }, retrievedAt }`}</text>
+        </svg>
+        <figcaption>Fig. 04 | Every number carries its source. No source, no number — that’s the whole policy.</figcaption>
+      </figure>
+    </section>
+
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">next</p>
+      <h2>Go somewhere useful</h2>
+      <p>
+        Start with the <a href={u('/docs/quickstart/')}>quickstart</a>, wire your
+        agent up via <a href={u('/docs/mcp-onboarding/')}>MCP onboarding</a>, or
+        read the <a href={u('/docs/rules-reference/')}>18 audit rules</a> before
+        you let a robot near your sitemap.
+      </p>
+    </section>
+
   </div>
 </Base>
