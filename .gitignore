@@ -8,6 +8,6 @@ dist/
 .wrangler/
 coverage/
 
-# seolite local runtime state + incremental build artifacts (PLAN.md Phase 1)
-.seolite/
+# lumen local runtime state + incremental build artifacts (PLAN.md Phase 1)
+.lumen/
 *.tsbuildinfo

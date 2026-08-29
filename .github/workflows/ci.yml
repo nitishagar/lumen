@@ -89,6 +89,6 @@ jobs:
           if [ "${{ steps.sel.outputs.scope }}" = "ALL" ]; then
             npm test
           else
-            read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @seolite/x -w @seolite/y" (charset-restricted, Phase 1)
+            read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @lumen-seo/x -w @lumen-seo/y" (charset-restricted, Phase 1)
             npm test --if-present "${WS[@]}"                   # array-split: shellcheck-clean; --if-present lets script-less workspaces (site) skip cleanly
           fi

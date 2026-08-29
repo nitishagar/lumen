@@ -67,32 +67,32 @@ function git(cwd, args) {
 }
 
 describe('select-workspaces.mjs — closure from the fixture lockfile', () => {
-  it('expands a @seolite/core change to its full reverse-dependency closure', () => {
-    expectOneScopeLine(run('packages/core/src/fetcher.ts\n'), '-w @seolite/audit -w @seolite/cli -w @seolite/core -w @seolite/mcp -w @seolite/providers');
+  it('expands a @lumen-seo/core change to its full reverse-dependency closure', () => {
+    expectOneScopeLine(run('packages/core/src/fetcher.ts\n'), '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/core -w @lumen-seo/mcp -w @lumen-seo/providers');
   });
 
-  it('expands a @seolite/providers change to its dependents', () => {
-    expectOneScopeLine(run('packages/providers/src/index.ts\n'), '-w @seolite/cli -w @seolite/mcp -w @seolite/providers');
+  it('expands a @lumen-seo/providers change to its dependents', () => {
+    expectOneScopeLine(run('packages/providers/src/index.ts\n'), '-w @lumen-seo/cli -w @lumen-seo/mcp -w @lumen-seo/providers');
   });
 
-  it('expands a @seolite/audit change to its dependents', () => {
-    expectOneScopeLine(run('packages/audit/src/crawler.ts\n'), '-w @seolite/audit -w @seolite/cli -w @seolite/mcp');
+  it('expands a @lumen-seo/audit change to its dependents', () => {
+    expectOneScopeLine(run('packages/audit/src/crawler.ts\n'), '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/mcp');
   });
 
-  it('expands a @seolite/mcp change to its dependents', () => {
-    expectOneScopeLine(run('packages/mcp/src/worker.ts\n'), '-w @seolite/cli -w @seolite/mcp');
+  it('expands a @lumen-seo/mcp change to its dependents', () => {
+    expectOneScopeLine(run('packages/mcp/src/worker.ts\n'), '-w @lumen-seo/cli -w @lumen-seo/mcp');
   });
 
   it('keeps a leaf change scoped to just that workspace', () => {
-    expectOneScopeLine(run('packages/cli/src/index.ts\n'), '-w @seolite/cli');
+    expectOneScopeLine(run('packages/cli/src/index.ts\n'), '-w @lumen-seo/cli');
   });
 
   it('scopes the site workspace (no dependents, no runtime deps on packages)', () => {
-    expectOneScopeLine(run('site/content/docs.md\n'), '-w @seolite/site');
+    expectOneScopeLine(run('site/content/docs.md\n'), '-w @lumen-seo/site');
   });
 
   it('maps a changed path that IS the workspace directory itself', () => {
-    expectOneScopeLine(run('packages/core\n'), '-w @seolite/audit -w @seolite/cli -w @seolite/core -w @seolite/mcp -w @seolite/providers');
+    expectOneScopeLine(run('packages/core\n'), '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/core -w @lumen-seo/mcp -w @lumen-seo/providers');
   });
 
   it('does not let a longer sibling dir shadow a shorter prefix (packages/core2 ≠ packages/core)', () => {
@@ -102,12 +102,12 @@ describe('select-workspaces.mjs — closure from the fixture lockfile', () => {
   it('unions and deduplicates several changed workspaces', () => {
     expectOneScopeLine(
       run('packages/audit/src/a.ts\npackages/providers/src/b.ts\npackages/audit/src/c.ts\n'),
-      '-w @seolite/audit -w @seolite/cli -w @seolite/mcp -w @seolite/providers',
+      '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/mcp -w @lumen-seo/providers',
     );
   });
 
   it('ignores unmapped paths mixed with package paths (code change decides the scope)', () => {
-    expectOneScopeLine(run('README.md\npackages/cli/src/index.ts\n.github/workflows/ci.yml\n'), '-w @seolite/cli');
+    expectOneScopeLine(run('README.md\npackages/cli/src/index.ts\n.github/workflows/ci.yml\n'), '-w @lumen-seo/cli');
   });
 });
 
@@ -152,7 +152,7 @@ describe('select-workspaces.mjs — default lockfile (repo root) and flag mode',
     const res = run('packages/core/src/fetcher.ts\n', { lockfile: null, cwd: REPO_ROOT });
     expect(res.status).toBe(0);
     expect(res.stdout).toMatch(OUTPUT_RE);
-    expect(res.stdout).toContain('-w @seolite/core');
+    expect(res.stdout).toContain('-w @lumen-seo/core');
   });
 
   it('uses ./package-lock.json for a docs-only diff ⇒ ALL (PLAN printf criterion)', () => {
@@ -171,7 +171,7 @@ describe('select-workspaces.mjs — default lockfile (repo root) and flag mode',
       git(dir, ['add', '-A']);
       git(dir, ['commit', '-q', '-m', 'feat: core fetcher']);
       const res = run('', { base, head: 'HEAD', cwd: dir });
-      expectOneScopeLine(res, '-w @seolite/audit -w @seolite/cli -w @seolite/core -w @seolite/mcp -w @seolite/providers');
+      expectOneScopeLine(res, '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/core -w @lumen-seo/mcp -w @lumen-seo/providers');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
