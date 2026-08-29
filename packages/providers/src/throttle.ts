@@ -26,8 +26,8 @@ export interface PacingCfg {
   burst?: number;
 }
 
-/** Sub-microsecond slack so floating-point rounding never manufactures a sleep (harmless to the window bound). */
-const FP_EPSILON_MS = 1e-6;
+/** Sub-millisecond slack absorbing float64 ulp rounding at epoch-scale clock values (harmless to the window bound). */
+const FP_EPSILON_MS = 1e-3;
 
 export class GcraPacer implements Pacer {
   private tat = 0; // theoretical arrival time (ms, injected-clock domain); 0 = idle
