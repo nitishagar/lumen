@@ -15,6 +15,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@lumen-seo/core": "*",
+    "cheerio": "^1.2.0"
+  },
   "devDependencies": {}
 }

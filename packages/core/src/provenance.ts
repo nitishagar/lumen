@@ -5,7 +5,7 @@
  * (SC-17): these helpers never read the wall clock, so outputs and tests are
  * reproducible (I10).
  */
-export type ProvenanceKind = 'official' | 'community' | 'heuristic' | 'lab' | 'field';
+export type ProvenanceKind = 'official' | 'community' | 'heuristic' | 'lab' | 'field' | 'gray';
 
 export const PROVENANCE_KINDS: readonly ProvenanceKind[] = [
   'official',
@@ -13,6 +13,7 @@ export const PROVENANCE_KINDS: readonly ProvenanceKind[] = [
   'heuristic',
   'lab',
   'field',
+  'gray', // providers A9: undocumented endpoints (google-suggest, ddg-serp)
 ];
 
 export interface Provenance {
