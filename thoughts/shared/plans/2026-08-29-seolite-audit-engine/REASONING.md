@@ -118,3 +118,15 @@ Append-only. One entry per non-obvious decision or confusion, newest last.
   assertion. Fixed: the latency test now drives a raw-429 Retry-After retry
   through the injected step-clock INSIDE the timed window (measured ~1000ms,
   override fires at 500ms, default 1500ms silent). Resumed same reviewer -> PASS.
+
+## Security review (2026-08-29, mandatory final-diff pass)
+
+- Verdict PASS, INFO-only: `redirectChain`/`url`/`finalUrl` fields are
+  URL-serialized (WHATWG percent-encoding strips raw C0/C1) but not
+  length-capped at 300 like other report strings — per the plan's explicit
+  "URLs serialized from URL objects" design; not exploitable (JSON storage,
+  consumers escape at render). Verified: sanitizeIssue covers page-rule AND
+  crawl-rule issues uniformly; reportIdFor output is [a-z0-9.-] only; every
+  fetch path (pages, robots, sitemaps, retries) still flows through the core
+  Fetcher; configSnapshot carries no env values; no ReDoS in new regexes; no
+  unbounded growth introduced.
