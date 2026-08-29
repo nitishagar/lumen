@@ -19,7 +19,9 @@
  *  - With a bin present the smoke asserts, deterministically and with ZERO
  *    network (I4):
  *      (a) `<bin> --help` exits 0 and mentions `lumen`;
- *      (b) `<bin> config show` exits 0 and stdout parses as a JSON object;
+ *      (b) `<bin> config show --json` exits 0 and stdout parses as a JSON object
+ *          (plain `config show` prints human-readable text — ARCHITECTURE gates
+ *          JSON behind `--json` on every command);
  *      (c) `<bin> mcp` answers a JSON-RPC `initialize` request over stdio
  *          (matching id, non-empty `result.serverInfo.name`) within the
  *          10 s timeout, then is terminated.
@@ -84,7 +86,7 @@ export function checkHelp(res) {
   if (!/lumen/i.test(out)) throw new SmokeError(`--help output does not mention "lumen": ${out.trim().split('\n')[0] || '(empty)'}`, 'help');
 }
 
-/** (b) `<bin> config show` exits 0 and stdout parses as a JSON object. */
+/** (b) `<bin> config show --json` exits 0 and stdout parses as a JSON object. */
 export function checkConfigShow(res) {
   if (res.status !== 0) throw new SmokeError(`config show exited with status ${res.status} (expected 0): ${(res.stderr ?? '').trim().split('\n')[0] || '(no stderr)'}`, 'config-show');
   let parsed;
@@ -195,8 +197,8 @@ export async function runSmoke({ cliDir, timeoutMs = DEFAULT_TIMEOUT_MS, runBin,
   checkHelp(run(['--help']));
   emit('check (a): ok');
 
-  emit('check (b): config show exits 0 with JSON on stdout');
-  checkConfigShow(run(['config', 'show']));
+  emit('check (b): config show --json exits 0 with JSON on stdout');
+  checkConfigShow(run(['config', 'show', '--json']));
   emit('check (b): ok');
 
   emit('check (c): stdio MCP initialize handshake (matching id + serverInfo.name)');

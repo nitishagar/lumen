@@ -358,13 +358,14 @@ describe('check-commits.mjs CLI (range mode)', () => {
     }
   });
 
-  it('fails loudly when the base revision cannot be resolved (not silently green)', () => {
+  it('skips with an explicit notice when the base cannot be resolved and no origin/main fallback exists (not silently green)', () => {
     const dir = makeRepo();
     try {
       commit(dir, 'chore: first');
       const res = runScript(['--base', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', '--head', 'HEAD'], dir);
-      expect(res.status).toBe(1);
-      expect(res.stderr).toContain('git log');
+      expect(res.status).toBe(0);
+      expect(res.stdout).toContain('::notice::');
+      expect(res.stdout).toContain('skipped');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -423,5 +424,53 @@ describe('check-commits.mjs CLI (argument handling)', () => {
   it('exits 2 on an unknown flag', () => {
     const res = runScript(['--bogus'], REPO_ROOT);
     expect(res.status).toBe(2);
+  });
+});
+
+describe('check-commits.mjs CLI (unreachable base — force-push fallback)', () => {
+  const BOGUS = 'f'.repeat(40);
+
+  it('falls back to origin/main..head and exits 0 when --base is unreachable (force-push)', () => {
+    const dir = makeRepo();
+    try {
+      const base = commit(dir, 'chore: first');
+      git(dir, ['update-ref', 'refs/remotes/origin/main', base]);
+      commit(dir, 'feat: second');
+      const res = runScript(['--base', BOGUS, '--head', 'HEAD'], dir);
+      expect(res.status).toBe(0);
+      expect(res.stdout).toContain('::notice::');
+      expect(res.stdout).toContain('origin/main');
+      expect(res.stdout).toContain('commit identity OK');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fallback still judges the new commits — violations fail (fail-safe)', () => {
+    const dir = makeRepo();
+    try {
+      const base = commit(dir, 'chore: first');
+      git(dir, ['update-ref', 'refs/remotes/origin/main', base]);
+      const bad = commit(dir, 'feat: sneaky', INTRUDER, INTRUDER);
+      const res = runScript(['--base', BOGUS, '--head', 'HEAD'], dir);
+      expect(res.status).toBe(1);
+      expect(res.stderr).toContain('::error::');
+      expect(res.stderr).toContain(bad.slice(0, 7));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips with a notice when base is unreachable and origin/main is unresolvable', () => {
+    const dir = makeRepo();
+    try {
+      commit(dir, 'chore: first');
+      const res = runScript(['--base', BOGUS, '--head', 'HEAD'], dir);
+      expect(res.status).toBe(0);
+      expect(res.stdout).toContain('::notice::');
+      expect(res.stdout).toContain('skipped');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

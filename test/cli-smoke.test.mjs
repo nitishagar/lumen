@@ -9,7 +9,9 @@
  *    (E2 skip-when-unconfigured semantics applied to surface absence — the
  *    gate activates the moment the real CLI exposes `bin`, zero changes).
  *  - `<bin> --help` exits 0 and mentions `lumen`.
- *  - `<bin> config show` exits 0 and stdout parses as JSON.
+ *  - `<bin> config show --json` exits 0 and stdout parses as JSON (the CLI's
+ *    plain `config show` prints human-readable text; ARCHITECTURE gates JSON
+ *    behind `--json` on every command).
  *  - `<bin> mcp` answers a JSON-RPC `initialize` over stdio with a matching
  *    id and a non-empty `result.serverInfo.name` within the 10 s timeout,
  *    then is terminated.
@@ -58,6 +60,12 @@ if (mode === '--help') {
 }
 if (mode === 'config' && process.argv[3] === 'show') {
   if (b.configStatus === 1) { process.stderr.write('no config\\n'); process.exit(1); }
+  if (!process.argv.includes('--json')) {
+    // mirrors the real CLI surface (ARCHITECTURE: --json on every command):
+    // plain "config show" prints human-readable text, JSON requires the flag
+    process.stdout.write(b.configHumanOutput ?? 'config: /tmp/lumen.config.json\\nfailThreshold: error\\n');
+    process.exit(0);
+  }
   process.stdout.write(b.configOutput ?? '{"profile":"default","failThreshold":"error"}\\n');
   process.exit(0);
 }
@@ -334,8 +342,14 @@ describe('cliSmokeMain — CLI surface', () => {
     return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', cwd: REPO_ROOT });
   }
 
-  it('against the real repo stub (no bin yet): exits 0 with a ::notice:: skip', () => {
-    const res = runMain(['--skip-build']);
+  it('against a bin-less fixture (surface not landed): exits 0 with a ::notice:: skip', () => {
+    // Synthetic fixture, deliberately NOT the live repo: the repo gains a real
+    // `bin` the moment the CLI lands, so a repo-dependent assertion would
+    // silently flip from "skip" to "full smoke" mid-integration.
+    const cliDir = mkdtempSync(join(tmpdir(), 'lumen-cli-smoke-stub-'));
+    onTestFinished(() => rmSync(cliDir, { recursive: true, force: true }));
+    writeFileSync(join(cliDir, 'package.json'), JSON.stringify({ name: '@lumen-seo/cli-stub', private: true }));
+    const res = runMain(['--skip-build', '--cli-dir', cliDir]);
     expect(res.status).toBe(0);
     expect(`${res.stdout}${res.stderr}`).toContain('::notice::');
   });
