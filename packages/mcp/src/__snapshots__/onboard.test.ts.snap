@@ -1,0 +1,39 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`onboarding payloads (E11) > claude (local stdio) — snapshot > onboard-claude-local 1`] = `"claude mcp add --transport stdio lumen -- npx -y @lumen-seo/cli mcp"`;
+
+exports[`onboarding payloads (E11) > claude (remote http via --url) — snapshot > onboard-claude-remote 1`] = `"claude mcp add --transport http lumen https://mcp.example.com/mcp"`;
+
+exports[`onboarding payloads (E11) > cursor (local stdio) — snapshot > onboard-cursor-local 1`] = `"cursor://anysphere.cursor-deeplink/mcp/install?name=lumen&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBsdW1lbi1zZW8vY2xpIiwibWNwIl19"`;
+
+exports[`onboarding payloads (E11) > cursor (remote http via --url) — snapshot > onboard-cursor-remote 1`] = `"cursor://anysphere.cursor-deeplink/mcp/install?name=lumen&config=eyJ0eXBlIjoiaHR0cCIsInVybCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUuY29tL21jcCJ9"`;
+
+exports[`onboarding payloads (E11) > json (local stdio) — snapshot > onboard-json-local 1`] = `
+"{
+  "mcpServers": {
+    "lumen": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@lumen-seo/cli",
+        "mcp"
+      ]
+    }
+  }
+}"
+`;
+
+exports[`onboarding payloads (E11) > json (remote http via --url) — snapshot > onboard-json-remote 1`] = `
+"{
+  "mcpServers": {
+    "lumen": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp"
+    }
+  }
+}"
+`;
+
+exports[`onboarding payloads (E11) > vscode (local stdio) — snapshot > onboard-vscode-local 1`] = `"vscode:mcp/install?%7B%22name%22%3A%22lumen%22%2C%22server%22%3A%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40lumen-seo%2Fcli%22%2C%22mcp%22%5D%7D%7D"`;
+
+exports[`onboarding payloads (E11) > vscode (remote http via --url) — snapshot > onboard-vscode-remote 1`] = `"vscode:mcp/install?%7B%22name%22%3A%22lumen%22%2C%22server%22%3A%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.example.com%2Fmcp%22%7D%7D"`;

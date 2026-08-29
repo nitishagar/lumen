@@ -16,6 +16,10 @@ export const normalizeDomain = (raw: string): string => {
   }
   // eslint-disable-next-line no-control-regex -- rejecting control characters is the point (I15)
   if (/[\s\x00-\x1f\x7f]/.test(raw)) throw new UsageError(`invalid domain: ${raw}`);
+  // domainToASCII silently TRUNCATES a string at URL delimiters ("example.com/evil"
+  // -> "example.com") — rejecting the delimiter family first guarantees we never
+  // silently rewrite a malformed argument into a different domain (I15).
+  if (/[/\\?#@:]/.test(raw)) throw new UsageError(`invalid domain: ${raw} (expected a bare hostname like example.com)`);
   const ascii = domainToASCII(raw.toLowerCase());
   if (ascii === null || ascii === '' || ascii.includes('/') || ascii.includes(':')) {
     throw new UsageError(`invalid domain: ${raw} (expected a bare hostname like example.com)`);

@@ -14,6 +14,7 @@ import { execute as audit } from './cmd/audit.js';
 import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
 import { execute as keywords } from './cmd/keywords.js';
+import { execute as mcp } from './cmd/mcp.js';
 import { execute as rank } from './cmd/rank.js';
 import { execute as report } from './cmd/report.js';
 import type { Io } from './io.js';
@@ -102,8 +103,7 @@ const dispatch = (
     case 'report':
       return report(ctx, deps);
     case 'mcp':
-      // Wired in Phase 4 (stdio launcher + onboarding payloads).
-      throw new Error('command "mcp" is not wired yet');
+      return mcp(ctx, deps);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);
