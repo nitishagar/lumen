@@ -4,13 +4,13 @@ protocol: create_plan_generic_v2_5
 aspect: providers
 package: "@seolite/providers"
 scale: large
-status: planned
+status: implemented
 depends_on: [P1 scaffold-core (M0) — core SPI, Fetcher, payload models]
 merge_order: P3 (after P2 audit-engine, before P4 surfaces; depends ONLY on core)
 spec: ./IMPLICIT_SPEC.md
 reconciliation: ../2026-08-29-seolite/RECONCILIATION.md (R1–R10 override on conflict — R5 env names, R7 worker safety)
 last_updated: 2026-08-29
-last_updated_by: providers plan author (post-validation rework per PLAN_VALIDATION.md)
+last_updated_by: providers implementer (all phases done on feat/lumen-providers; see REASONING.md)
 ---
 
 # SIGNPOST
@@ -382,16 +382,16 @@ it('core payload deltas A9 are present', () => { expect(gray).toBe('gray'); });
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-SHARED-1: every ProviderError subclass message/detail begins with `[provider]`
-- [ ] TC-SHARED-2 (GCRA worst-case window): with sustained demand under fake clock, every rolling 60 s window conforms ≤ `burst + rpm`; for limit-bearing providers `burst + rpm ≤ documentedLimit` (assert from `resolvePacing` output) — achievable by construction
-- [ ] TC-SHARED-3: `acquire()` sleeps until conforming (injected sleep) and sustained accepts are spaced `60_000/rpm` apart under fake clock; `tryAcquire` returns false beyond burst
-- [ ] TC-SHARED-4: `InMemoryCache` returns `undefined` after TTL expiry under fake clock
-- [ ] TC-SHARED-5: `redactUrl` replaces `key`/`token` params; original URL object unmutated
-- [ ] TC-SHARED-9: malformed JSON through the shared `json()` helper → `parse_error` (never `upstream_error`)
-- [ ] TC-SHARED-10: `withProviderErrors` classifies `AbortError`/`TimeoutError` → `timeout` (with `detail.aborted`), other errors → `upstream_error`; a rejection whose message merely contains "abort"/"timeout" is NOT classified by text
-- [ ] A9 compile test passes (or A9 edits applied additively to core in this branch)
-- [ ] `npm run typecheck -w @seolite/providers` green
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-SHARED-1: every ProviderError subclass message/detail begins with `[provider]`
+- [x] TC-SHARED-2 (GCRA worst-case window): with sustained demand under fake clock, every rolling 60 s window conforms ≤ `burst + rpm`; for limit-bearing providers `burst + rpm ≤ documentedLimit` (assert from `resolvePacing` output) — achievable by construction
+- [x] TC-SHARED-3: `acquire()` sleeps until conforming (injected sleep) and sustained accepts are spaced `60_000/rpm` apart under fake clock; `tryAcquire` returns false beyond burst
+- [x] TC-SHARED-4: `InMemoryCache` returns `undefined` after TTL expiry under fake clock
+- [x] TC-SHARED-5: `redactUrl` replaces `key`/`token` params; original URL object unmutated
+- [x] TC-SHARED-9: malformed JSON through the shared `json()` helper → `parse_error` (never `upstream_error`)
+- [x] TC-SHARED-10: `withProviderErrors` classifies `AbortError`/`TimeoutError` → `timeout` (with `detail.aborted`), other errors → `upstream_error`; a rejection whose message merely contains "abort"/"timeout" is NOT classified by text
+- [x] A9 compile test passes (or A9 edits applied additively to core in this branch)
+- [x] `npm run typecheck -w @seolite/providers` green
 
 ### Phase 1 — Registry wiring + contract-test harness
 
@@ -408,14 +408,14 @@ export function toDemandOpts(o: IdeasOpts): DemandOpts { return { lang: (o as { 
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-REG-1: `BUILTIN_PROVIDER_NAMES` contains exactly the 7 names (I2)
-- [ ] TC-REG-2: each wired provider declares its capability (keyword/serp/pagespeed/crux/authority)
-- [ ] TC-REG-3 (BA5-aligned): `crux` and `openpagerank` with absent key (stub `env` → undefined) reject with `not_configured` naming `SEOLITE_CRUX_KEY` / `SEOLITE_OPR_KEY` respectively — 0 fetches (fetcher spy); `pagespeed` with absent key rejects ONLY when `automated: true` (naming `SEOLITE_PSI_KEY`) and proceeds keyless when `automated: false`
-- [ ] TC-REG-4: config containing `apiKey`/`token`-like keys → rejected, error names the env-var alternative
-- [ ] TC-REG-5: `createWorkerSafeProviders` omits `ddg-serp`; importing the worker-safe factory does not load `cheerio` (module-graph assertion)
-- [ ] TC-REG-6 (override clamp): `resolvePacing` with crux `{rpm: 500}` → `{rpm: 140, burst: 10}` (worst 150); with `{rpm: 150, burst: 50}` → burst clamped ≤ 75 and `rpm + burst ≤ 150` always; providers without documented limits pass overrides through
-- [ ] `npm run typecheck -w @seolite/providers` green
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-REG-1: `BUILTIN_PROVIDER_NAMES` contains exactly the 7 names (I2)
+- [x] TC-REG-2: each wired provider declares its capability (keyword/serp/pagespeed/crux/authority)
+- [x] TC-REG-3 (BA5-aligned): `crux` and `openpagerank` with absent key (stub `env` → undefined) reject with `not_configured` naming `SEOLITE_CRUX_KEY` / `SEOLITE_OPR_KEY` respectively — 0 fetches (fetcher spy); `pagespeed` with absent key rejects ONLY when `automated: true` (naming `SEOLITE_PSI_KEY`) and proceeds keyless when `automated: false`
+- [x] TC-REG-4: config containing `apiKey`/`token`-like keys → rejected, error names the env-var alternative
+- [x] TC-REG-5: `createWorkerSafeProviders` omits `ddg-serp`; importing the worker-safe factory does not load `cheerio` (module-graph assertion)
+- [x] TC-REG-6 (override clamp): `resolvePacing` with crux `{rpm: 500}` → `{rpm: 140, burst: 10}` (worst 150); with `{rpm: 150, burst: 50}` → burst clamped ≤ 75 and `rpm + burst ≤ 150` always; providers without documented limits pass overrides through
+- [x] `npm run typecheck -w @seolite/providers` green
 
 ### Phase 2 — google-suggest + wikipedia-demand
 
@@ -453,15 +453,15 @@ const idea: KeywordIdea = {
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-SUG-1: fixture JSON `[q, [s…]]` → KeywordIdea[] with `source.kind === 'gray'`, attribution, retrievedAt, AND `estimateLabel` present on every idea
-- [ ] TC-SUG-2: 429 + `Retry-After: 7` → `RateLimitedError` with `retryAfterMs === 7000`
-- [ ] TC-SUG-3: second identical call performs 0 fetches (spy), returns equal ideas (24h cache)
-- [ ] TC-SUG-4 (mapping fixed): 500 fixture → `upstream_error`; 403 → `blocked`; HTML content-type → `blocked`; JSON content-type with garbage body → `parse_error`
-- [ ] TC-SUG-5: 100 concurrent ideas() with immediate fixtures: burst 5 immediate, ≤35 in any rolling 60 s window (fake clock)
-- [ ] TC-WIKI-1: fixtures (title hit + 28×dailies) → single idea, sum correct, `kind:'heuristic'`, estimateLabel says "demand proxy, not search volume"
-- [ ] TC-WIKI-2: both requests carry contact UA header; pacing ≤70/min worst window ≤ 200 documented (fake clock)
-- [ ] TC-WIKI-3: no title match → `[]`; 429 → `RateLimitedError` with Retry-After; malformed pageviews JSON → `ParseError`; cached second call = 0 fetches
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-SUG-1: fixture JSON `[q, [s…]]` → KeywordIdea[] with `source.kind === 'gray'`, attribution, retrievedAt, AND `estimateLabel` present on every idea
+- [x] TC-SUG-2: 429 + `Retry-After: 7` → `RateLimitedError` with `retryAfterMs === 7000`
+- [x] TC-SUG-3: second identical call performs 0 fetches (spy), returns equal ideas (24h cache)
+- [x] TC-SUG-4 (mapping fixed): 500 fixture → `upstream_error`; 403 → `blocked`; HTML content-type → `blocked`; JSON content-type with garbage body → `parse_error`
+- [x] TC-SUG-5: 100 concurrent ideas() with immediate fixtures: burst 5 immediate, ≤35 in any rolling 60 s window (fake clock)
+- [x] TC-WIKI-1: fixtures (title hit + 28×dailies) → single idea, sum correct, `kind:'heuristic'`, estimateLabel says "demand proxy, not search volume"
+- [x] TC-WIKI-2: both requests carry contact UA header; pacing ≤70/min worst window ≤ 200 documented (fake clock)
+- [x] TC-WIKI-3: no title match → `[]`; 429 → `RateLimitedError` with Retry-After; malformed pageviews JSON → `ParseError`; cached second call = 0 fetches
 
 ### Phase 3 — pagespeed + crux (Google BYOK pair)
 
@@ -504,18 +504,18 @@ return { metrics: mapMetrics(body.record.metrics), source: { provider: this.name
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-PSI-1: full PSI fixture → scores 0–100 (0.98 → 98) + lcp/cls/tbt/fcn from audits, `kind:'lab'`
-- [ ] TC-PSI-2 (R5 + BA5): `automated:true` without key → `not_configured` naming `SEOLITE_PSI_KEY`, 0 fetches; `automated:false` without key → keyless trial call proceeds
-- [ ] TC-PSI-3: 429 → `RateLimitedError`; Google error envelope `error.code` 429/403 → `rate_limited`; 500 → `upstream_error`
-- [ ] TC-PSI-4: fixture without `loadingExperience` → field omitted, not zeroed; with it → `kind:'field'`
-- [ ] TC-PSI-5: keyed and keyless calls never share cache entries (mode in key); cache 6h — second call 0 fetches; keyed worst window ≤70 ≤240, keyless ≤7 (fake clock)
-- [ ] TC-PSI-6: truncated/invalid JSON fixture → `parse_error` (never `upstream_error`)
-- [ ] TC-CRUX-1: absent key → `not_configured` naming `SEOLITE_CRUX_KEY`, 0 fetches (never keyless — A1)
-- [ ] TC-CRUX-2: fixture record → metrics `{name:{p75,histogramBins}}` mapped + `attribution` equals the verbatim CC BY 4.0 string (A8)
-- [ ] TC-CRUX-3: 404 no-data fixture → `null`; 429 → `RateLimitedError`; malformed → `ParseError`
-- [ ] TC-CRUX-4 (worst-case window): fake-clock burst of 10 immediate tries succeeds, 11th waits; with continuous demand, total conforming requests in any rolling 60 s window = 150 ≤ documented 150, never above (GCRA construction; A1)
-- [ ] TC-CRUX-5: cache 24h; `origin` vs `url` body scope per opts; formFactor default `PHONE`
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-PSI-1: full PSI fixture → scores 0–100 (0.98 → 98) + lcp/cls/tbt/fcn from audits, `kind:'lab'`
+- [x] TC-PSI-2 (R5 + BA5): `automated:true` without key → `not_configured` naming `SEOLITE_PSI_KEY`, 0 fetches; `automated:false` without key → keyless trial call proceeds
+- [x] TC-PSI-3: 429 → `RateLimitedError`; Google error envelope `error.code` 429/403 → `rate_limited`; 500 → `upstream_error`
+- [x] TC-PSI-4: fixture without `loadingExperience` → field omitted, not zeroed; with it → `kind:'field'`
+- [x] TC-PSI-5: keyed and keyless calls never share cache entries (mode in key); cache 6h — second call 0 fetches; keyed worst window ≤70 ≤240, keyless ≤7 (fake clock)
+- [x] TC-PSI-6: truncated/invalid JSON fixture → `parse_error` (never `upstream_error`)
+- [x] TC-CRUX-1: absent key → `not_configured` naming `SEOLITE_CRUX_KEY`, 0 fetches (never keyless — A1)
+- [x] TC-CRUX-2: fixture record → metrics `{name:{p75,histogramBins}}` mapped + `attribution` equals the verbatim CC BY 4.0 string (A8)
+- [x] TC-CRUX-3: 404 no-data fixture → `null`; 429 → `RateLimitedError`; malformed → `ParseError`
+- [x] TC-CRUX-4 (worst-case window): fake-clock burst of 10 immediate tries succeeds, 11th waits; with continuous demand, total conforming requests in any rolling 60 s window = 150 ≤ documented 150, never above (GCRA construction; A1)
+- [x] TC-CRUX-5: cache 24h; `origin` vs `url` body scope per opts; formFactor default `PHONE`
 
 ### Phase 4 — openpagerank + tranco (authority pair)
 
@@ -571,15 +571,15 @@ private async list(): Promise<TrancoList> {
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-OPR-1: absent key → `not_configured` naming `SEOLITE_OPR_KEY`, 0 fetches
-- [ ] TC-OPR-2 (per-domain): request URL carries exactly `domains[0]=example.com` + `Authorization: Bearer` header; fixture `{domains:[{…page_rank_decimal…}]}` → score + rank signals with flat provenance + attribution; no batch loop exists in the module (source assertion)
-- [ ] TC-OPR-3: fixture with one ok domain + one `error`/non-200 domain → only the ok domain emits (omission, no `value: undefined`); quota-error fixture → `RateLimitedError{reason:'monthly-quota'}`; 429 → `RateLimitedError` with Retry-After; 503 → `upstream_error`; malformed → `ParseError`
-- [ ] TC-OPR-4: pacing worst window exactly 60/min = documented (fake clock); per-domain cache 30d — repeat domain = 0 fetches
-- [ ] TC-TRC-1: fixtures (meta 200, CSV body) → Map built, rank lookups correct, `kind:'community'`, attribution + estimateLabel with list id/date
-- [ ] TC-TRC-2: CSV capped at maxRows (fixture with 105 rows, maxRows 100); domain normalized (case/trailing dot)
-- [ ] TC-TRC-3: today's meta 404 → falls back ≤3 days; **all 4 dates 404 on first run → `upstream_error` with 0 CSV fetches**; cached list <14d → 0 fetches; >14d → `stale_cache`
-- [ ] TC-TRC-4: Tranco attribution string present on every signal (A7/I8)
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-OPR-1: absent key → `not_configured` naming `SEOLITE_OPR_KEY`, 0 fetches
+- [x] TC-OPR-2 (per-domain): request URL carries exactly `domains[0]=example.com` + `Authorization: Bearer` header; fixture `{domains:[{…page_rank_decimal…}]}` → score + rank signals with flat provenance + attribution; no batch loop exists in the module (source assertion)
+- [x] TC-OPR-3: fixture with one ok domain + one `error`/non-200 domain → only the ok domain emits (omission, no `value: undefined`); quota-error fixture → `RateLimitedError{reason:'monthly-quota'}`; 429 → `RateLimitedError` with Retry-After; 503 → `upstream_error`; malformed → `ParseError`
+- [x] TC-OPR-4: pacing worst window exactly 60/min = documented (fake clock); per-domain cache 30d — repeat domain = 0 fetches
+- [x] TC-TRC-1: fixtures (meta 200, CSV body) → Map built, rank lookups correct, `kind:'community'`, attribution + estimateLabel with list id/date
+- [x] TC-TRC-2: CSV capped at maxRows (fixture with 105 rows, maxRows 100); domain normalized (case/trailing dot)
+- [x] TC-TRC-3: today's meta 404 → falls back ≤3 days; **all 4 dates 404 on first run → `upstream_error` with 0 CSV fetches**; cached list <14d → 0 fetches; >14d → `stale_cache`
+- [x] TC-TRC-4: Tranco attribution string present on every signal (A7/I8)
 
 ### Phase 5 — ddg-serp
 
@@ -617,12 +617,12 @@ private async searchOn(host: string, q: string, o: SearchOpts): Promise<SerpResu
 ```
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-DDG-1: fixture HTML → results with position 1..N, `uddg=` decoded to absolute URLs, ads excluded, `kind:'gray'` + attribution + estimateLabel
-- [ ] TC-DDG-2 (split): 429 → `RateLimitedError` with Retry-After AND no fallback fetch; 503 → `upstream_error` and no fallback; 403 → `blocked`; pacing: 10 s spacing between consecutive fetches, ≤7 in any rolling 60 s window (fake clock)
-- [ ] TC-DDG-3: anomaly/challenge fixture → `BlockedError`, then lite fallback attempted once (defined trigger)
-- [ ] TC-DDG-4: HTML with neither anchors nor no-results marker → `ParseError`; empty SERP with marker → `[]`
-- [ ] TC-DDG-5 (trigger defined): primary drift fixture + lite fixture → lite result returned with exactly 2 total fetches; lite also drifts → `parse_error` propagates; 429 from primary → exactly 1 fetch (no fallback)
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-DDG-1: fixture HTML → results with position 1..N, `uddg=` decoded to absolute URLs, ads excluded, `kind:'gray'` + attribution + estimateLabel
+- [x] TC-DDG-2 (split): 429 → `RateLimitedError` with Retry-After AND no fallback fetch; 503 → `upstream_error` and no fallback; 403 → `blocked`; pacing: 10 s spacing between consecutive fetches, ≤7 in any rolling 60 s window (fake clock)
+- [x] TC-DDG-3: anomaly/challenge fixture → `BlockedError`, then lite fallback attempted once (defined trigger)
+- [x] TC-DDG-4: HTML with neither anchors nor no-results marker → `ParseError`; empty SERP with marker → `[]`
+- [x] TC-DDG-5 (trigger defined): primary drift fixture + lite fixture → lite result returned with exactly 2 total fetches; lite also drifts → `parse_error` propagates; 429 from primary → exactly 1 fetch (no fallback)
 
 ### Phase 6 — Hardening, provenance sweep, docs, final green
 
@@ -643,12 +643,12 @@ it('providers never call global fetch directly (all HTTP via injected Fetcher, I
 - Lint/typecheck pass; exports test re-run; merge-readiness notes for orchestrator (A9 delta state recorded).
 
 **Success criteria**
-- [ ] Automated: `npm test -w @seolite/providers`
-- [ ] TC-SHARED-6: provenance sweep green for all 7 providers (kind valid, attribution non-empty — verbatim CC BY string for crux — retrievedAt present, estimateLabel present on every heuristic/gray value)
-- [ ] TC-SHARED-7: no-direct-fetch scan green
-- [ ] TC-SHARED-8: no error message/path from any provider fixture run contains the string of an injected fake key (`SEOLITE_TEST_KEY_123` probe)
-- [ ] `npm run lint -w @seolite/providers` and `npm run typecheck -w @seolite/providers` green
-- [ ] Package README includes the I16 data-flow table, R5 env names, and gray-provider brittleness statements
+- [x] Automated: `npm test -w @seolite/providers`
+- [x] TC-SHARED-6: provenance sweep green for all 7 providers (kind valid, attribution non-empty — verbatim CC BY string for crux — retrievedAt present, estimateLabel present on every heuristic/gray value)
+- [x] TC-SHARED-7: no-direct-fetch scan green
+- [x] TC-SHARED-8: no error message/path from any provider fixture run contains the string of an injected fake key (`SEOLITE_TEST_KEY_123` probe)
+- [x] `npm run lint -w @seolite/providers` and `npm run typecheck -w @seolite/providers` green
+- [x] Package README includes the I16 data-flow table, R5 env names, and gray-provider brittleness statements
 
 ## Testing Strategy
 

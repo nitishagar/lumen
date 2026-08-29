@@ -9,12 +9,16 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@lumen-seo/core": "*",
+    "cheerio": "^1.2.0"
+  },
   "devDependencies": {}
 }

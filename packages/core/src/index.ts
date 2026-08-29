@@ -15,6 +15,7 @@ export type {
   CruxRecord,
   HistogramBin,
   KeywordIdea,
+  PageSpeedField,
   PageSpeedMetrics,
   PageSpeedReport,
   PageSpeedScores,
