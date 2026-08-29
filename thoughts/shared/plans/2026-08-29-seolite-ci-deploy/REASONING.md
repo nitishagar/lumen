@@ -337,3 +337,59 @@ package.json files before hardcoding).
 - Final state: lint + typecheck clean; 45 test files / 480 tests green
   (10/10 stable on the ci-scripts suites); actionlint (pinned 1.7.12 docker)
   green over all four workflows; `npm run validate` green end-to-end.
+
+## M2 integration fix — identity gate force-push fallback (orchestrator, post-P4 surfaces wiring)
+
+First force-push in the repo's history (surfaces rebase) exposed a blind spot:
+the identity job's push-event range is `github.event.before..sha`, and after a
+force-push the `before` SHA is no longer reachable on the server, so
+`git log <before>..<sha>` failed with "Invalid revision range" and the gate
+crashed red instead of judging the new commits (run 33263276919).
+
+Behavior change (check-commits.mjs range mode): an unreachable `--base` now
+falls back to `origin/main..head` — the same base the zero-SHA new-branch guard
+uses — so the gate keeps judging exactly the new commits; violations found via
+the fallback still fail (fail-safe toward checking). If `origin/main` is
+unresolvable too, the gate skips with an explicit `::notice::` (mirroring the
+existing unborn-base tolerance), replacing the old exit-1 crash. The old
+"fails loudly when the base revision cannot be resolved" test was updated to
+the new explicit-notice contract; three new tests cover fallback-green,
+fallback-still-fails, and fallback-unresolvable-skip.
+
+Companion: `.wt/` (this project's documented local worktree layout) added to
+eslint's flat-config ignores — it is gitignored, CI never sees it, and without
+this the local M2 `npm run validate` gate on a worktree-bearing checkout is
+impossible to pass.
+
+## M2 integration fixes round 2 — scope=ALL artifact build + cli-smoke config surface (orchestrator, during P4 surfaces PR)
+
+CI on the surfaces PR (pull_request events run scope=ALL by design) exposed two
+more integration seams the parallel plans could not see:
+
+1. **mcp bundle-scan is an artifact-gate too.** `src/bundle-scan.test.ts` sits
+   in the mcp node vitest project, so the root suite (scope=ALL on PRs/main)
+   runs it — and it fails fast without the built worker bundle
+   (`dist/metafile.json`), exactly like the site gate suite. The scoped
+   branch-push path never hit this because `npm test -w @lumen-seo/mcp` chains
+   `test:worker` → `build:worker` first. Fix mirrors the site one: the
+   scope=ALL path (and `npm run validate`) now run
+   `npm run build:worker --if-present -w @lumen-seo/mcp` before `npm test`
+   (`--if-present` keeps the pre-surfaces stub green).
+
+2. **cli-smoke check (b) used a surface the CLI deliberately does not have.**
+   The Phase 7 sketch said `config show` prints JSON, but ARCHITECTURE and the
+   surfaces plan lock `config show [--json]` — human-readable by default, JSON
+   behind the flag ("`--json` on every command"). Against the real CLI the
+   smoke therefore failed check (b) in a fresh checkout (state-only repro:
+   standalone runs in a dev worktree passed; a pristine clone failed). Fix:
+   the smoke runs `config show --json`. TDD: the fixture bin now mirrors the
+   real surface (human output without the flag), turning the compliant-fixture
+   tests red before the fix.
+
+3. **cli-smoke "real repo stub" test was repo-state-dependent.** It asserted a
+   skip against the live repo's `packages/cli` — true while the stub had no
+   `bin`, silently flipping to "full real smoke" the moment the surfaces
+   branch merged. Replaced with a synthetic bin-less fixture (`--cli-dir`),
+   deterministic regardless of repo state. The real-repo smoke coverage
+   remains `npm run validate` (release.yml tag path + the orchestrator's M2
+   gate), which self-activates on the real CLI.

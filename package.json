@@ -16,7 +16,7 @@
     "test": "vitest run",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
-    "validate": "npm run typecheck && npm run lint && npm test && npm run build -w @lumen-seo/site && node scripts/ci/cli-smoke.mjs"
+    "validate": "npm run typecheck && npm run lint && npm run build:worker --if-present -w @lumen-seo/mcp && npm test && npm run build -w @lumen-seo/site && node scripts/ci/cli-smoke.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

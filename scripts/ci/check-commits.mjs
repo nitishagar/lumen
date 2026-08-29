@@ -212,10 +212,24 @@ function runRangeCheck(base, head) {
       maxBuffer: 64 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-  } catch (err) {
-    const detail = String((err.stderr && err.stderr.trim().split('\n')[0]) || err.message);
-    console.error(`::error::git log ${base}..${head} failed: ${detail}`);
-    return 1;
+  } catch {
+    // Unreachable base — e.g. a force-push removed github.event.before from the
+    // reachable graph, so the range names a SHA no longer on the server. Fall
+    // back to origin/main..head (the zero-SHA guard's base) so the gate keeps
+    // judging the new commits; if origin/main is unresolvable too, skip like
+    // an unborn base.
+    const FALLBACK_BASE = 'origin/main';
+    try {
+      output = execFileSync('git', ['log', '-z', `--format=${GIT_LOG_FORMAT}`, `${FALLBACK_BASE}..${head}`], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      console.log(`::notice::base ${base} is unreachable (force-push?) — range fell back to ${FALLBACK_BASE}..${head}`);
+    } catch {
+      console.log(`::notice::base ${base} unreachable and ${FALLBACK_BASE} unresolvable — commit range check skipped`);
+      return 0;
+    }
   }
   const records = parseGitLog(output);
   const violations = validateRecords(records);
