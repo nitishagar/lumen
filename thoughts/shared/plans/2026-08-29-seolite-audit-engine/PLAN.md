@@ -285,8 +285,8 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
 
 ### Phase 2 — Robots policy, rate limiting, sitemap discovery
 
@@ -301,8 +301,8 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
 
 ### Phase 3 — Boundary handling: redirects, body caps, per-URL failures
 
@@ -316,8 +316,8 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
 
 ### Phase 4 — Cancellation and partial-failure labeling
 
@@ -330,8 +330,8 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
 
 ### Phase 5 — Built-in rules (18) and rule-set configuration
 
@@ -349,8 +349,8 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
 
 ### Phase 6 — Scorer, report assembly, sanitization, end-to-end gate
 

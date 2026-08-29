@@ -16,7 +16,7 @@ import { AbortedError } from '@lumen-seo/core';
 import type { AuditRule, Issue, PageContext } from '@lumen-seo/core';
 import { load as loadDom } from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
-import { SEEN_SET_FACTOR } from '../config.js';
+import { EVIDENCE_CAP, SEEN_SET_FACTOR } from '../config.js';
 import type {
   CrawlIndex,
   CrawlIndexEntry,
@@ -138,9 +138,20 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
     for (const rule of o.rules) {
       try {
         const found = await rule.check(ctx, ruleCtx);
-        if (Array.isArray(found)) issues.push(...found);
+        if (!Array.isArray(found)) continue;
+        if (found.length > EVIDENCE_CAP) {
+          issues.push(...found.slice(0, EVIDENCE_CAP));
+          issues.push({
+            ruleId: rule.id,
+            severity: rule.severity,
+            message: `+${found.length - EVIDENCE_CAP} more occurrence(s) (evidence capped at ${EVIDENCE_CAP} per rule per page)`,
+            evidence: {},
+          });
+        } else {
+          issues.push(...found);
+        }
       } catch {
-        ruleErrors[rule.id] = (ruleErrors[rule.id] ?? 0) + 1;
+        ruleErrors[rule.id] = (ruleErrors[rule.id] ?? 0) + 1; // rule-throw isolation (I14/I9)
       }
     }
     return issues;

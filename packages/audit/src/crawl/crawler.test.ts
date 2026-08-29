@@ -124,7 +124,8 @@ describe('crawler (core loop)', () => {
     expect(report.pages[0]?.skipped).toBeUndefined();
     expect(report.pages[0]?.bytes).toBe(0);
     expect(seen).toEqual(['title=0']);
-    expect(report.pages[0]?.issues).toHaveLength(1);
+    // the probe rule fired on the empty document alongside the built-ins
+    expect(report.pages[0]?.issues.some((i) => i.ruleId === 'probe-title-missing')).toBe(true);
   });
 
   it('determinism spot-check: repeated runs with identical inputs produce identical reports', async () => {

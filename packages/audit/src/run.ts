@@ -14,10 +14,11 @@
  * reports.
  */
 import { AbortedError } from '@lumen-seo/core';
-import type { PageReport, RobotsPolicy, Severity, SiteAuditReport } from '@lumen-seo/core';
+import type { Issue, PageReport, RobotsPolicy, Severity, SiteAuditReport } from '@lumen-seo/core';
 import { resolveAuditConfig } from './config.js';
 import { crawl } from './crawl/crawler.js';
 import type { CrawledPage, CrawlGate } from './crawl/crawler.js';
+import { createRuleSet } from './rules/rule-set.js';
 import { robotsGate } from './crawl/robots-policy.js';
 import { RateLimiter } from './crawl/rate-limiter.js';
 import { discoverSitemaps } from './crawl/sitemap.js';
@@ -73,7 +74,9 @@ export const runSiteAudit = async (
     discovered = [];
   }
 
-  // 3. Crawl — worker pool behind the robots+politeness gate.
+  // 3. Crawl — worker pool behind the robots+politeness gate, running the
+  //    per-page rule set (built-ins + plugin rules with effective severities).
+  const ruleSet = createRuleSet(resolved); // validates severityOverrides (unknown id -> ConfigError)
   const crawlGate: CrawlGate = {
     isAllowed: (url) => (resolved.respectRobots ? policy.isAllowed(url) : true),
     waitForTurn: (url, sig) => limiter.waitForTurn(url.host, sig),
@@ -82,23 +85,46 @@ export const runSiteAudit = async (
     seed,
     config: resolved,
     deps,
-    rules: resolved.extraRules, // built-in rule set lands in Phase 5
+    rules: ruleSet.pageRules,
     signal,
     gate: crawlGate,
     discovered,
     onWarning,
   });
 
+  // 4. Finalize — crawl-level rules (broken-internal-link, redirect-chain)
+  //    place their issues on OWNING pages via Issue.url (I3).
+  const ruleErrors = { ...result.ruleErrors };
+  const crawlIssuesByPage = new Map<string, Issue[]>();
+  for (const rule of ruleSet.crawlRules) {
+    try {
+      const found = rule.checkCrawl(result.index, { depth: 0, isSeed: true, signal });
+      for (const issue of found) {
+        if (issue.url === undefined) continue;
+        const list = crawlIssuesByPage.get(issue.url) ?? [];
+        list.push(issue);
+        crawlIssuesByPage.set(issue.url, list);
+      }
+    } catch {
+      ruleErrors[rule.id] = (ruleErrors[rule.id] ?? 0) + 1;
+    }
+  }
+  for (const page of result.pages) {
+    const extra = crawlIssuesByPage.get(page.url);
+    if (extra !== undefined) page.issues.push(...extra);
+  }
+
   return assembleReport(
     result.pages,
     result.stop,
     result.startedAtMs,
     result.completedAtMs,
-    result.ruleErrors,
+    ruleErrors,
     resolved,
     seed,
     deps,
     warnings,
+    ruleSet.effectiveSeverity,
   );
 };
 
@@ -109,7 +135,7 @@ const emptyAbortedReport = (
   deps: CrawlerDeps,
   warnings: string[],
 ): SiteAuditReport =>
-  assembleReport([], 'aborted', deps.now(), deps.now(), {}, resolved, seed, deps, warnings);
+  assembleReport([], 'aborted', deps.now(), deps.now(), {}, resolved, seed, deps, warnings, {});
 
 /** Phase-1 inline assembly — Phase 6 moves this to `report/` (scorer, sanitize, id). */
 const assembleReport = (
@@ -122,6 +148,7 @@ const assembleReport = (
   seed: URL,
   deps: CrawlerDeps,
   warnings: string[],
+  ruleSeverities: Readonly<Record<string, Severity>>,
 ): SiteAuditReport => {
   const pageReports: PageReport[] = pages.map((p) => ({
     url: p.url,
@@ -172,7 +199,7 @@ const assembleReport = (
       renderer: 'static', // A10 — honesty label: no JS rendering
       thresholds: { ...resolved.thresholds },
       maxBodyBytes: resolved.maxBodyBytes,
-      rules: [...resolved.extraRules.map((r) => r.id)],
+      rules: { ...ruleSeverities },
       discoveryWarnings: warnings,
     },
     stopReason: stop,

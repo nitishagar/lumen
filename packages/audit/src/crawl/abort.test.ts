@@ -117,7 +117,8 @@ describe('abort (I14)', () => {
     expect(report.pages).toHaveLength(1); // only the completed seed
     expect(report.pages[0]?.url).toBe('https://example.com/');
     expect(report.pages[0]?.status).toBe(200);
-    expect(report.pages[0]?.issues).toEqual([]);
+    // issues come only from the seed's own audit — nothing fabricated for /a
+    expect(report.pages[0]?.issues.every((i) => i.url === undefined)).toBe(true);
     expect(report.summary.pagesAudited).toBe(1);
   });
 
