@@ -1,0 +1,22 @@
+{
+  // ONE strictness contract for every package (PLAN.md Phase 1).
+  // ESM-only: NodeNext module resolution requires explicit `.js` import
+  // extensions in source. `exactOptionalPropertyTypes` is deliberately OFF
+  // (default choice — M1 friction). `allowImportingTsExtensions` is safe
+  // because every consumer is noEmit in M0 (BA-13: exports point at TS
+  // source; no build step until M2 publishing).
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"]
+  }
+}

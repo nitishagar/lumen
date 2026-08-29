@@ -7,3 +7,7 @@ dist/
 .env.*
 .wrangler/
 coverage/
+
+# seolite local runtime state + incremental build artifacts (PLAN.md Phase 1)
+.seolite/
+*.tsbuildinfo
