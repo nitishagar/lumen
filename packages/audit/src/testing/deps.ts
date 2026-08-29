@@ -18,9 +18,9 @@ export interface TestDeps extends CrawlerDeps {
 
 export const makeTestDeps = (
   fetcher: Fetcher,
-  o: { start?: number; hang?: boolean } = {},
+  o: { start?: number; hang?: boolean; time?: { value: number } } = {},
 ): TestDeps => {
-  const time = { value: o.start ?? 0 };
+  const time = o.time ?? { value: o.start ?? 0 };
 
   const delay = (ms: number, signal?: AbortSignal): CancellableDelay => {
     if (o.hang === true) {

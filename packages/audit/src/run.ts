@@ -3,15 +3,26 @@
  * bounded, cancellable crawl + rules + report. Both the `lumen audit` CLI and
  * the `lumen_audit_site` MCP tool call exactly this (P4's concern).
  *
+ * Pipeline (plan Approach): gate (robots) → discover (sitemaps) → crawl loop
+ * (worker pool) → crawl rules → assemble. Abort anywhere resolves with a
+ * partial report (`stopReason: 'aborted'`, `incomplete: true`) — it never
+ * rejects (I14). Robots refusal surfaces as typed errors with zero page
+ * fetches (A2).
+ *
  * Determinism (I10): clock, sleep, jitter, and the report-id random component
  * are injected via `deps`; identical inputs + deps produce byte-identical
  * reports.
  */
-import type { PageReport, Severity, SiteAuditReport } from '@lumen-seo/core';
+import { AbortedError } from '@lumen-seo/core';
+import type { PageReport, RobotsPolicy, Severity, SiteAuditReport } from '@lumen-seo/core';
 import { resolveAuditConfig } from './config.js';
 import { crawl } from './crawl/crawler.js';
-import type { CrawledPage } from './crawl/crawler.js';
+import type { CrawledPage, CrawlGate } from './crawl/crawler.js';
+import { robotsGate } from './crawl/robots-policy.js';
+import { RateLimiter } from './crawl/rate-limiter.js';
+import { discoverSitemaps } from './crawl/sitemap.js';
 import type { AuditConfig, CrawlerDeps, ResolvedAuditConfig, StopReason } from './types.js';
+import { LumenSeedDisallowedError } from './types.js';
 
 const WEIGHT: Record<Severity, number> = { error: 10, warning: 3, info: 0 };
 
@@ -23,17 +34,80 @@ export const runSiteAudit = async (
 ): Promise<SiteAuditReport> => {
   const resolved = resolveAuditConfig(config);
   const warnings: string[] = [];
+  const onWarning = (code: string): void => {
+    warnings.push(code);
+  };
+  const limiter = new RateLimiter(deps, resolved.crawl.perHostMinDelayMs);
+
+  // 1. Gate — robots.txt, conservative on failure (A2). `respectRobots: false`
+  //    skips the gate but never the rate limiter or budgets.
+  let policy: RobotsPolicy = Object.freeze({ isAllowed: () => true, sitemaps: Object.freeze([]) });
+  let probeSitemap = true;
+  if (resolved.respectRobots) {
+    let gate: Awaited<ReturnType<typeof robotsGate>>;
+    try {
+      gate = await robotsGate(seed, deps, signal);
+    } catch (e) {
+      if (e instanceof AbortedError || signal?.aborted === true) {
+        return emptyAbortedReport(resolved, seed, deps, warnings);
+      }
+      throw e;
+    }
+    policy = gate.policy;
+    if (policy.crawlDelay !== undefined) limiter.setCrawlDelay(policy.crawlDelay); // RFC 9309 seconds
+    probeSitemap = gate.probeSitemap;
+    if (!policy.isAllowed(seed)) throw new LumenSeedDisallowedError(seed.href);
+  }
+
+  // 2. Discover — robots `Sitemap:` sources (≤ MAX_SITEMAP_SOURCES) or the
+  //    /sitemap.xml probe; same-origin http(s) only; discovery failures warn
+  //    and fall back to link discovery.
+  let discovered: URL[] = [];
+  const sources = probeSitemap ? [] : [...policy.sitemaps]; // source cap applied inside discovery
+  try {
+    discovered = await discoverSitemaps({ seed, sources, deps, limiter, signal, onWarning });
+  } catch (e) {
+    if (!(e instanceof AbortedError) && signal?.aborted !== true) throw e;
+    discovered = [];
+  }
+
+  // 3. Crawl — worker pool behind the robots+politeness gate.
+  const crawlGate: CrawlGate = {
+    isAllowed: (url) => (resolved.respectRobots ? policy.isAllowed(url) : true),
+    waitForTurn: (url, sig) => limiter.waitForTurn(url.host, sig),
+  };
   const result = await crawl({
     seed,
     config: resolved,
     deps,
     rules: resolved.extraRules, // built-in rule set lands in Phase 5
     signal,
-    onWarning: (code) => warnings.push(code),
+    gate: crawlGate,
+    discovered,
+    onWarning,
   });
 
-  return assembleReport(result.pages, result.stop, result.startedAtMs, result.completedAtMs, result.ruleErrors, resolved, seed, deps, warnings);
+  return assembleReport(
+    result.pages,
+    result.stop,
+    result.startedAtMs,
+    result.completedAtMs,
+    result.ruleErrors,
+    resolved,
+    seed,
+    deps,
+    warnings,
+  );
 };
+
+/** Abort during gate/discovery: a zero-page partial report, honestly labeled (I14). */
+const emptyAbortedReport = (
+  resolved: ResolvedAuditConfig,
+  seed: URL,
+  deps: CrawlerDeps,
+  warnings: string[],
+): SiteAuditReport =>
+  assembleReport([], 'aborted', deps.now(), deps.now(), {}, resolved, seed, deps, warnings);
 
 /** Phase-1 inline assembly — Phase 6 moves this to `report/` (scorer, sanitize, id). */
 const assembleReport = (
