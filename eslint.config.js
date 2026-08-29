@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -11,4 +12,10 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Plain-Node CI gate scripts and their tests are dependency-free .mjs
+    // (ci-deploy PLAN Phase 1) — declare the Node runtime globals for them.
+    files: ['scripts/**/*.mjs', 'test/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+  },
 );
