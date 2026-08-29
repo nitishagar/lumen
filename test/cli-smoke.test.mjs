@@ -84,7 +84,8 @@ if (mode === 'mcp') {
       }
     }
   });
-  if (!b.mcpDeaf) process.stdin.on('end', () => process.exit(0)); // a deaf server stays alive until killed — that is the point of the timeout fixture
+  if (b.mcpDeaf) { setInterval(() => {}, 10000); } // stay alive (loop pinned) until the smoke kills us — a deaf server must never exit on its own
+  else process.stdin.on('end', () => process.exit(0));
 } else {
   process.stderr.write('unknown argv\\n');
   process.exit(2);

@@ -175,3 +175,138 @@ site's "tests test the built artifact, never rebuild" rule (CI builds
 explicitly) and P6a's scoped-branch-testing rule. Root-suite path unchanged
 (site remains excluded from root vitest discovery per scaffold Phase 1; the
 P6b pages workflow builds and deploys the artifact on main).
+
+---
+
+# P6b implementation log (Phases 4–7, branch `feat/ci-deploy-p6b`)
+
+Implementer: ci-deploy P6b agent (implement_plan_v2_5, scale=large). Base: main
+`215dc24`. Product was renamed after this plan was written; every `@seolite/*`
+reference in the plan is realized as `@lumen-seo/*`, repo `nitishagar/seolite`
+as `nitishagar/lumen`, Pages URL `https://nitishagar.github.io/lumen/`, site
+base `/lumen/` (verified against `site/astro.config.mjs` and the workspace
+package.json files before hardcoding).
+
+## Phase 4 — pages.yml + badges
+
+- Workflow written per the PLAN sketch with the rename applied. Verified the
+  build step locally: `npm run build -w @lumen-seo/site` emits `site/dist`
+  (astro build + pagefind, 8 pages indexed) with `/lumen/` base URLs — the P5
+  artifact contract holds on main today.
+- actionlint ran via the pinned docker image `rhysd/actionlint:1.7.12` (docker
+  IS available locally, so local/CI parity is exact — same engine as the
+  `workflow-lint` job).
+- README badges: CI + Deploy Pages (workflow badges) + Docs (website shield for
+  https://nitishagar.github.io/lumen/) + Apache-2.0 license badge; npm badge
+  stays a placeholder comment until the first verified publish (PLAN Phase 6).
+
+## Phase 5 — deploy-worker.yml
+
+- Written per the PLAN sketch (guard step → `steps.guard.outputs.skip` gating
+  every later step). actionlint clean (it would flag illegal `secrets:`/
+  `env:` use in job-level `if` — the guard-step pattern avoids the trap by
+  construction).
+- **Cross-check DEFERRED to the surfaces merge:** PLAN Phase 5 requires
+  `packages/mcp/wrangler.jsonc` to exist with committed `account_id` + `main`
+  before merging. On current main `packages/mcp` is still a stub (no wrangler
+  config, no `build` script). Per the plan's own "does not invent the file"
+  rule, the file was NOT created. Consequences while the stub stands: the
+  workflow's skip path is fully correct (no secret on this machine), but the
+  wrangler step's `npm run build -w @lumen-seo/mcp` + `workingDirectory:
+  packages/mcp` contract only becomes satisfiable when the surfaces merge
+  lands the real Worker package. Orchestrator note: verify
+  `grep -q account_id packages/mcp/wrangler.*` at the M2 gate.
+
+## Phase 6 — release.yml + publish-workspaces.mjs (TDD)
+
+- Tests written FIRST (`test/publish-workspaces.test.mjs`, red on missing
+  module), then the script. 40 tests, injected runner, no registry calls.
+- **Publish order — computed, not hardcoded.** The plan lists
+  core → audit → providers → mcp → cli. Verified against the real dependency
+  graph (`package-lock.json` + the committed fixture): a Kahn topological sort
+  with alphabetical tie-break yields EXACTLY that order for the architecture
+  graph (mcp→audit+providers, cli→audit+mcp+providers), and stays topologically
+  correct automatically when the surfaces merge adds the real deps (the
+  current stub graph orders cli/mcp among independents — still valid). This
+  keeps I2 ("adding a workspace never requires editing CI") intact.
+- **Reality gap fix — `private` clearing:** every workspace manifest on main
+  is `"private": true`; npm refuses to publish private packages, so the
+  plan's own publish command would fail. The runner-local manifest rewrite
+  therefore also deletes `private` (alongside the planned version + internal
+  dep-range rewrites). Originals are restored byte-for-byte in a finally
+  block — nothing is ever committed (E5).
+- **"In-memory" rewrite realized as runner-local disk write:** npm reads the
+  manifest from disk, so real-mode writes the rewritten package.json into the
+  ephemeral checkout before publishing and restores the original bytes when
+  the run ends (success or failure). Dry-run never writes. The invariant the
+  plan protects — E5, nothing committed — holds by construction (workflows
+  never push).
+- Duplicate-publish idempotency matches status ∈ {403, 409} (via
+  `code E403`/`npm error 403` lines) OR message `/cannot publish over/i`
+  (PLAN_VALIDATION round-1 item 2). E404: 3 attempts / 15 s apart (I17's
+  "3 attempts" reading: attempts total, 2 backoffs). Other failures: typed
+  error naming the package, no retries, later packages untouched.
+- Cycle in the workspace graph ⇒ typed error (ordered publishing would be
+  impossible); a publishable package depending on a NON-publishable workspace
+  (e.g. site) ⇒ typed error, publish set untouched.
+- **Plan-sketch YAML bug fixed (found by actionlint):** flow-style
+  `env: { X: ${{ ... }} }` is illegal YAML (expressions can't live inside
+  flow mappings — actionlint: "could not parse as YAML"). All release.yml
+  `env` blocks use block style.
+- **Plan-sketch shell bug fixed (reviewed by hand, invisible to actionlint):
+  the sketch's multi-line plain `run: gh release view … \ || gh release
+  create …` scalar folds newlines to spaces in YAML, so the shell receives
+  backslash-SPACE (escaped space arg), not a line continuation — the first gh
+  command would receive a stray " " argument. Rewritten as a block scalar
+  (`run: |`) preserving real newlines. Same command semantics as intended.
+- publish job sets `registry-url` on setup-node; NODE_AUTH_TOKEN flows via
+  npm's `_authToken` env interpolation; the script itself never echoes tokens.
+
+## Phase 7 — cli-smoke.mjs + validate meta-gate
+
+- TDD: `test/cli-smoke.test.mjs` (26 tests) written first; fixture `lumen`
+  binaries are real executable scripts (no subject mocking), handshake tests
+  spawn real child processes.
+- Checks implemented exactly per plan (renamed): `--help` exit 0 + mentions
+  `lumen`; `config show` exit 0 + stdout parses as a JSON object; spawn bin
+  `mcp`, JSON-RPC initialize (id 1, protocolVersion pinned `2025-06-18` — the
+  MCP SDK is intentionally not a dependency of this zero-dep gate; the
+  response's own protocolVersion is echoed by the server and not asserted),
+  matching id + non-empty `result.serverInfo.name` within 10 s, then SIGTERM.
+  Non-JSON stdout lines from the server are tolerated (banner robustness);
+  notifications (messages with `method`, no `id`) are skipped.
+- **Skip-until-surface semantics (reality-driven):** `packages/cli` on main is
+  a stub with no `bin` field, so the smoke resolves no binary. Rather than
+  hard-fail `validate` in the pre-surfaces window, absence of `bin` prints
+  `::notice::` and exits 0 — the same modeled-absence design as the
+  deploy-worker guard (E2). The gate becomes REAL the moment the surfaces
+  merge lands a `bin` entry; zero script/workflow changes. The full smoke e2e
+  therefore runs at the orchestrator's M2 gate post-surfaces-merge.
+  Unit tests pin the skip semantics against fixtures (not the live repo), so
+  the surfaces merge does not break the test suite.
+- Build step: `npm run build --if-present -w @lumen-seo/cli` (plan says
+  "builds if needed"; the stub has no build script — same --if-present
+  precedent as the P6a scoped-test runner).
+- Root `validate` extended to the exact planned final form:
+  `npm run typecheck && npm run lint && npm test && npm run build -w
+  @lumen-seo/site && node scripts/ci/cli-smoke.mjs`. Verified green on the
+  branch (typecheck + lint + 477 tests + site build + smoke skip).
+- Flake caught by the full-suite run: the deaf-server fixture exited on stdin
+  end before the short timeout fired (race lost under load). Fixture fixed to
+  stay alive in deaf mode; the timeout test now pins the timeout path
+  deterministically.
+
+## Environment notes
+
+- actionlint: NOT installed locally; docker IS available, so every workflow
+  change was validated with the pinned `rhysd/actionlint:1.7.12` image —
+  byte-identical engine to the CI `workflow-lint` job. (The P6a note stands.)
+- No `CLOUDFLARE_API_TOKEN` / `NODE_AUTH_TOKEN` on this machine (research-
+  verified): skip-cleanly guard semantics are the expected green path for
+  deploy-worker and the release publish job; verified by reading the guard
+  logic + unit tests, not by a live run (runner-only).
+- Review mechanism note: this environment exposes no sub-agent spawner to the
+  implementer; fresh adversarial reviewers were run out-of-process via the
+  `claude` CLI (`claude -p`, full tool access, fresh context = different agent
+  than the author), producing IMPLEMENTATION_VALIDATION.md /
+  TEST_VALIDATION.md / SECURITY_REVIEW.md in the bundle.
