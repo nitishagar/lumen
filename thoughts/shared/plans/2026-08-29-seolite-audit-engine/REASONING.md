@@ -81,3 +81,27 @@ Append-only. One entry per non-obvious decision or confusion, newest last.
 - Why 429-retry latency can exceed the page deadline… (not needed: the
   deadline composes via core's fetch timeout; audit's raw-429 retry path adds
   at most the 5 s Retry-After cap — bounded, per plan resource table.)
+
+## Phase 6 notes (2026-08-29)
+
+- TDD: the five report/* test files and e2e.test.ts were written first and
+  observed red, then implementation. Three initial reds were TEST bugs, not
+  engine bugs: (1) e2e/assemble sitemap fixtures omitted the `<url>` wrapper
+  around `<loc>` (the committed sitemap fixtures have it) so discovery
+  correctly warned `sitemap_malformed`; (2) C0/C1 assertions were guarded with
+  an inverted `||` pattern that failed for legitimately-undefined fields;
+  (3) the report-id length bound used a 15-char stamp (it is 16). Also: the
+  HTML parser normalizes NUL to U+FFFD at parse time (spec behavior), so raw
+  C0/C1 rarely survive to storage — the sanitizer is the backstop for paths
+  that skip the parser, and the report-level invariant test proves the stored
+  form is inert regardless of origin.
+- A 5xx response from the real fetcher surfaces as the post-retry terminal
+  `RetryExhaustedError` → `fetch_error` skip (I17). To audit a page whose 500
+  REACHED the auditor (status-error rule), the fake fetcher's `passStatus`
+  opt-in models a non-retrying transport. e2e uses it for /policies.
+- `no-control-regex` lint suppression is used exactly twice (the sanitizer and
+  the report-invariant test) — matching control chars is those lines' purpose.
+- Reviewer independence: the harness exposes no Agent-spawn tool to this
+  run, so adversarial reviewers are executed as fresh headless `claude -p`
+  sessions (separate context, read-only tool allowlist, output contract) —
+  the closest available equivalent to the skill's fresh sub-agents.

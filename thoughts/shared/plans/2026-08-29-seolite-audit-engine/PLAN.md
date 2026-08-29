@@ -367,10 +367,10 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Success Criteria**
 
-- [ ] Automated: `npm test -w @seolite/audit`
-- [ ] Automated: `npm run typecheck -w @seolite/audit`
-- [ ] Automated: `npm run lint -w @seolite/audit`
-- [ ] Automated: `npm run build -w @seolite/audit`
+- [x] Automated: `npm test -w @seolite/audit`
+- [x] Automated: `npm run typecheck -w @seolite/audit`
+- [x] Automated: `npm run lint -w @seolite/audit` (root `eslint .` — no workspace lint script in the M0 scaffold, per IMPLICIT_SPEC scaffold note)
+- [x] Automated: `npm run build -w @seolite/audit` (maps to workspace `tsc --noEmit` — no workspace build script in the M0 scaffold, per IMPLICIT_SPEC scaffold note; see REASONING.md)
 - [ ] Phase gate: full M1 branch CI green (per-branch scope `npm test -w @seolite/audit`); ready for orchestrator-ordered merge (P2 → P3 → P4 → P5)
 
 ## Testing Strategy

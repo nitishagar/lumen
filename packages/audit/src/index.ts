@@ -13,6 +13,14 @@ export const packageName = '@lumen-seo/audit';
 
 export { runSiteAudit } from './run.js';
 
+/** Rule-set configuration (I2): built-ins + plugins, override validation. */
+export { BUILT_IN_RULE_IDS, builtInRuleMetadata, createRuleSet } from './rules/rule-set.js';
+
+/** Scorer (A7) and sanitizers (I13) — exported for P4 consumers and reuse. */
+export { WEIGHT, scorePage, scoreReport } from './report/score.js';
+export { sanitizeIssue, sanitizeText } from './report/sanitize.js';
+export { reportIdFor } from './report/id.js';
+
 export type {
   AuditConfig,
   AuditThresholds,
