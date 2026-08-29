@@ -337,3 +337,26 @@ package.json files before hardcoding).
 - Final state: lint + typecheck clean; 45 test files / 480 tests green
   (10/10 stable on the ci-scripts suites); actionlint (pinned 1.7.12 docker)
   green over all four workflows; `npm run validate` green end-to-end.
+
+## M2 integration fix — identity gate force-push fallback (orchestrator, post-P4 surfaces wiring)
+
+First force-push in the repo's history (surfaces rebase) exposed a blind spot:
+the identity job's push-event range is `github.event.before..sha`, and after a
+force-push the `before` SHA is no longer reachable on the server, so
+`git log <before>..<sha>` failed with "Invalid revision range" and the gate
+crashed red instead of judging the new commits (run 33263276919).
+
+Behavior change (check-commits.mjs range mode): an unreachable `--base` now
+falls back to `origin/main..head` — the same base the zero-SHA new-branch guard
+uses — so the gate keeps judging exactly the new commits; violations found via
+the fallback still fail (fail-safe toward checking). If `origin/main` is
+unresolvable too, the gate skips with an explicit `::notice::` (mirroring the
+existing unborn-base tolerance), replacing the old exit-1 crash. The old
+"fails loudly when the base revision cannot be resolved" test was updated to
+the new explicit-notice contract; three new tests cover fallback-green,
+fallback-still-fails, and fallback-unresolvable-skip.
+
+Companion: `.wt/` (this project's documented local worktree layout) added to
+eslint's flat-config ignores — it is gitignored, CI never sees it, and without
+this the local M2 `npm run validate` gate on a worktree-bearing checkout is
+impossible to pass.
