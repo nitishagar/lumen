@@ -35,6 +35,7 @@ const ctx = (
 
 const baseDeps = (over: Partial<CommandDeps> = {}): CommandDeps => ({
   clock: () => AT,
+  failThreshold: 'error',
   keywords: [],
   authority: [],
   authorityUnconfigured: [],

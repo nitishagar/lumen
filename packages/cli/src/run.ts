@@ -10,10 +10,12 @@
 import { AbortedError, ConfigError, EXIT, LumenError } from '@lumen-seo/core';
 import type { CommandName } from './args.js';
 import { interceptHelp, parseCommand } from './args.js';
+import { execute as audit } from './cmd/audit.js';
 import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
 import { execute as keywords } from './cmd/keywords.js';
 import { execute as rank } from './cmd/rank.js';
+import { execute as report } from './cmd/report.js';
 import type { Io } from './io.js';
 import { ioFromProcess } from './io.js';
 import { clean } from './term.js';
@@ -96,10 +98,12 @@ const dispatch = (
     case 'authority':
       return authority(ctx, deps);
     case 'audit':
+      return audit(ctx, deps);
     case 'report':
+      return report(ctx, deps);
     case 'mcp':
-      // Wired in phases 3-4 (audit/report commands, mcp launcher).
-      throw new Error(`command "${command}" is not wired yet`);
+      // Wired in Phase 4 (stdio launcher + onboarding payloads).
+      throw new Error('command "mcp" is not wired yet');
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);

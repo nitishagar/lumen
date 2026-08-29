@@ -57,6 +57,7 @@ const ctx = (args: string[], flags: Record<string, string | boolean> = {}): CliC
 
 const deps = (serp: ReturnType<typeof fixtureSerp> | undefined, clock = () => AT): CommandDeps => ({
   clock,
+  failThreshold: 'error' as const,
   keywords: [],
   serp,
   authority: [],
