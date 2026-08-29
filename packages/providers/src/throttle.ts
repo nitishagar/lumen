@@ -81,12 +81,12 @@ export class GcraPacer implements Pacer {
  * Providers without a documented limit pass overrides through untouched.
  */
 export function resolvePacing(
-  cfg: PacingCfg,
+  cfg: PacingCfg | undefined,
   defaults: { rpm: number; burst: number },
   documentedLimit?: number,
 ): { rpm: number; burst: number } {
-  let rpm = Math.max(1, Math.floor(cfg.rpm ?? defaults.rpm));
-  let burst = Math.max(1, Math.floor(cfg.burst ?? defaults.burst));
+  let rpm = Math.max(1, Math.floor(cfg?.rpm ?? defaults.rpm));
+  let burst = Math.max(1, Math.floor(cfg?.burst ?? defaults.burst));
   if (documentedLimit !== undefined && documentedLimit >= 2) {
     burst = Math.min(burst, Math.max(1, Math.floor(documentedLimit / 2)));
     rpm = Math.min(rpm, documentedLimit - burst);
