@@ -51,7 +51,6 @@ export type { AuditRule, RuleOpts } from './rules.js';
 export { looksLikeAuditRule } from './rules.js';
 export type { HistoryListQuery, HistoryStore, RankHistoryEntry } from './history.js';
 export type { ConfigErrorDetail } from './errors.js';
-export { ConfigError, LumenError } from './errors.js';
 export type {
   ConfigFileReader,
   FailThreshold,
@@ -74,4 +73,20 @@ export {
 } from './gate.js';
 export type { ProviderRegistry, RuleRegistry } from './registry.js';
 export { createProviderRegistry, createRuleRegistry } from './registry.js';
+export type { RedirectErrorReason, RetryExhaustedOptions } from './errors.js';
+export {
+  AbortedError,
+  ConfigError,
+  LumenError,
+  RedirectError,
+  RetryAfterCapError,
+  RetryExhaustedError,
+  SsrfBlockedError,
+  TimeoutError,
+  UnsupportedSchemeError,
+} from './errors.js';
+export type { FetchTransport, Fetcher, FetcherOptions } from './fetcher.js';
+export { createFetcher, RETRY_AFTER_CAP_MS } from './fetcher.js';
+export { isAllowedScheme, isBlockedHost, isBlockedIpAddress, isBlockedTarget, isIpLiteral } from './ssrf.js';
+export { UA_VERSION, USER_AGENT } from './ua.js';
 export const packageName = '@lumen-seo/core';
