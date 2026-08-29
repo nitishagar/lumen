@@ -13,6 +13,16 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Conventional underscore-prefix allowance for intentionally-unused
+    // parameters (interface fixtures, injected seams).
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
     // Plain-Node CI gate scripts and their tests are dependency-free .mjs
     // (ci-deploy PLAN Phase 1) — declare the Node runtime globals for them.
     files: ['scripts/**/*.mjs', 'test/**/*.mjs'],
