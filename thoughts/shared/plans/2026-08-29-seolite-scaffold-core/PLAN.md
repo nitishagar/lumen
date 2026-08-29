@@ -277,12 +277,12 @@ export default defineConfig({ test: { projects: ['packages/*/vitest.config.ts'] 
 ```
 
 **Success Criteria**
-- [ ] Automated: `npm install` exits 0 and creates a lockfile
-- [ ] Automated: `npm run lint`
-- [ ] Automated: `npm run typecheck`
-- [ ] Automated: `npm test` (5 placeholder smoke tests green across packages)
-- [ ] Automated: `test -f LICENSE && grep -q "Version 2.0, January 2004" LICENSE && grep -q "Nitish Agarwal" LICENSE && test -f CONTRIBUTING.md && grep -q "@seolite/site" site/package.json`
-- [ ] Automated: `test -d packages/core && test -d packages/audit && test -d packages/providers && test -d packages/cli && test -d packages/mcp && test -d site`
+- [x] Automated: `npm install` exits 0 and creates a lockfile
+- [x] Automated: `npm run lint`
+- [x] Automated: `npm run typecheck`
+- [x] Automated: `npm test` (5 placeholder smoke tests green across packages)
+- [x] Automated: `test -f LICENSE && grep -q "Version 2.0, January 2004" LICENSE && grep -q "Nitish Agarwal" LICENSE && test -f CONTRIBUTING.md && grep -q "@seolite/site" site/package.json`
+- [x] Automated: `test -d packages/core && test -d packages/audit && test -d packages/providers && test -d packages/cli && test -d packages/mcp && test -d site`
 
 ### Phase 2 — `@seolite/core` types, payload models & provenance helpers
 
