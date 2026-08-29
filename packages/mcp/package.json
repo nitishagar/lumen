@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@lumen-seo/core": "*",
+    "@lumen-seo/providers": "*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "agents": "^0.22.0",
     "zod": "^4.5.2"

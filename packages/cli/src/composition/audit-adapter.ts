@@ -1,128 +1,125 @@
 /**
- * REBASE SEAM (Phase 6 rebase commit — plan Phase 3/6, B21).
+ * The real audit engine + page-meta adapter (Phase 6 rebase commit — the
+ * mapping documented at `@lumen-seo/mcp/ports.ts`).
  *
- * Pre-rebase (this branch is core-only by ARCHITECTURE M1) the CLI wires
- * DETERMINISTIC FIXTURE implementations of the AuditRunner and
- * PageMetaFetcher ports so the whole surface — commands, exit codes, MCP
- * tools — is fully exercisable with zero live network (I9/I10). The report
- * shape is a real core SiteAuditReport; severity counts derive from the URL
- * hash, so identical inputs give identical outputs.
- *
- * REBASE: replace both factories with the real engine per the mapping
- * documented at `@lumen-seo/mcp/ports.ts` (runSiteAudit from @lumen-seo/audit
- * with config-load + budget override; cheerio page-meta fetch), and add
- * `@lumen-seo/audit` to packages/cli/package.json. Nothing else changes.
+ * - AuditRunner: the caller's ResolvedConfig (already loaded by the core
+ *   loader) feeds `runSiteAudit(seed, config, deps, signal)` from
+ *   @lumen-seo/audit — crawl budgets from core's config (R3) with the
+ *   `--max-pages` override applied on top (`undefined` → core's config
+ *   default, R8; the engine hard-clamps at MAX_PAGES_CEILING), and the
+ *   configured severityOverrides honored by the engine's rule set. Typed
+ *   robots errors (LumenSeedDisallowedError, LumenRobotsUnreachableError)
+ *   propagate to run()'s exit envelope (exit 2 with guidance).
+ * - PageMetaFetcher: one fetch through core's Fetcher — `redirect: 'manual'`
+ *   so every hop is SSRF-revalidated by core's redirect iterator (I12) —
+ *   then cheerio meta extraction, Node-side only. Every extracted string is
+ *   engine-sanitized (sanitizeText, I13); a non-HTML/oversize body degrades
+ *   to `null` ("page meta unavailable"), never a partial guess (I3).
  */
-import { createHash } from 'node:crypto';
-import type { ResolvedConfig, SiteAuditReport, Severity } from '@lumen-seo/core';
-import { countIssuesBySeverity, MAX_PAGES_CEILING } from '@lumen-seo/core';
+import { randomUUID } from 'node:crypto';
+import { load as loadDom } from 'cheerio';
+import { AbortedError } from '@lumen-seo/core';
+import type { ResolvedConfig, SiteAuditReport } from '@lumen-seo/core';
+import { createNodeFetcher } from '@lumen-seo/core/node';
+import { runSiteAudit, sanitizeText } from '@lumen-seo/audit';
+import type { AuditConfig, CancellableDelay, CrawlerDeps } from '@lumen-seo/audit';
 import type { AuditInput, AuditRunner, PageMeta, PageMetaFetcher } from '@lumen-seo/mcp/ports';
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+/** Page-meta body cap (bytes) — aligned with the audit engine's default maxBodyBytes. */
+const META_MAX_BYTES = 2_000_000;
 
-const hashOf = (s: string): Buffer => createHash('sha256').update(s).digest();
-
-const issue = (ruleId: string, severity: Severity, message: string) => ({
-  ruleId,
-  severity,
-  message,
-  evidence: {},
-});
-
-/** Deterministic severity pattern from the seed URL (I10): identical in, identical out. */
-const severityCountsFor = (url: URL): Record<Severity, number> => {
-  const h = hashOf(url.href);
-  return {
-    error: h[0]! % 3, // 0..2
-    warning: h[1]! % 3,
-    info: h[2]! % 3,
+/**
+ * Cancellable sleep — the engine's single time seam (I10). Abort rejects with
+ * core's AbortedError (the convention the crawler's rate limiter and robots
+ * gate rely on); `cancel()` stops the timer without rejecting.
+ */
+const delay = (ms: number, signal?: AbortSignal): CancellableDelay => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const pending = new Promise<void>((resolve, reject) => {
+    if (signal?.aborted === true) {
+      reject(new AbortedError('audit'));
+      return;
+    }
+    timer = setTimeout(resolve, ms);
+    onAbort = () => {
+      if (timer !== undefined) clearTimeout(timer);
+      reject(new AbortedError('audit'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  }) as CancellableDelay;
+  pending.cancel = () => {
+    if (timer !== undefined) clearTimeout(timer);
+    if (onAbort !== undefined) signal?.removeEventListener('abort', onAbort);
   };
+  return pending;
 };
 
-export const createFixtureAuditRunner = (
-  config: ResolvedConfig,
-  clock: () => string = () => new Date().toISOString(),
-): AuditRunner => ({
+/** Production CrawlerDeps (ports.ts mapping): real fetcher, wall clock, random jitter/id. */
+const crawlerDeps = (): CrawlerDeps => ({
+  fetcher: createNodeFetcher(),
+  now: () => Date.now(),
+  delay,
+  jitter: () => Math.random(),
+  randomId: () => randomUUID(),
+});
+
+export const createAuditRunner = (config: ResolvedConfig): AuditRunner => ({
   run: async (input: AuditInput, signal?: AbortSignal): Promise<SiteAuditReport> => {
-    if (signal?.aborted) {
-      throw Object.assign(new Error('aborted by caller signal'), { name: 'AbortedError' });
-    }
-    const maxPages = Math.min(input.maxPages ?? config.crawl.maxPages, MAX_PAGES_CEILING);
-    const counts = severityCountsFor(input.url);
-    const pageCount = 1 + (hashOf(input.url.href)[3]! % 4); // 1..4 fixture pages
-    const startedAt = clock();
-    const issues = [
-      ...Array.from({ length: counts.error }, (_, i) => issue(`fixture/error-${i}`, 'error', `fixture error ${i} on ${input.url.hostname}`)),
-      ...Array.from({ length: counts.warning }, (_, i) => issue(`fixture/warn-${i}`, 'warning', `fixture warning ${i}`)),
-      ...Array.from({ length: counts.info }, (_, i) => issue(`fixture/info-${i}`, 'info', `fixture info ${i}`)),
-    ];
-    const pages = [];
-    for (let p = 0; p < Math.min(pageCount, maxPages); p += 1) {
-      await sleep(2); // cancellation checkpoint between pages (E14)
-      if (signal?.aborted) {
-        return partialReport(input, startedAt, clock, pages, 'aborted', config);
-      }
-      pages.push({
-        url: p === 0 ? input.url.href : new URL(`page-${p}`, input.url).href,
-        status: 200,
-        title: `Fixture page ${p}`,
-        issues: issues.filter((_, i) => i % Math.max(1, pageCount) === p),
-        score: 100 - counts.error * 5 - counts.warning * 2,
-        timingMs: 42 + p,
-        bytes: 2048 * (p + 1),
-        robotsAllowed: true,
-        depth: p,
-      });
-    }
-    const all = pages.flatMap((pg) => pg.issues);
-    return {
-      id: `fixture-${hashOf(input.url.href).toString('hex').slice(0, 8)}`,
-      startedAt,
-      completedAt: clock(),
-      pages,
-      summary: {
-        countsBySeverity: countIssuesBySeverity(all),
-        score: pages.length > 0 ? Math.round(pages.reduce((s, pg) => s + (pg.score ?? 0), 0) / pages.length) : null,
-        pagesAudited: pages.length,
-        pagesSkipped: 0,
-      },
-      incomplete: false,
-      configSnapshot: { crawl: config.crawl, failThreshold: config.failThreshold },
-      stopReason: 'completed',
+    const auditConfig: AuditConfig = {
+      crawl: { ...config.crawl, ...(input.maxPages === undefined ? {} : { maxPages: input.maxPages }) },
+      severityOverrides: { ...config.severityOverrides },
     };
+    return runSiteAudit(input.url, auditConfig, crawlerDeps(), signal);
   },
 });
 
-const partialReport = (
-  input: AuditInput,
-  startedAt: string,
-  clock: () => string,
-  pages: SiteAuditReport['pages'],
-  stopReason: string,
-  config: ResolvedConfig,
-): SiteAuditReport => ({
-  id: `fixture-${hashOf(input.url.href).toString('hex').slice(0, 8)}`,
-  startedAt,
-  completedAt: clock(),
-  pages,
-  summary: {
-    countsBySeverity: countIssuesBySeverity(pages.flatMap((p) => p.issues)),
-    score: null,
-    pagesAudited: pages.length,
-    pagesSkipped: 0,
-  },
-  incomplete: true,
-  configSnapshot: { crawl: config.crawl, failThreshold: config.failThreshold },
-  stopReason,
-});
+/** Reads the body up to META_MAX_BYTES; oversize → null (no unbounded reads, even without Content-Length). */
+const readCapped = async (res: Response): Promise<string | null> => {
+  const reader = res.body?.getReader();
+  if (reader === undefined) return null;
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done === true) break;
+    total += value.byteLength;
+    if (total > META_MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    parts.push(decoder.decode(value, { stream: true }));
+  }
+  parts.push(decoder.decode()); // flush
+  return parts.join('');
+};
 
-export const createFixturePageMetaFetcher = (): PageMetaFetcher => ({
-  fetch: async (url: URL): Promise<PageMeta> => ({
-    url: url.href,
-    title: `Fixture page: ${url.hostname}`,
-    description: `Deterministic fixture description for ${url.pathname}`,
-    canonical: url.href,
-    lang: 'en',
-    h1: [`Fixture H1 for ${url.pathname}`],
-  }),
-});
+export const createPageMetaFetcher = (): PageMetaFetcher => {
+  const fetcher = createNodeFetcher();
+  const textOrNull = (s: string | undefined): string | null => {
+    const t = sanitizeText(s ?? '').trim();
+    return t === '' ? null : t;
+  };
+  return {
+    fetch: async (url: URL, signal?: AbortSignal): Promise<PageMeta | null> => {
+      const res = await fetcher.fetch(url, { redirect: 'manual', signal });
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!res.ok || !contentType.includes('text/html')) return null;
+      const html = await readCapped(res);
+      if (html === null) return null;
+      const dom = loadDom(html);
+      return {
+        url: res.url === '' ? url.href : res.url, // final URL after core's redirect iteration
+        title: textOrNull(dom('head title').first().text()),
+        description: textOrNull(dom('meta[name="description"]').attr('content')),
+        canonical: textOrNull(dom('link[rel="canonical"]').attr('href')),
+        lang: textOrNull(dom('html').attr('lang')),
+        h1: dom('h1')
+          .map((_, el) => sanitizeText(dom(el).text()).trim())
+          .get()
+          .filter((t) => t !== ''),
+      };
+    },
+  };
+};

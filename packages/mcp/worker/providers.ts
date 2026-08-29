@@ -1,53 +1,47 @@
 /**
- * Worker provider seam — REBASE FILE (B21/R7, the ONLY file that changes at
- * the orchestrator's rebase commit; `index.ts`/`composition.ts`/`rest.ts` are
- * stable across both states).
+ * Worker provider seam (B21/R7) — the REAL `createWorkerSafeProviders`
+ * wiring from `@lumen-seo/providers/worker` (the Worker-safe entry whose
+ * import graph never reaches cheerio, R7/BA9 — asserted by the providers
+ * aspect's module-graph test and the surfaces bundle-scan). Runtime imports
+ * come ONLY from the /worker subpath; the main barrel appears exclusively in
+ * `import type` positions, which bundling erases. `index.ts`,
+ * `composition.ts`, and `rest.ts` are stable across the rebase — this is the
+ * only file that changed.
  *
- * PRE-REBASE (this branch is core-only): the Worker shape is fed by testkit
- * fixture providers behind the IDENTICAL return shapes the real wiring will
- * produce — `workerMcpDeps` -> McpDeps (audit_site/rank_check local-only: no
- * serp/auditRunner/pageMeta/history), `workerRestDeps` -> REST deps.
- *
- * REBASE COMMIT (merge order P2 -> P3 -> P4 lands @lumen-seo/providers):
- *   import { createWorkerSafeProviders } from '@lumen-seo/providers';
- *   export const workerMcpDeps = (headers: Headers, env: Env): McpDeps => {
- *     const p = createWorkerSafeProviders(workerConfig(env), workerDeps(headers));
- *     return { clock: isoClock, keyword: [p['google-suggest'], p['wikipedia-demand']],
- *              pageSpeed: p.pagespeed, crux: p.crux, authority: [p.openpagerank] };
- *   };
- *   // workerConfig selects ONLY the five Worker-appropriate providers — tranco
- *   // unselected (bulk-CSV stream parsing cannot fit the 10 ms ceiling, I6);
- *   // no serp/auditRunner/pageMeta/history -> audit_site/rank_check stay
- *   // LOCAL_ONLY_CAPABILITY. The identical Phase 5 suite re-runs green, with
- *   // the outbound-host allowlist assertions activating against real providers.
- *
- * `Env` lives here because this file is what consumes it (workerConfig(env)).
+ * - `workerConfig(env)` selects ONLY the five Worker-appropriate providers'
+ *   sections — tranco unselected (bulk-CSV stream parsing cannot fit the
+ *   10 ms CPU ceiling, I6) — and, per the R7 kill-switch disposition, OMITS
+ *   the pagespeed section when `WORKER_ENABLE_PSI === "false"` so the MCP
+ *   `page_report` tool path inherits the B10 kill-switch through the
+ *   composition (the REST leg keeps its explicit check in rest.ts). Absent
+ *   settings → the providers' R5 default env-var names and GCRA pacing.
+ * - No serp/auditRunner/pageMeta/history in McpDeps → audit_site +
+ *   rank_check stay LOCAL_ONLY_CAPABILITY (E6/I6).
+ * - BYOK keys ride in through `workerDeps(headers).env(name)` at call time
+ *   (E5); an absent key degrades to honest unavailability — never a keyless
+ *   CrUX/OPR call (I1). Google-suggest/wikipedia need no key.
  */
-import type { CruxProvider, KeywordProvider, PageSpeedProvider } from '@lumen-seo/core';
+import { createWorkerSafeProviders } from '@lumen-seo/providers/worker';
+import type { WorkerSafeProviders } from '@lumen-seo/providers/worker';
+import type { ProviderDeps, ProvidersConfig } from '@lumen-seo/providers';
+import type {
+  AnyProvider,
+  AuthorityProvider,
+  CruxProvider,
+  KeywordProvider,
+  PageSpeedProvider,
+} from '@lumen-seo/core';
 import type { McpDeps } from '../src/server.js';
-import { FIXED_CLOCK, fixtureAuthorityProvider, fixtureCruxProvider, fixtureKeywordProvider, fixturePageSpeedProvider } from '../src/testkit/providers.js';
 
 export interface Env {
   /** Kill-switch (B10): set to "false" to disable PSI on CPU-constrained zones. */
   WORKER_ENABLE_PSI?: string;
 }
 
-/**
- * Minimal shape mirroring the providers aspect's locked ProviderDeps
- * (plan Phase 5 snippet) until the rebase makes the real type importable.
- */
-export interface WorkerProviderDeps {
-  fetcher: import('@lumen-seo/core').Fetcher;
-  /** Always-miss cache (B19): no KV, no cross-request state. */
-  cache: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
-  clock: () => number;
-  sleep: (ms: number) => Promise<void>;
-  /** Per-request BYOK keys via headers — values read at call time (E5). */
-  env: (name: string) => string | undefined;
-  userAgent: string;
-}
+/** The real locked ProviderDeps (type-only import — erased before bundling). */
+export type WorkerProviderDeps = ProviderDeps;
 
-/** Pre-rebase REST deps: the fixture PSI/CrUX/keyword providers. */
+/** REST deps consumed by worker/rest.ts (page-report + keyword-ideas legs). */
 export interface WorkerRestDeps {
   clock: () => string;
   pageSpeed?: PageSpeedProvider;
@@ -55,24 +49,41 @@ export interface WorkerRestDeps {
   keyword: readonly KeywordProvider[];
 }
 
-const fixtureProviders = () => ({
-  pageSpeed: fixturePageSpeedProvider(),
-  crux: fixtureCruxProvider(),
-  keyword: [fixtureKeywordProvider()] as const,
-  authority: [fixtureAuthorityProvider()] as const,
-});
+/**
+ * B10 kill-switch (R7 disposition): "false" omits the pagespeed section, and
+ * the compositions below leave `pageSpeed` unwired — both the REST leg and
+ * the MCP tool path answer with an explicit unavailability reason.
+ */
+export const workerConfig = (env: Env): ProvidersConfig =>
+  env.WORKER_ENABLE_PSI === 'false' ? {} : { pagespeed: {} };
+
+const isoClock = (deps: WorkerProviderDeps) => (): string => new Date(deps.clock()).toISOString();
+
+/** `pageSpeed` is wired only when workerConfig selected the pagespeed section (B10). */
+const selectedPageSpeed = (
+  config: ProvidersConfig,
+  p: WorkerSafeProviders,
+): PageSpeedProvider | undefined =>
+  config.pagespeed === undefined ? undefined : boundary<PageSpeedProvider>(p.pagespeed);
+
+/**
+ * `WorkerSafeProviders` is keyed by name with `AnyProvider` values (the same
+ * shape core's registry consumes); the name→boundary mapping is the providers
+ * package's own registry wiring (PROVIDER_CAPABILITIES / TC-REG tests), so the
+ * narrowing cast here mirrors core's registry `as<T>` after boundary checks.
+ */
+const boundary = <T extends AnyProvider>(p: AnyProvider): T => p as T;
 
 export const workerMcpDeps = (headers: Headers, env: Env, deps: WorkerProviderDeps): McpDeps => {
-  void headers;
-  void env;
-  void deps; // consumed by createWorkerSafeProviders at the rebase commit
-  const p = fixtureProviders();
+  void headers; // BYOK values reach the providers via deps.env at call time (E5)
+  const config = workerConfig(env);
+  const p = createWorkerSafeProviders(config, deps);
   return {
-    clock: FIXED_CLOCK,
-    keyword: [...p.keyword],
-    authority: [...p.authority],
-    pageSpeed: p.pageSpeed, // E6: page_report serves PSI/CrUX over HTTP
-    crux: p.crux,
+    clock: isoClock(deps),
+    keyword: [boundary<KeywordProvider>(p['google-suggest']), boundary<KeywordProvider>(p['wikipedia-demand'])],
+    authority: [boundary<AuthorityProvider>(p.openpagerank)],
+    pageSpeed: selectedPageSpeed(config, p),
+    crux: boundary<CruxProvider>(p.crux),
     unconfigured: [],
     // no serp / auditRunner / pageMeta / history — audit_site + rank_check are
     // LOCAL_ONLY_CAPABILITY over HTTP (E6/I6)
@@ -81,8 +92,12 @@ export const workerMcpDeps = (headers: Headers, env: Env, deps: WorkerProviderDe
 
 export const workerRestDeps = (headers: Headers, env: Env, deps: WorkerProviderDeps): WorkerRestDeps => {
   void headers;
-  void env;
-  void deps;
-  const p = fixtureProviders();
-  return { clock: FIXED_CLOCK, pageSpeed: p.pageSpeed, crux: p.crux, keyword: [...p.keyword] };
+  const config = workerConfig(env);
+  const p = createWorkerSafeProviders(config, deps);
+  return {
+    clock: isoClock(deps),
+    pageSpeed: selectedPageSpeed(config, p),
+    crux: boundary<CruxProvider>(p.crux),
+    keyword: [boundary<KeywordProvider>(p['google-suggest']), boundary<KeywordProvider>(p['wikipedia-demand'])],
+  };
 };

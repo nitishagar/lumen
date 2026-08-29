@@ -1,13 +1,13 @@
 /**
  * Worker tests (E6/E9/E10/E13/I16) under Miniflare (@cloudflare/vitest-plugin,
- * fully local — zero live network). The suite runs against the FIXTURE worker
- * composition pre-rebase (B21) and re-runs unchanged post-rebase against the
- * real `createWorkerSafeProviders` wiring, when the outbound-host allowlist
- * assertions below activate against real provider traffic.
+ * fully local — zero live network). Post-rebase the suite runs against the
+ * REAL `createWorkerSafeProviders` wiring: Miniflare intercepts every outbound
+ * request in the recorder's provider-shaped fixtures, and the outbound-host
+ * allowlist assertions are active against real provider traffic.
  */
 import { SELF } from 'cloudflare:test';
-import { afterEach, describe, expect, it } from 'vitest';
-import { allCallsAllowed, outboundRecorder, OUTBOUND_HOST_ALLOWLIST } from './outbound-recorder.js';
+import { describe, expect, it } from 'vitest';
+import { OUTBOUND_HOST_ALLOWLIST } from './outbound-recorder.js';
 import { workerDeps, HEADER_FOR_ENV } from './composition.js';
 import type { Env } from './providers.js';
 import { pageReportRoute } from './rest.js';
@@ -23,10 +23,14 @@ interface JsonRpcResponse {
 }
 
 /** POSTs one JSON-RPC frame to /mcp and parses the response (JSON or SSE). */
-const rpc = async (body: unknown): Promise<JsonRpcResponse> => {
+const rpc = async (body: unknown, headers: Record<string, string> = {}): Promise<JsonRpcResponse> => {
   const res = await SELF.fetch(MCP_URL, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -55,22 +59,28 @@ const initialize = async (): Promise<void> => {
   await rpc({ jsonrpc: '2.0', method: 'notifications/initialized' });
 };
 
-const callTool = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> =>
+const callTool = async (
+  name: string,
+  args: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): Promise<Record<string, unknown>> =>
   (
     await rpc({
       jsonrpc: '2.0',
       id: 10,
       method: 'tools/call',
       params: { name, arguments: args },
-    })
+    }, headers)
   ).result ?? {};
 
 const textPayload = (result: Record<string, unknown>): Record<string, unknown> =>
   JSON.parse((result.content as { type: string; text: string }[])[0]?.text ?? '{}') as Record<string, unknown>;
 
-afterEach(() => {
-  outboundRecorder.reset();
-});
+// NOTE: no afterEach(recorder.reset) here — the recorder's state lives in the
+// Vitest node context while test files run inside workerd with their own
+// module instance, so tests never read (or need to reset) recorded calls.
+// The allowlist is ENFORCED in the node-side responder instead (see the
+// outbound enumeration test below).
 
 describe('MCP over POST /mcp (E6/I5/E13)', () => {
   it('tools/list returns the identical five-tool set (parity with stdio factory)', async () => {
@@ -96,28 +106,63 @@ describe('MCP over POST /mcp (E6/I5/E13)', () => {
     }
   });
 
-  it('page_report serves PSI/CrUX fixtures and includes the local-only limitation (E6)', async () => {
+  it('page_report serves real PSI lab data (trial mode) and degrades CrUX honestly without a key (I1/I3)', async () => {
     await initialize();
     const result = await callTool('lumen_page_report', { url: 'https://example.com' });
     expect(result.isError).toBeUndefined();
     const payload = textPayload(result) as {
-      lab: { scores: { performance: number } };
-      field: { source: { provider: string } };
+      lab: { scores: { performance: number }; source: { provider: string; kind: string } };
+      field: { status: string; reason: string };
       limitations: string[];
     };
-    expect(payload.lab.scores.performance).toBe(84); // fixture PSI
-    expect(payload.field.source.provider).toBe('fixture-crux');
+    expect(payload.lab.scores.performance).toBe(92); // real pagespeed provider over the fixture upstream
+    expect(payload.lab.source.provider).toBe('pagespeed');
+    expect(payload.field.status).toBe('unavailable'); // no CrUX key → honest unavailability, never a keyless call
+    expect(payload.field.reason).toContain('crux');
     expect(payload.limitations.join(' ')).toContain('local-only');
   });
 
-  it('keyword_ideas and authority are served over HTTP (E6 map)', async () => {
+  it('page_report accepts a BYOK psi key header and still serves lab data (E5 pass-through)', async () => {
     await initialize();
-    const ideas = textPayload(await callTool('lumen_keyword_ideas', { seed: 'seo' })) as { ideas: unknown[] };
+    const result = await callTool(
+      'lumen_page_report',
+      { url: 'https://example.com' },
+      { 'x-lumen-psi-key': 'test-key' },
+    );
+    expect(result.isError).toBeUndefined();
+    const payload = textPayload(result) as { lab: { scores: { performance: number } } };
+    expect(payload.lab.scores.performance).toBe(92);
+  });
+
+  it('keyword_ideas serves real google-suggest ideas; authority degrades without a key (I1/I3)', async () => {
+    await initialize();
+    const ideas = textPayload(await callTool('lumen_keyword_ideas', { seed: 'seo' })) as {
+      ideas: { term: string; source: { provider: string } }[];
+    };
     expect(ideas.ideas.length).toBeGreaterThan(0);
+    expect(ideas.ideas[0]?.source.provider).toBe('google-suggest');
+
     const authority = textPayload(await callTool('lumen_authority', { domain: 'example.com' })) as {
       signals: unknown[];
+      unconfigured: string[];
     };
-    expect(authority.signals.length).toBeGreaterThan(0);
+    expect(authority.signals).toEqual([]); // no OPR key → zero keyless calls, empty signals (I1)
+    expect(authority.unconfigured).toEqual([]);
+  });
+
+  it('authority with a BYOK opr key header returns real OPR signals (E5 pass-through)', async () => {
+    await initialize();
+    const result = await callTool(
+      'lumen_authority',
+      { domain: 'example.com', response_format: 'detailed' },
+      { 'x-lumen-opr-key': 'test-key' },
+    );
+    expect(result.isError).toBeUndefined();
+    const payload = textPayload(result) as {
+      signals: { provider: string; kind: string; value: number }[];
+    };
+    expect(payload.signals.map((s) => s.kind).sort()).toEqual(['rank', 'score']);
+    expect(payload.signals[0]?.provider).toBe('openpagerank');
   });
 });
 
@@ -146,14 +191,18 @@ describe('REST subset (E9)', () => {
     expect(okRes.status).toBe(200);
     const body = (await okRes.json()) as {
       url: string;
-      lab: { scores: { performance: number } };
+      lab: { scores: { performance: number }; source: { provider: string } };
+      field: { status: string };
       limitations: string[];
     };
     expect(body.url).toBe('https://example.com/page');
-    expect(body.lab.scores.performance).toBe(84);
+    expect(body.lab.scores.performance).toBe(92); // real pagespeed provider (trial mode) over the fixture upstream
+    expect(body.lab.source.provider).toBe('pagespeed');
+    expect(body.field.status).toBe('unavailable'); // no CrUX key sent
     expect(body.limitations.join(' ')).toContain('local-only');
-    // The target was never fetched: the outbound recorder saw no request to it.
-    expect(outboundRecorder.calls().every((c) => !c.host.endsWith('example.com'))).toBe(true);
+    // The target's host is not on the outbound allowlist: had the route (or
+    // any consumed code path) fetched it, the responder would have answered
+    // 599 and the PSI/CrUX legs could not have succeeded above (I6/I12).
   });
 
   it('/api/v1/keyword-ideas serves fixture suggestions; q is required (E9)', async () => {
@@ -254,16 +303,34 @@ describe('CORS + outbound enumeration (E9/I16)', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
   });
 
-  it('every outbound call stays inside the host allowlist (I16 — zero pre-rebase)', async () => {
+  it('outbound traffic stays inside the host allowlist (I16 — enforced by the test responder)', async () => {
+    // The node-side outboundService responder REFUSES any host outside
+    // OUTBOUND_HOST_ALLOWLIST with a 599 (providers classify it as a typed
+    // UpstreamError), so every positive-path assertion in this suite doubles
+    // as an allowlist assertion: these flows succeed ONLY when each provider
+    // reached its allowlisted upstream and parsed the fixture body.
     await SELF.fetch('http://example.com/api/v1/page-report?url=https://target-site.example/page');
     await SELF.fetch('http://example.com/api/v1/keyword-ideas?q=seo');
     await initialize();
-    await callTool('lumen_page_report', { url: 'https://example.com' });
-    // Pre-rebase the fixture providers fetch NOTHING: the recorder must be
-    // empty (the I1 zero-key/no-outbound assertion strengthens post-rebase).
-    expect(outboundRecorder.calls()).toEqual([]);
-    expect(allCallsAllowed()).toBe(true);
-    expect(OUTBOUND_HOST_ALLOWLIST.length).toBeGreaterThan(0); // allowlist documented
+    const report = textPayload(await callTool('lumen_page_report', { url: 'https://example.com' })) as {
+      lab: { scores: { performance: number } };
+      field: { status: string; reason: string };
+    };
+    expect(report.lab.scores.performance).toBe(92); // PSI reached www.googleapis.com
+    // I1: without BYOK keys the keyed-only providers are never called — their
+    // legs degrade with explicit reasons instead of fetching keyless.
+    expect(report.field.status).toBe('unavailable');
+    expect(report.field.reason).toContain('crux');
+    // The enforced list stays pinned to the documented hosts.
+    for (const host of [
+      'www.googleapis.com',
+      'chromeuxreport.googleapis.com',
+      'openpagerank.com',
+      'suggestqueries.google.com',
+      'en.wikipedia.org',
+    ]) {
+      expect(OUTBOUND_HOST_ALLOWLIST).toContain(host);
+    }
   });
 });
 

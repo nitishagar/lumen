@@ -132,3 +132,97 @@
   test-backed assertions. (The reviewer noted an injected block of unrelated fictional
   content in its context via system reminders and disregarded it — recorded here for
   transparency; the code review itself is unaffected.)
+
+## 2026-08-29 — orchestrator rebase + ports-seam wiring (integration commit)
+
+- **Rebase**: 7 commits replayed onto 215dc24. Only `package-lock.json` conflicted
+  (resolved by taking the surfaces side at each step, then `npm install` at the end to
+  regenerate a consistent lockfile — no files dropped from either side);
+  `eslint.config.js` auto-merged (disjoint hunks: main's `**/.astro/` ignore + this
+  branch's fetch-ban/bin-globals blocks). npm normalized `bin/lumen.js` to 0755 (kept —
+  it is a shebang bin).
+
+- **Seam (a) — composition/available.ts**: the real barrel's wiring entry is
+  `createBuiltInProviders(config, deps)`, so `availableProviders` now takes the
+  `ResolvedConfig` (one call site updated in `composition/node.ts`). `config.byok`
+  (provider name → env-var NAME) maps to `ProviderSettings.envVar` so a provider reads
+  the same env name the CLI's BYOK skip rule judged; pacing is the providers package's
+  GCRA defaults (core's config schema has no per-provider pacing keys). Node
+  ProviderDeps = `createNodeFetcher()` (DNS-validating, I12) + `InMemoryCache` +
+  process-env reader + core `USER_AGENT`.
+
+- **Seam (b) — composition/audit-adapter.ts**: real `runSiteAudit` per the ports.ts
+  mapping (crawl budgets from core config + `--max-pages` override; `resolveAuditConfig`
+  re-clamps at the ceiling). Production `CrawlerDeps` built here (cancellable `delay`
+  rejecting with core `AbortedError` on abort — the convention audit's own tests pin;
+  `jitter: Math.random`; `randomId: randomUUID`). `config.severityOverrides` is passed
+  through (not named in the mapping, but the loader validates it and the engine honors
+  it — silently dropping it would make `lumen audit` ignore a validated config key).
+  Core config `plugins` are NOT wired: `ResolvedConfig` carries no cwd/path context for
+  `loadPluginRules`, and no surface spec promises plugin loading — deferred, noted as a
+  gap for the M2 integration gate. Real `PageMetaFetcher` needed an HTML parser; the
+  audit engine exports no page-meta helper (its `fetchPage` is internal), so **cheerio
+  is added as a direct cli dependency** — a dep-list deviation from the plan's
+  "@lumen-seo/audit + @lumen-seo/providers" line, kept inside the plan's declared
+  blast radius ("exactly that module + package.json deps"). Uses `redirect:'manual'`
+  so every hop is SSRF-revalidated by core's redirect iterator, a 2 MiB capped body
+  read (works without Content-Length), and audit's exported `sanitizeText` for I13.
+
+- **Seam (c) — worker/providers.ts**: real `createWorkerSafeProviders` via the
+  `/worker` subpath for runtime imports; the main barrel appears only in `import type`
+  positions (erased before bundling — bundle-scan stays clean). Tranco unselected; no
+  serp/auditRunner/pageMeta/history → local-only tools stay local-only. R7 kill-switch
+  disposition: `workerConfig(env)` omits the pagespeed SECTION when
+  `WORKER_ENABLE_PSI === "false"` and both compositions leave `pageSpeed` unwired in
+  that case (the factory itself always constructs all six, so composition-level
+  unwiring is the omission mechanism); the REST leg keeps its explicit rest.ts check.
+  Boundary types are narrowed with a documented cast mirroring core's registry `as<T>`
+  (`WorkerSafeProviders` values are the broad `AnyProvider` union).
+
+- **Worker suite findings (confusions worth recording)**:
+  1. The outbound recorder's module state is NOT shared between the Vitest node
+     context (where the `outboundService` hook runs) and the workerd test context
+     (where test files run) — each gets its own instance of
+     `worker/outbound-recorder.ts`. The pre-rebase `expect(calls()).toEqual([])`
+     assertions were therefore VACUOUS (never proven recording). Post-rebase the
+     allowlist is ENFORCED in the responder itself: any host outside
+     `OUTBOUND_HOST_ALLOWLIST` is answered with a 599, which the real providers
+     classify as a typed UpstreamError — so every positive-path assertion doubles as
+     an allowlist assertion, and the enumeration test pins the documented hosts.
+  2. Allowlist corrections against the real wire: OPR's endpoint host is
+     `openpagerank.com` (NOT `api.openpagerank.com` — the old fixture entry never
+     matched), and CrUX's `chromeuxreport.googleapis.com` is added alongside PSI's
+     `www.googleapis.com`. The wikipedia pageviews host (`wikimedia.org`) is
+     intentionally never reached: the title-search fixture answers no-match, so
+     demand ideas are omitted (I3) without leaving the allowlist.
+  3. PSI runs KEYLESS in trial mode (`automated` defaults false) — the recorder
+     comment's "zero PSI outbound when no keys" was imprecise; CrUX/OPR are the
+     providers that never fetch keyless (NotConfiguredError before any fetch). The
+     page_report tests now cover both the keyless trial path and the E5 header
+     pass-through (keyed PSI + keyed OPR against provider-shaped fixtures).
+
+- **CLI bin (integration-discovered, surfaces-local fix)**: strip-only TS lanes cannot
+  execute the real providers/audit sources (TS parameter properties —
+  ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX), so the bin re-execs once with
+  `--experimental-transform-types` (+ `--disable-warning=ExperimentalWarning`: the
+  flag's own experimental warning would break the "nothing on stderr" E2 contract,
+  and attaching a `warning` listener does NOT suppress this one — verified). The
+  re-exec FORWARDS SIGINT/SIGTERM/SIGHUP and relays the exit code so the spawn-tested
+  E14 shutdown contracts hold for the directly spawned process (suite-verified). An
+  in-process `stripTypeScriptTypes(mode:'transform')` load hook was prototyped and
+  rejected for exactly the stderr-warning reason. `engines` bumped `>=22.6` →
+  `>=22.7` (first version with the transform flag).
+
+- **Two spawn tests updated to the post-rebase composition** (they assumed the fixture
+  runner WAS the production wiring): `exit-codes.test.ts` audit-spawn now asserts the
+  REAL engine's typed robots refusal for a reserved-`.example` seed (exit 2, stdout
+  empty, no `--out` file, no temp leftovers — hermetic, zero HTTP); the exit-0/1
+  audit matrix remains covered in-process via injected runners. `stdio-roundtrip.test.ts`
+  tools/call now exercises `lumen_rank_check` → `LOCAL_ONLY_CAPABILITY` (no serp in
+  the default composition, E6) instead of the fixture audit success.
+
+- **Gate results (post-wiring)**: lint PASS; typecheck PASS (all workspaces incl. the
+  worker program); cli 122/122; mcp 64 node + 21 worker (Miniflare) = 85/85; root
+  suite 595/595 (66 files; site excluded by design); `check:size` 290 KiB gzip /
+  1536 KiB self-cap (was 285 KiB with fixtures). The "660+ tests" estimate in the
+  integration brief overshot — the actual baseline was 595 before wiring.

@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "author": "Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=22.7"
   },
   "bin": {
     "lumen": "./bin/lumen.js"
@@ -23,7 +23,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@lumen-seo/audit": "*",
     "@lumen-seo/core": "*",
-    "@lumen-seo/mcp": "*"
+    "@lumen-seo/mcp": "*",
+    "@lumen-seo/providers": "*",
+    "cheerio": "^1.2.0"
   }
 }

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -213,24 +214,22 @@ describe('audit cancellation via run() (E14)', () => {
   });
 });
 
-describe('audit via the real bin + fixture composition adapter (spawn)', () => {
-  it('exits 0/1 deterministically for a known URL and writes --out atomically', async () => {
+describe('audit via the real bin + REAL engine (spawn, post-rebase)', () => {
+  it('exits 2 with typed robots guidance for an unreachable seed; no --out file, no temp leftovers', async () => {
     const { spawnCli } = await import('./spawn.js');
-    const { createHash } = await import('node:crypto');
-    // The fixture runner derives severity counts from the URL hash; replicate
-    // the exact rule to know the expected gate outcome (deterministic — I10).
+    // `.example` is a reserved TLD that never resolves, so the REAL engine's
+    // robots gate refuses the seed conservatively (A2) and zero HTTP leaves
+    // the machine — hermetic. The exit-0/exit-1 audit matrix over injected
+    // fixture runners is covered by the in-process blocks above.
     const url = 'https://fixture-audit.example/';
-    const h = createHash('sha256').update(url).digest();
-    const errors = h[0]! % 3;
     const out = join(dir, 'spawn-report.json');
     const r = await spawnCli(['audit', url, '--json', '--out', out, '--fail-threshold', 'off'], { cwd: dir });
-    // threshold off -> only incomplete could gate; the fixture completes
-    expect(r.code).toBe(0);
-    const doc = JSON.parse(r.stdout) as { incomplete: boolean; pages: unknown[] };
-    expect(doc.incomplete).toBe(false);
-    expect(doc.pages.length).toBeGreaterThanOrEqual(1);
-    const fileDoc = JSON.parse(await readFile(out, 'utf8')) as { summary: { countsBySeverity: { error: number } } };
-    expect(fileDoc.summary.countsBySeverity.error).toBe(errors);
+    // LumenRobotsUnreachableError → the exit envelope's error path (2).
+    expect(r.code).toBe(2);
+    expect(r.stdout).toBe(''); // E2: error diagnostics never mix into stdout
+    expect(r.stderr).toContain('LumenRobotsUnreachableError');
+    expect(r.stderr).toContain('refusing to crawl');
+    expect(existsSync(out)).toBe(false); // no report under the target name on error
     expect((await readdir(dir)).filter((f) => f.includes('.tmp'))).toEqual([]);
   });
 });

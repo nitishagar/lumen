@@ -120,7 +120,10 @@ describe('stdio round-trip via the real bin (E2/E14)', () => {
             jsonrpc: '2.0',
             id: 3,
             method: 'tools/call',
-            params: { name: 'lumen_audit_site', arguments: { url: 'https://example.com' } },
+            // No serp provider is selected by the default config, so the
+            // stdio composition answers rank_check with the typed
+            // LOCAL_ONLY_CAPABILITY result (E6) — deterministic, zero network.
+            params: { name: 'lumen_rank_check', arguments: { keyword: 'k', domain: 'example.com' } },
           },
         ],
         [1, 2, 3],
@@ -138,11 +141,12 @@ describe('stdio round-trip via the real bin (E2/E14)', () => {
           'lumen_rank_check',
         ].sort(),
       );
+      expect(responses.get(3)!.result?.isError).toBe(true);
       const payload = JSON.parse(
         (responses.get(3)!.result?.content as { type: string; text: string }[])[0]?.text ?? '{}',
       ) as Record<string, unknown>;
-      expect(payload.url).toBe('https://example.com/');
-      expect(payload.passesThreshold).toBe(true); // fixture audit runner — zero network
+      expect(payload.code).toBe('LOCAL_ONLY_CAPABILITY');
+      expect(payload.message).toContain('npx @lumen-seo/cli');
     },
     30_000,
   );
