@@ -11,6 +11,8 @@ export interface KeywordIdea {
   source: Provenance;
   estimateLabel?: string;
   lang?: string;
+  /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
+  retrievedAt?: string;
 }
 
 /** `SerpResult{position, url, title, snippet?}` */
@@ -19,6 +21,12 @@ export interface SerpResult {
   url: string;
   title: string;
   snippet?: string;
+  /** Provenance for gray/best-effort SERP sources (providers A9 — optional, additive). */
+  source?: Provenance;
+  /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
+  retrievedAt?: string;
+  /** Honesty label required on every `gray` value (providers A9/I3 — optional, additive). */
+  estimateLabel?: string;
 }
 
 /** Lighthouse/PSI category scores, 0–100; `null` when the category did not compute (I3). */
@@ -37,11 +45,23 @@ export interface PageSpeedMetrics {
   fcn: number | null;
 }
 
+/** Field (real-user, CrUX-embedded) experience inside a PSI report — provenance kind `field` (providers A9/I3). */
+export interface PageSpeedField {
+  /** CrUX `overall_category` (e.g. "FAST", "AVERAGE", "SLOW", "NEEDS_IMPROVEMENT"). */
+  overall: string;
+  metrics: PageSpeedMetrics;
+  source: Provenance;
+}
+
 /** `PageSpeedReport{scores{...}, metrics{...}, source{...}}` */
 export interface PageSpeedReport {
   scores: PageSpeedScores;
   metrics: PageSpeedMetrics;
   source: Provenance;
+  /** Real-user field data, omitted entirely when PSI returned none — never zero-filled (I3; providers A9). */
+  field?: PageSpeedField;
+  /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
+  retrievedAt?: string;
 }
 
 /**
@@ -65,6 +85,8 @@ export interface CruxMetric {
 export interface CruxRecord {
   metrics: Record<string, CruxMetric>;
   source: Provenance;
+  /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
+  retrievedAt?: string;
 }
 
 /** `AuthoritySignal{domain, kind:'rank'|'score', value, provider, attribution}` */
@@ -76,4 +98,8 @@ export interface AuthoritySignal {
   value: number;
   provider: string;
   attribution: string;
+  /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
+  retrievedAt?: string;
+  /** Honesty label required on every `heuristic` value (providers A9/I3 — optional, additive). */
+  estimateLabel?: string;
 }
