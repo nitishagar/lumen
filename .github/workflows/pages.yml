@@ -1,0 +1,44 @@
+name: Deploy Pages
+
+# P6b deploy layer (ci-deploy PLAN Phase 4): build the docs site on every
+# push to main and publish it to GitHub Pages via the Actions
+# build_type=workflow flow (enabled once by the orchestrator with
+# `gh api -X POST repos/nitishagar/lumen/pages -f build_type=workflow`).
+# Pages URL: https://nitishagar.github.io/lumen/ (site base path /lumen).
+#
+# A failed deploy-pages step leaves the previous deployment serving (the
+# deploy is atomic per deployment); reruns are safe.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, pages: write, id-token: write }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build -w @lumen-seo/site     # site contract: emits site/dist, base path /lumen/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site/dist }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { pages: write, id-token: write }
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

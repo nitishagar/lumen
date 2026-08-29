@@ -1,9 +1,11 @@
 # lumen
 
-<!-- Badges (CI, npm) are placeholders: the CI badge lands with the ci-deploy
-     aspect (P6a bootstrap CI), the npm badge with the M2 publish step. -->
-<!-- [![CI](https://github.com/nitishagar/lumen/actions/workflows/ci.yml/badge.svg)](https://github.com/nitishagar/lumen/actions/workflows/ci.yml) -->
-<!-- [![npm](https://img.shields.io/npm/v/@lumen-seo/cli.svg)](https://www.npmjs.com/package/@lumen-seo/cli) -->
+[![CI](https://github.com/nitishagar/lumen/actions/workflows/ci.yml/badge.svg)](https://github.com/nitishagar/lumen/actions/workflows/ci.yml)
+[![Deploy Pages](https://github.com/nitishagar/lumen/actions/workflows/pages.yml/badge.svg)](https://github.com/nitishagar/lumen/actions/workflows/pages.yml)
+[![Docs](https://img.shields.io/website?url=https%3A%2F%2Fnitishagar.github.io%2Flumen%2F)](https://nitishagar.github.io/lumen/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+<!-- npm badge lands with the first verified publish (ci-deploy PLAN Phase 6):
+     [![npm](https://img.shields.io/npm/v/@lumen-seo/cli.svg)](https://www.npmjs.com/package/@lumen-seo/cli) -->
 
 > Lightweight, pluggable, MCP-first SEO toolkit — free services only.
 
