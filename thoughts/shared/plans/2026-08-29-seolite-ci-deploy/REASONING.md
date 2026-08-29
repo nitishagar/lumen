@@ -157,3 +157,21 @@ deliberately NOT started here — they belong to the M2 window.
   follow-up work, not P6a scope.
 - **Phase 4–7 not started** (P6b belongs to the M2 window per R6).
 
+
+## M2 integration fix — scoped site tests must build the artifact (orchestrator, post-P5 merge)
+
+The site-docs package (P5) ships an artifact-contract gate suite: `npm test -w
+@lumen-seo/site` fails fast when `site/dist` is missing BY DESIGN (no silent
+rebuilds; globalSetup throws). The P6a scoped branch-push path
+(`npm test --if-present -w <pkg>…`) therefore failed on any branch touching
+`site/` — first observed as a red `test` check on the `feat/lumen-site` push
+event while the same SHA's pull_request run (scope=ALL → root vitest, which
+excludes the site project per the scaffold contract) passed.
+
+Fix (ci.yml `test` job, Run tests step): when the resolved scope contains
+`@lumen-seo/site`, run `npm run build -w @lumen-seo/site` (astro build +
+pagefind) before the scoped test command. This honors both contracts: the
+site's "tests test the built artifact, never rebuild" rule (CI builds
+explicitly) and P6a's scoped-branch-testing rule. Root-suite path unchanged
+(site remains excluded from root vitest discovery per scaffold Phase 1; the
+P6b pages workflow builds and deploys the artifact on main).
