@@ -39,7 +39,7 @@ const { title, description, toc = [], activeHref } = Astro.props as {
     <article class="docs-prose" data-pagefind-body>
       <h1>{title}</h1>
       {toc.length > 0 && (
-        <nav class="on-this-page" aria-label="On this page">
+        <nav class="on-this-page" aria-label="On this page" data-pagefind-exclude>
           <h2>On this page</h2>
           <ul>
             {toc.map((item) => (
