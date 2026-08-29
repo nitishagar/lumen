@@ -3,6 +3,7 @@
  * against `PageContext`; plugin rules (SC-8) satisfy the same shape.
  */
 import type { Issue, PageContext } from './page.js';
+import { isSeverity } from './severity.js';
 import type { Severity } from './severity.js';
 
 export interface RuleOpts {
@@ -22,7 +23,7 @@ export const looksLikeAuditRule = (v: unknown): v is AuditRule => {
   const r = v as Record<string, unknown>;
   return (
     typeof r.id === 'string' &&
-    typeof r.severity === 'string' &&
+    isSeverity(r.severity) &&
     Array.isArray(r.categories) &&
     r.categories.every((c) => typeof c === 'string') &&
     typeof r.check === 'function'

@@ -89,4 +89,6 @@ export type { FetchTransport, Fetcher, FetcherOptions } from './fetcher.js';
 export { createFetcher, RETRY_AFTER_CAP_MS } from './fetcher.js';
 export { isAllowedScheme, isBlockedHost, isBlockedIpAddress, isBlockedTarget, isIpLiteral } from './ssrf.js';
 export { UA_VERSION, USER_AGENT } from './ua.js';
+export type { LoadRobotsOptions, RobotsPolicy } from './robots.js';
+export { loadRobots } from './robots.js';
 export const packageName = '@lumen-seo/core';
