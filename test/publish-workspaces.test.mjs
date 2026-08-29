@@ -474,7 +474,7 @@ describe('CLI — dry-run end-to-end (spawnSync, fixture lockfile)', () => {
     return spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', cwd });
   }
 
-  it('prints the ordered plan and exits 0 without touching the tree', (t) => {
+  it('prints the ordered plan and exits 0 without touching the tree', () => {
     const root = mkdtempSync(join(tmpdir(), 'lumen-publish-cli-'));
     onTestFinished(() => rmSync(root, { recursive: true, force: true }));
     writeFileSync(join(root, 'package-lock.json'), `${JSON.stringify(ARCH_GRAPH, null, 2)}\n`);
@@ -526,7 +526,7 @@ describe('CLI — dry-run end-to-end (spawnSync, fixture lockfile)', () => {
     expect(res.stderr).toContain('not-a-version');
   });
 
-  it('exits 1 on a lockfile dependency cycle, naming the members', (t) => {
+  it('exits 1 on a lockfile dependency cycle, naming the members', () => {
     const root = mkdtempSync(join(tmpdir(), 'lumen-publish-cycle-'));
     onTestFinished(() => rmSync(root, { recursive: true, force: true }));
     const lock = {
