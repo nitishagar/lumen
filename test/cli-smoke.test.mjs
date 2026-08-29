@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  DEFAULT_TIMEOUT_MS,
   SmokeError,
   checkConfigShow,
   checkHelp,
@@ -74,7 +75,8 @@ if (mode === 'mcp') {
       let req;
       try { req = JSON.parse(line); } catch { continue; }
       if (req.method !== 'initialize') continue;
-      if (b.mcpDeaf) continue;
+      if (b.mcpNoisyDeaf) { process.stderr.write('server hit an error state\\n'); } // written AFTER the request arrives → ordered before the parent's (generous) timer
+      if (b.mcpDeaf || b.mcpNoisyDeaf) continue;
       if (b.mcpWrongId) {
         process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: req.id + 7, result: { serverInfo: { name: 'lumen-mcp' } } }) + '\\n');
       } else if (b.mcpNoServerInfo) {
@@ -84,7 +86,7 @@ if (mode === 'mcp') {
       }
     }
   });
-  if (b.mcpDeaf) { setInterval(() => {}, 10000); } // stay alive (loop pinned) until the smoke kills us — a deaf server must never exit on its own
+  if (b.mcpDeaf || b.mcpNoisyDeaf) { setInterval(() => {}, 10000); } // stay alive (loop pinned) until the smoke kills us — a deaf server must never exit on its own
   else process.stdin.on('end', () => process.exit(0));
 } else {
   process.stderr.write('unknown argv\\n');
@@ -208,6 +210,10 @@ describe('checkConfigShow — <bin> config show exits 0 with JSON on stdout', ()
 });
 
 describe('mcpInitializeHandshake — JSON-RPC initialize over stdio (real processes)', () => {
+  it('pins the plan-mandated 10 s default timeout', () => {
+    expect(DEFAULT_TIMEOUT_MS).toBe(10000);
+  });
+
   it('completes against a compliant fixture server and reports serverInfo.name', async () => {
     const { cliDir } = makeBin({});
     const result = await mcpInitializeHandshake({
@@ -261,6 +267,20 @@ describe('mcpInitializeHandshake — JSON-RPC initialize over stdio (real proces
       expect(err).toBeInstanceOf(SmokeError);
       expect(err.check).toBe('mcp-initialize');
       expect(err.message).toContain('timed out');
+    }
+  });
+
+  it('reports the drained server stderr in the timeout error (no pipe backpressure masking)', async () => {
+    const { cliDir } = makeBin({ mcpNoisyDeaf: true });
+    try {
+      // generous budget: the pinned subject here is stderr DRAIN+REPORTING, not the timeout boundary (pinned by the deaf test above)
+      await mcpInitializeHandshake({ command: resolveBin(cliDir).path, timeoutMs: 1500 });
+      expect.unreachable('timeout should reject');
+    } catch (err) {
+      expect(err).toBeInstanceOf(SmokeError);
+      expect(err.check).toBe('mcp-initialize');
+      expect(err.message).toContain('timed out');
+      expect(err.message).toContain('server hit an error state');
     }
   });
 

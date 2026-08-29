@@ -52,6 +52,7 @@ const DEFAULT_ROOT = resolve(SCRIPT_DIR, '..', '..');
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
 const MAX_ATTEMPTS = 3; // I17: bounded retry — 3 attempts total
 const RETRY_DELAY_MS = 15000; // I17: 15 s backoff between attempts
+const PUBLISH_TIMEOUT_MS = 600000; // bound a hung registry round-trip per attempt instead of the Actions job default
 const NAMESPACE_PREFIX = '@lumen-seo/';
 
 /** Full SemVer grammar (semver.org), anchored — no leading zeros, prerelease + build allowed. */
@@ -168,7 +169,7 @@ export function npmPublishArgs(name) {
 
 function defaultPublishFn(root) {
   return (name) =>
-    spawnSync('npm', npmPublishArgs(name), { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    spawnSync('npm', npmPublishArgs(name), { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: PUBLISH_TIMEOUT_MS });
 }
 
 const defaultSleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -194,6 +195,10 @@ export function classifyFailure(res) {
 async function publishOne(name, publishFn, sleep, log) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await publishFn(name);
+    if (res.error !== undefined && res.error !== null) {
+      // spawn-level failure (ETIMEDOUT on the bounded spawn, npm missing, …) — not a registry answer, not retryable as E404
+      throw new PublishScriptError(`npm publish for ${name} failed to run: ${res.error.message}`, { kind: 'publish-failed', pkg: name });
+    }
     if (res.status === 0) return 'published';
     const cls = classifyFailure(res);
     if (cls.kind === 'duplicate') {

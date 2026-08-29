@@ -236,6 +236,11 @@ describe('classifyFailure — registry response semantics (I14)', () => {
     expect(classifyFailure(res)).toEqual({ kind: 'duplicate', status: '403' });
   });
 
+  it('classifies the message-only duplicate form even without a numeric status', () => {
+    const res = { status: 1, stdout: 'npm ERR! You cannot publish over the previously published versions: 0.1.0.', stderr: '' };
+    expect(classifyFailure(res)).toEqual({ kind: 'duplicate', status: undefined });
+  });
+
   it('classifies E404 as the retryable registry-lag kind', () => {
     const res = { status: 1, stdout: '', stderr: 'npm error code E404\nnpm error 404 Not Found - PUT https://registry.npmjs.org/@lumen-seo%2faudit' };
     expect(classifyFailure(res)).toEqual({ kind: 'e404', status: '404' });

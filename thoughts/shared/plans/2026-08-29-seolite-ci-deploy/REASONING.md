@@ -310,3 +310,30 @@ package.json files before hardcoding).
   `claude` CLI (`claude -p`, full tool access, fresh context = different agent
   than the author), producing IMPLEMENTATION_VALIDATION.md /
   TEST_VALIDATION.md / SECURITY_REVIEW.md in the bundle.
+
+## Review round (fresh adversarial agents, out-of-process via `claude -p`)
+
+- **Implementation review — MINOR-FAIL** (`IMPLEMENTATION_VALIDATION.md`): plan
+  conformance, E2/E3/E5, I14/I16/I17 all PASS with evidence; three MINORs:
+  (1) handshake child never drained stderr → FIXED (drain + tail in every
+  failure message, test-pinned); (2) unbounded npm spawnSync → FIXED (600 s
+  publish cap + typed spawn-error handling; 300 s build / 60 s bin-call caps in
+  cli-smoke); (3) skip-until-bin "no tracking" → resolved by design (self-
+  activating gate; recorded in plan notes + runbook). Resume with the same
+  reviewer is unsupported in this environment (out-of-process, no captured
+  session id) → author verified in place, note recorded in the artifact per
+  the workflow's fallback.
+- **Test review — PASS** (`TEST_VALIDATION.md`): 69/69, real processes not
+  mocks, non-tautological assertions, deterministic. Two minor notes applied
+  as strengthening (message-only duplicate classification; DEFAULT_TIMEOUT_MS
+  pinned) plus the stderr-drain test.
+- **Security review — MINOR-FAIL** (`SECURITY_REVIEW.md`): no secret leaks, no
+  injection (all `${{ }}` via env; SemVer-validated TAG; array-args spawn), no
+  dangerous triggers, writes/restore safe. Two LOW least-privilege findings
+  (pages build-job permissions, workflow-level contents:write in release.yml)
+  ACCEPTED: both are verbatim PLAN-sketch constructs — tightening would be an
+  unplanned deviation for a non-exploitable hygiene gain (documented in the
+  artifact).
+- Final state: lint + typecheck clean; 45 test files / 480 tests green
+  (10/10 stable on the ci-scripts suites); actionlint (pinned 1.7.12 docker)
+  green over all four workflows; `npm run validate` green end-to-end.

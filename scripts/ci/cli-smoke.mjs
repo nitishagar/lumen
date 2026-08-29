@@ -37,8 +37,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = resolve(SCRIPT_DIR, '..', '..');
-const DEFAULT_TIMEOUT_MS = 10000; // PLAN Phase 7: initialize handshake budget
+export const DEFAULT_TIMEOUT_MS = 10000; // PLAN Phase 7: initialize handshake budget (exported so tests pin the default)
 const MCP_PROTOCOL_VERSION = '2025-06-18'; // latest MCP protocol revision; the SDK is intentionally not a dependency of this zero-dep gate
+const BIN_CALL_TIMEOUT_MS = 60000; // --help / config show are local and instant; 60 s bounds a wedged CLI
+const BUILD_TIMEOUT_MS = 300000; // one workspace build; bounds a hung npm build instead of the Actions job default
 const LOG_PREFIX = 'cli-smoke';
 
 /** Typed smoke failure: `.check` ∈ help|config-show|mcp-initialize. */
@@ -115,6 +117,8 @@ export function mcpInitializeHandshake({ command, args = ['mcp'], timeoutMs = DE
     const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
     let settled = false;
     let buffer = '';
+    let stderrTail = ''; // drained continuously so a chatty server cannot deadlock on a full pipe buffer
+    const withStderr = (message) => (stderrTail.trim() !== '' ? `${message}; server stderr: ${stderrTail.trim().slice(-500)}` : message);
     const fail = (err) => {
       if (settled) return;
       settled = true;
@@ -129,10 +133,15 @@ export function mcpInitializeHandshake({ command, args = ['mcp'], timeoutMs = DE
       child.kill('SIGTERM'); // terminate the server after the handshake (PLAN Phase 7)
       resolvePromise(value);
     };
-    const timer = setTimeout(() => fail(new SmokeError(`initialize handshake timed out after ${timeoutMs}ms with no response`, 'mcp-initialize')), timeoutMs);
-    child.on('error', (err) => fail(new SmokeError(`failed to spawn ${command}: ${err.message}`, 'mcp-initialize')));
-    child.on('exit', (code) => fail(new SmokeError(`mcp server exited before answering the initialize request (exit code ${code})`, 'mcp-initialize')));
+    const timer = setTimeout(() => fail(new SmokeError(withStderr(`initialize handshake timed out after ${timeoutMs}ms with no response`), 'mcp-initialize')), timeoutMs);
+    child.on('error', (err) => fail(new SmokeError(withStderr(`failed to spawn ${command}: ${err.message}`), 'mcp-initialize')));
+    child.on('exit', (code) => fail(new SmokeError(withStderr(`mcp server exited before answering the initialize request (exit code ${code})`), 'mcp-initialize')));
     child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      stderrTail = (stderrTail + chunk).slice(-2000);
+    });
+    child.stderr.on('error', () => {}); // stream errors never own the outcome
     child.stdout.on('data', (chunk) => {
       if (settled) return;
       buffer += chunk;
@@ -180,7 +189,7 @@ export async function runSmoke({ cliDir, timeoutMs = DEFAULT_TIMEOUT_MS, runBin,
   }
   emit(`smoking ${bin.name} at ${bin.path}`);
 
-  const run = runBin ?? ((argv) => spawnSync(bin.path, argv, { encoding: 'utf8' }));
+  const run = runBin ?? ((argv) => spawnSync(bin.path, argv, { encoding: 'utf8', timeout: BIN_CALL_TIMEOUT_MS }));
 
   emit('check (a): --help exits 0 and mentions lumen');
   checkHelp(run(['--help']));
@@ -219,7 +228,7 @@ function parseArgs(argv) {
 
 function buildCli(root) {
   // --if-present: the pre-surfaces stub has no build script; the real CLI builds when it lands.
-  const res = spawnSync('npm', ['run', 'build', '--if-present', '-w', '@lumen-seo/cli'], { cwd: root, encoding: 'utf8' });
+  const res = spawnSync('npm', ['run', 'build', '--if-present', '-w', '@lumen-seo/cli'], { cwd: root, encoding: 'utf8', timeout: BUILD_TIMEOUT_MS });
   if (res.status !== 0) throw new SmokeError(`npm run build -w @lumen-seo/cli exited with status ${res.status}: ${(res.stderr ?? res.stdout ?? '').trim().split('\n').slice(-3).join(' | ') || '(no output)'}`, 'build');
 }
 
