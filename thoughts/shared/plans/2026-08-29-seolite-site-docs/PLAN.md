@@ -42,9 +42,9 @@ Build the seolite public face: a static landing + docs site under `site/`, desig
 **Verify commands** (exact, run from repo root):
 
 ```
-npm run build -w site   # astro build + pagefind index → site/dist/
-npm run check -w site   # build + full gate suite (vitest) — the CI gate
-npm run test  -w site   # vitest suite alone (requires a prior build; fails with guidance if site/dist missing)
+npm run build -w @seolite/site   # astro build + pagefind index → site/dist/
+npm run check -w @seolite/site   # build + full gate suite (vitest) — the CI gate
+npm run test  -w @seolite/site   # vitest suite alone (requires a prior build; fails with guidance if site/dist missing)
 ```
 
 ## What We're NOT Doing
@@ -85,7 +85,7 @@ One Astro workspace project at `site/` (SSG decision and rejections in Design An
 | **I7 theming (Auto/Light/Dark, reduced-motion)** | Three-state toggle (auto → light → dark) persisting to `localStorage`; pre-paint inline script sets `data-theme` (no FOUC); CSS: dark tokens on `:root`, light tokens under `@media (prefers-color-scheme: light)` unless `[data-theme="dark"]`, forced light via `[data-theme="light"]` — no-JS visitors get correct auto theming for free. `prefers-reduced-motion: reduce` zeroes transitions/animations and disables modal/smooth-scroll motion. |
 | **Accessibility audit invariant** | Skip link → `#main`; landmarks (`nav`/`main`/`footer`); single `h1`/page; `lang="en"`; install tabs = ARIA tabs pattern; search modal = `role="dialog"`, focus moved in, Escape closes, focus returned; visible `:focus-visible` styles from tokens. **Gate (G5)**: jest-axe (axe-core in jsdom) over every built HTML file — violations fail the build; contrast rule incomplete in jsdom by nature → covered deterministically by **Gate (G2)** contrast math. Structural keyboard assertions in G5: skip link present, tabs/modal ARIA present, all nav items real `<a href>`. |
 | **I11 repo hygiene** | Site builds/deploy from `main` (ci-deploy wires it); site content carries author + license; conventional plain commits, no trailers (process). |
-| **I4 / I12 / I14 / I15 / I17** | Content coverage on configuration + rules pages: robots default/override, UA identification, budgets, SSRF-guarded URL handling, incomplete-report example (labeled), unknown-config-key error, timeout/backoff/typed-error semantics. |
+| **I4 / I12 / I14 / I15 / I17** | Content coverage on configuration + rules pages: robots default/override, UA identification, crawl budgets, sitemap discovery, per-host rate limiting, SSRF-guarded URL handling, incomplete-report example (labeled), unknown-config-key error, timeout/backoff/typed-error semantics. |
 
 ### Trade-dress safe/unsafe checklist (enforced as gate G3)
 
@@ -107,10 +107,10 @@ One Astro workspace project at `site/` (SSG decision and rejections in Design An
 
 ### Concrete token values (our choices within the vocabulary)
 
-- Dark theme: bg `#09090b`, surface `#18181b`, border `#27272a`, hover `#3f3f46`, text `#fafafa`, dim `#a1a1aa`, accent `#f97316` (7.0:1 on bg — AA), link = accent.
+- Dark theme: bg `#09090b`, surface `#18181b`, border `#27272a`, hover `#3f3f46`, text `#fafafa`, dim `#a1a1aa`, accent `#f97316` (7.0:1 on bg — AA). Accent is for mono labels, badges, and buttons only — links use the pinned `--link` token below, never the accent.
 - Light theme: bg `#fff`, surface `#fafafa`, border `#e4e4e7`, text `#18181b`, dim `#52525b`, accent `#c2410c` (5.2:1 on white — AA; the raw `#f97316` fails AA on white, which is exactly why accent is a per-theme token, not a constant).
 - Badges: dark theme text = 400-family (e.g. `#4ade80`) on 10–14% tinted bg; light theme = 700-family (e.g. `#15803d`) on ~10% tint — each pair enumerated in the G2 contrast fixture at ≥4.5:1.
-- Docs reading surfaces: link colors per theme (`#65a0ff`-family on dark docs surfaces, `#0066cc`-family on light) chosen to clear AA — final pairs fixed in `tokens.css` and enforced by G2.
+- Links: ONE pinned `--link` pair site-wide (landing and docs surfaces alike — no per-surface wobble): `#65a0ff` on dark (7.6:1), `#0066cc` on light (5.6:1), both AA and enumerated in the G2 fixture alongside the accent pairs.
 - Type: root 18px; h1 1.875rem / h2 1.5rem / h3 1.25rem; line-height 1.5; weights 500/600/800; dense mono labels 0.75rem uppercase with letter-spacing.
 - Spacing: 0.25–1rem micro, 2–3rem between sections; max content width ~72rem landing / ~48rem docs prose.
 
@@ -167,7 +167,7 @@ All BA-1..BA-13 in IMPLICIT_SPEC.md. Operationally: Astro latest stable major pi
 `site/package.json` (workspace member):
 ```json
 {
-  "name": "seolite-site",
+  "name": "@seolite/site",
   "private": true,
   "type": "module",
   "scripts": {
@@ -201,19 +201,19 @@ export default defineConfig({
 
 Output contract (recorded in `site/README.md`, consumed verbatim by ci-deploy):
 ```
-command:  npm run build -w site        (repo root, npm workspaces)
+command:  npm run build -w @seolite/site        (repo root, npm workspaces)
 artifact: site/dist/  — pure static; MUST contain index.html, 404.html,
           sitemap.xml, robots.txt, pagefind/ (from Phase 5); no server output
-workflow: configure-pages → npm ci → npm run build -w site
+workflow: configure-pages → npm ci → npm run build -w @seolite/site
           → upload-pages-artifact(path: site/dist) → deploy-pages
-CI gate:  npm run check -w site   (PRs + main; deploy workflow runs build only)
+CI gate:  npm run check -w @seolite/site   (PRs + main; deploy workflow runs build only)
 ```
 
 Plus: minimal `Layout.astro` shell, placeholder `index.astro`, `404.astro`, `public/robots.txt` (allow all + sitemap ref), a build-output Vitest test asserting required files exist post-build.
 
 **Success Criteria**
 - [ ] Automated: `npm run build -w @seolite/site` exits 0 and produces `site/dist/index.html`, `site/dist/404.html`, `site/dist/sitemap.xml`, `site/dist/robots.txt`
-- [ ] Automated: `npm run test -w site` passes (build-output test green; base path `/seolite/` present in built HTML asset URLs)
+- [ ] Automated: `npm run test -w @seolite/site` passes (build-output test green; base path `/seolite/` present in built HTML asset URLs)
 - [ ] Automated: `npm run check -w @seolite/site` exits 0 end-to-end
 - [ ] Output contract documented in `site/README.md` (command, path, required files) — reviewed
 
@@ -256,7 +256,7 @@ Pre-paint theme script (inline in `Layout.astro` `<head>`):
 Components: `Header.astro` (sticky nav: wordmark, Docs, Changelog, GitHub, theme toggle `<button aria-label="Theme">`), `Footer.astro` (license/attributions/changelog links + inspiration line + toggle), `SkipLink.astro` (`<a class="skip" href="#main">Skip to content</a>`), original inline-SVG wordmark. G2 contrast fixture enumerates every text pair (both themes + badges + links) and computes WCAG ratios from the parsed `tokens.css`; G1 token-conformance test asserts required variables exist in built CSS; G4 escaping scan; G3 trade-dress scan online from this phase onward.
 
 **Success Criteria**
-- [ ] Automated: `npm run test -w site` — G1 token conformance (all required CSS variables present in built stylesheet)
+- [ ] Automated: `npm run test -w @seolite/site` — G1 token conformance (all required CSS variables present in built stylesheet)
 - [ ] Automated: G2 contrast math — every enumerated text/background pair ≥ 4.5:1 in dark AND light themes
 - [ ] Automated: G3 trade-dress scan — zero UNSAFE strings in src + built HTML; `pi.dev` only in allowlisted files
 - [ ] Automated: G4 escaping scan — zero `set:html` / `is:raw` in `site/src/**`
@@ -308,8 +308,8 @@ Content (markdown + `.astro` for chrome), all snippets from locked names:
 - **mcp-onboarding** — Claude Code (`claude mcp add --transport stdio seolite -- npx -y @seolite/cli mcp`), Cursor (mcpServers JSON + deeplink format note), VS Code (`vscode:mcp/install` / `mcp.json`), universal `{"mcpServers":{"seolite":{"command":"npx","args":["-y","@seolite/cli","mcp"]}}}`; the five locked tools with `response_format` note; remote-gateway section marked "ships with Worker deploy" (BA-7); local-only audit semantics stated.
 - **cli-reference** — table of the 7 locked commands + flags (`--max-pages`, `--out`, `--json`, `--domain`) + exit-code table.
 - **rules-reference** — severity model, categories, `failThreshold`, rule table per audit-engine at merge (BA-6); example `Issue` JSON with escaped `evidence.snippet`; incomplete-report example labeled `incomplete: true` (I14).
-- **providers-byok** — the 7 locked providers (`google-suggest`, `wikipedia-demand`, `pagespeed`, `crux`, `openpagerank`, `tranco`, `ddg-serp`) with kind labels, env var names `SEOLITE_PSI_KEY` / `SEOLITE_CRUX_KEY` / `SEOLITE_OPR_KEY`, skip-when-absent semantics, what-leaves-the-machine line each (I1/I16), CrUX/Tranco attribution pointers.
-- **configuration** — `seolite.config.json` example (provider selection, severity overrides, budgets, `failThreshold`, `plugins` with "Node-only" note), unknown-key error behavior (I15), timeout/backoff/typed errors (I17), robots default + override + UA (I4), SSRF-guarded URLs (I12).
+- **providers-byok** — the 7 locked providers (`google-suggest`, `wikipedia-demand`, `pagespeed`, `crux`, `openpagerank`, `tranco`, `ddg-serp`) with kind labels, env var names `SEOLITE_PSI_KEY` / `SEOLITE_CRUX_KEY` / `SEOLITE_OPR_KEY`, skip-when-absent semantics, what-leaves-the-machine line each (I1/I16), gray-provider rate-limit/cache etiquette (I4: honor 429/Retry-After, cache aggressively), CrUX/Tranco attribution pointers.
+- **configuration** — `seolite.config.json` example (provider selection, severity overrides, budgets, `failThreshold`, `plugins` with "Node-only" note), unknown-key error behavior (I15), timeout/backoff/typed errors (I17), robots default + override + UA + sitemap discovery + per-host rate limiting (I4), SSRF-guarded URLs (I12).
 - **attributions** — Apache-2.0, CrUX CC BY 4.0 + license link, Tranco attribution, Open PageRank reference, design-inspiration note (the only page besides the footer allowed to say "pi.dev"), trademark factual-use note.
 
 G7 extended: each locked CLI command must appear in the built CLI reference; G9 goes live (footer license link on every page + CC BY 4.0/Tranco strings on attributions).
@@ -335,7 +335,7 @@ addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open(); }
 });
 // dialog: role="dialog" aria-modal="true", focus moved in, Escape closes + focus returns,
-// input wired to Pagefind JS API: const pagefind = new Pagefind(); pagefind.search(q)
+// input wired to the Pagefind JS API: import * as pagefind from "/pagefind/pagefind.js"; pagefind.search(q)
 // results: real <a href> to page URLs; honors prefers-reduced-motion (no animation)
 ```
 
@@ -365,8 +365,8 @@ G8 goes live: `site/dist/pagefind/pagefind-entry.json` exists, `*.pf_index` chun
 
 ## Testing Strategy
 
-- **One runner, one gate.** Everything is Vitest: artifact specs (node) + DOM specs (jsdom). `npm run check -w @seolite/site` = build → pagefind → suite. `npm test -w site` alone requires a prior build and fails with that exact guidance if `site/dist` is missing — no silent skips, no magic rebuilds.
-- **Gate inventory**: G1 token conformance (variables exist) · G2 contrast math (WCAG ratios from parsed tokens, both themes, badges included) · G3 trade-dress strings (SAFE implemented / UNSAFE banned) · G4 escaping (`set:html`/`is:raw` ban) · G5 axe + keyboard structure (jest-axe in jsdom over all built pages; skip link, landmarks, ARIA patterns) · G6 internal links/anchors (cheerio walk of dist; external links recorded, never fetched) · G7 locked names (fixture conformance + `seolite_*` regex sweep + CLI-reference coverage) · G8 Pagefind non-empty (entry JSON + chunk floor) · G9 attribution presence (footer license link everywhere; CC BY 4.0 + Tranco on attributions).
+- **One runner, one gate.** Everything is Vitest: artifact specs (node) + DOM specs (jsdom). `npm run check -w @seolite/site` = build → pagefind → suite. `npm test -w @seolite/site` alone requires a prior build and fails with that exact guidance if `site/dist` is missing — no silent skips, no magic rebuilds.
+- **Gate inventory**: G1 token conformance (variables exist) · G2 contrast math (WCAG ratios from parsed tokens, both themes, badges included) · G3 trade-dress strings (SAFE implemented / UNSAFE banned) · G4 escaping (`set:html`/`is:raw` ban) · G5 axe + keyboard structure (jest-axe in jsdom over all built pages; skip link, landmarks, ARIA patterns) · G6 internal links/anchors (cheerio walk of dist; external links recorded, never fetched) · G7 locked names (fixture conformance + `seolite_*` regex sweep + CLI-reference coverage) · G8 Pagefind non-empty (entry JSON + chunk floor) · G9 attribution presence (footer license link everywhere; CC BY 4.0 + Tranco on attributions; grows a per-display rule if CrUX-derived sample data ever renders outside attributions/providers-byok).
 - **Determinism (I10)**: no network anywhere in the suite; no wall-clock assertions; Pagefind is a pinned local devDependency; fixtures are static files in-repo.
 - **Known blind spots, stated honestly**: jsdom axe cannot measure rendered color-contrast (covered instead by G2 math) or real focus behavior in a live browser (covered by structural ARIA assertions + manual pass in Phase 6); Pagefind ranking quality is not asserted (manual smoke); rule-ID/provider-list drift vs packages is reconciled at merge, not machine-checked (BA-6).
 - **CI wiring**: per-branch CI runs `npm run check -w @seolite/site` (site scope only, per ARCHITECTURE merge-order rule); deploy workflow runs `npm run build -w @seolite/site` only; full suite re-runs on `main` post-merge.

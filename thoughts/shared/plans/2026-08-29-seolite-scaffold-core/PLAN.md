@@ -4,7 +4,7 @@
 
 **scale**: large
 **aspect bundle**: `thoughts/shared/plans/2026-08-29-seolite-scaffold-core/` (this dir + `IMPLICIT_SPEC.md`)
-**status**: complete — zero open questions, zero TBD
+**status**: complete — zero open questions, zero TBD; RECONCILIATION.md R1–R10 applied as authoritative; PLAN_VALIDATION.md findings F1–F8 resolved
 
 ---
 
@@ -22,7 +22,8 @@ touches core has a named deterministic test (I10 — no live network, no wall cl
 
 ## Current State
 
-- Repo `~/repos/learn/seolite`, branch `main` @ `97d79a6`. Contains only `.gitignore` (already
+- Repo `~/repos/learn/seolite`, branch `main` @ `dfcec53` (docs-only commits landed after plan
+  authoring; claims below re-verified at `dfcec53`). Contains only `.gitignore` (already
   covers `node_modules/`, `dist/`, `.env*`, `coverage/`, `.wrangler/`, `.wt/`, logs) and `thoughts/`.
   No `packages/`, no LICENSE, no README, no tooling — verified 2026-08-29.
 - Locked inputs this plan conforms to:
@@ -34,6 +35,10 @@ touches core has a named deterministic test (I10 — no live network, no wall cl
     injectable `Fetcher`, cheerio Node-side, robots decision delegated to P1), the package table,
     the exact SPI signatures, the exact payload required fields, and M0 sequencing ("P1
     scaffold-core … bootstrap CI … must be green before any other merge").
+  - Reconciliation: `/Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite/RECONCILIATION.md`
+    — R1–R10 cross-plan authoritative decisions applied throughout (R1 severity vocabulary
+    `error|warning|info`, R2 `failThreshold` default `"error"`, R3 budgets incl. `maxPages`
+    clamp 10 000, R4 `@seolite/site` workspace, R5 BYOK env-var scheme, R6 M0 merge order).
 - Local environment verified 2026-08-29: Node v24.16.0, npm 11.13.0 (both satisfy engines >=22);
   `robots-parser` latest is 3.0.1 (unmoved since 2023, consistent with research), `vitest` 4.1.11
   (satisfies the >=4.1 lock), `cheerio` 1.2.0.
@@ -47,9 +52,10 @@ Observable end state after this plan completes:
 - `npm install` succeeds cleanly at repo root; `git status` shows only intended tracked files.
 - Repo root has: `package.json` (workspaces + CI-contract scripts), `tsconfig.base.json`,
   `vitest.shared.ts` + root `vitest.config.ts`, `eslint.config.js`, full Apache-2.0 `LICENSE`
-  (copyright 2026 Nitish Agarwal), `README.md` stub, extended `.gitignore`, and
-  `packages/{core,audit,providers,cli,mcp}` placeholders + `site/` pointer — names exactly per the
-  ARCHITECTURE package table.
+  (copyright 2026 Nitish Agarwal), `README.md` stub, `CONTRIBUTING.md` stub, extended
+  `.gitignore`, and `packages/{core,audit,providers,cli,mcp}` placeholders plus the private
+  `@seolite/site` workspace placeholder at `site/` (R4) — names exactly per the ARCHITECTURE
+  package table + RECONCILIATION R4.
 - `@seolite/core` exports, all test-covered: payload models with exactly the required fields;
   `Metric` provenance wrapper + deterministic helpers; `loadConfig` with I15/SC-3 error behavior;
   severity gate helpers (SC-4); `createProviderRegistry` / `createRuleRegistry` (I2/SC-6/SC-7);
@@ -73,6 +79,8 @@ npm test -w @seolite/core
 
 - No `.github/workflows/*` files — bootstrap CI is the ci-deploy aspect's P6a deliverable landing
   in M0; we ship only the npm script contract it invokes (BA-10).
+- No CI-enforcement content (required checks, branch protection) inside CONTRIBUTING — that is
+  ci-deploy's P6a scope; this plan ships only the CONTRIBUTING stub that links to it.
 - No crawler, AuditRule implementations, severity scorer, or report assembly — P2 (audit-engine).
 - No built-in providers (google-suggest, wikipedia-demand, pagespeed, crux, openpagerank, tranco,
   ddg-serp) or BYOK skip semantics — P3 (providers).
@@ -128,8 +136,10 @@ npm test -w @seolite/core
 ### Failure & concurrency
 
 - **Per-request failure containment**: the Fetcher converts every failure mode (blocked target,
-  timeout, redirect loop/hop cap, retries exhausted, abort) into a distinct typed `SeoliteError`
-  subclass carrying the provider/label — callers never pattern-match strings, and P2/P3 can label
+  timeout, redirect loop/hop cap, retries exhausted, abort, Retry-After over cap) into a distinct
+  typed `SeoliteError` subclass (`SsrfBlockedError`, `TimeoutError`, `RedirectError`,
+  `RetryExhaustedError`, `AbortedError`, `RetryAfterCapError`) carrying the provider/label —
+  callers never pattern-match strings, and P2/P3 can label
   partial results honestly (I3) instead of zero-filling.
 - **Cancellation**: caller `AbortSignal` is composed with the internal per-attempt deadline; an
   aborted signal fails immediately without consuming retries (test-enforced). Crawl-level global
@@ -193,8 +203,9 @@ as stated; none is revisitable without editing IMPLICIT_SPEC.md first.
 
 ## Resource & Cost Analysis
 
-- **npm installs (free, one-time + cached)**: runtime deps of core are `robots-parser` (~10 KB,
-  zero transitive deps) and `cheerio` (type-only usage; already needed Node-side by P2). Dev deps:
+- **npm installs (free, one-time + cached)**: the runtime dep of core is `robots-parser` (~10 KB,
+  zero transitive deps); `cheerio` is a devDependency (type-only usage — runtime cheerio
+  ownership is P2/audit's). Dev deps:
   `typescript`, `vitest@^4.1`, `@types/node`, `eslint@^9`, `typescript-eslint`, `@eslint/js`. No
   paid registry, no account services. Fresh `npm install` is the only cost; CI caches it.
 - **CI minutes (free for public repos per research Seam 5)**: the bootstrap trio (lint + typecheck +
@@ -220,17 +231,19 @@ as stated; none is revisitable without editing IMPLICIT_SPEC.md first.
 
 | File | Why |
 |---|---|
-| `package.json` (root) | Workspaces root: name `seolite`, `private: true`, `"type": "module"`, `engines.node >=22`, `workspaces: ["packages/*"]`, CI-contract scripts (below). Dev deps pinned to majors: typescript, vitest@^4.1, @types/node, eslint@^9, typescript-eslint, @eslint/js. |
+| `package.json` (root) | Workspaces root: name `seolite`, `private: true`, `"type": "module"`, `engines.node >=22`, `workspaces: ["packages/*", "site"]` (R4 — `site` is the private `@seolite/site` workspace), CI-contract scripts (below). Dev deps pinned to majors: typescript, vitest@^4.1, @types/node, eslint@^9, typescript-eslint, @eslint/js. |
 | `tsconfig.base.json` | ONE strictness contract for all packages: `strict`, `target: ES2023`, `module/moduleResolution: NodeNext` (ESM-only, `.js` import extensions), `verbatimModuleSyntax`, `isolatedModules`, `noUncheckedIndexedAccess`, `skipLibCheck`. `exactOptionalPropertyTypes` deliberately OFF (M1 friction) — default choice. |
 | `vitest.shared.ts` + `vitest.config.ts` (root) | Shared Vitest defaults + root `projects: ['packages/*/vitest.config.ts']` (Vitest 4 style; no deprecated workspace file). |
 | `eslint.config.js` | ESLint 9 flat config, typescript-eslint recommended, ignores `node_modules`, `dist`, `thoughts`. |
 | `.gitignore` (extend) | Add `.seolite/` (runtime history dir) and `*.tsbuildinfo`. |
 | `LICENSE` | Full Apache-2.0 text with "Copyright 2026 Nitish Agarwal" (I8). |
 | `README.md` | Stub: name, one-liner ("lightweight, pluggable, MCP-first SEO toolkit — free services only"), status: under active development, license pointer. |
+| `CONTRIBUTING.md` | Stub owned by this aspect (F7): build/dev/test commands (the root trio), commit/PR conventions per ARCHITECTURE.md repo conventions, link to the CI-enforcement docs owned by ci-deploy (P6a). |
 | `packages/{core,audit,providers,cli,mcp}/package.json` | Five placeholders named exactly `@seolite/{core,audit,providers,cli,mcp}`, v0.0.0, `"type":"module"`, `private: true`, engines, scripts (`test: vitest run`, `typecheck: tsc --noEmit`), `exports` → `./src/index.ts` (BA-13). |
 | `packages/*/tsconfig.json`, `packages/*/vitest.config.ts` | Each extends base / merges shared test config. |
 | `packages/*/src/index.ts` + `src/index.test.ts` | Placeholder barrel + one smoke test per package so `npm test` is green everywhere from day one. |
-| `site/README.md` | One-line pointer: docs site owned by site-docs aspect; not an npm workspace. |
+| `site/package.json` | Private placeholder workspace `@seolite/site` (R4; F2): name/version/type/engines + `private: true` ONLY — no scripts, so the root `test` projects glob (`packages/*/vitest.config.ts`) and `--workspaces --if-present` fan-outs are unaffected; gives `npm run build -w @seolite/site` (P5/P6b contract) a resolvable target from day one. |
+| `site/README.md` | One-line pointer: docs site owned by site-docs aspect. |
 
 Illustrative snippets (shape only, not final content):
 
@@ -239,7 +252,7 @@ Illustrative snippets (shape only, not final content):
 {
   "name": "seolite", "private": true, "type": "module",
   "engines": { "node": ">=22" },
-  "workspaces": ["packages/*"],
+  "workspaces": ["packages/*", "site"], // R4: site = private @seolite/site workspace
   "scripts": {
     "test": "vitest run",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -268,7 +281,7 @@ export default defineConfig({ test: { projects: ['packages/*/vitest.config.ts'] 
 - [ ] Automated: `npm run lint`
 - [ ] Automated: `npm run typecheck`
 - [ ] Automated: `npm test` (5 placeholder smoke tests green across packages)
-- [ ] Automated: `test -f LICENSE && grep -q "Version 2.0, January 2004" LICENSE && grep -q "Nitish Agarwal" LICENSE`
+- [ ] Automated: `test -f LICENSE && grep -q "Version 2.0, January 2004" LICENSE && grep -q "Nitish Agarwal" LICENSE && test -f CONTRIBUTING.md && grep -q "@seolite/site" site/package.json`
 - [ ] Automated: `test -d packages/core && test -d packages/audit && test -d packages/providers && test -d packages/cli && test -d packages/mcp && test -d site`
 
 ### Phase 2 — `@seolite/core` types, payload models & provenance helpers
@@ -317,10 +330,10 @@ export interface IdeasOpts { lang?: string; limit?: number; signal?: AbortSignal
 | File | Why |
 |---|---|
 | `errors.ts` | `SeoliteError` base + `ConfigError{details[]}` — typed, actionable (I17 style), each detail names the offending key + lists valid options. |
-| `config.ts` | `loadConfig(path?, read?)`: SC-3 full behavior — missing file → defaults; malformed/non-object JSON → ConfigError; unknown key at any level → ConfigError listing valid keys for that level; range validation (positive integers); `byok` value pattern `^[A-Z_][A-Z0-9_]*$` (SC-5); outputs frozen `ResolvedConfig{providers,severityOverrides,crawl,failThreshold,byok,plugins}`. `read` injectable → no filesystem in tests. |
+| `config.ts` | `loadConfig(path?, read?)`: SC-3 full behavior — missing file → defaults; malformed/non-object JSON → ConfigError; unknown key at any level → ConfigError listing valid keys for that level; range validation (positive integers) with `maxPages` hard-clamped at 10 000 (R3); enum restriction: `failThreshold` ∈ `error\|warning\|info\|off` and `severityOverrides` values ∈ `error\|warning\|info` (R1), else ConfigError; `byok` value pattern `^[A-Z_][A-Z0-9_]*$` (SC-5; cross-plan names per R5); outputs frozen `ResolvedConfig{providers,severityOverrides,crawl,failThreshold,byok,plugins}`. `read` injectable → no filesystem in tests. |
 | `gate.ts` | `severityRank`, `meetsThreshold(issueSev, threshold)`, `countIssuesAtOrAbove(issues, threshold)`, `EXIT` codes 0/1/2 constants — SC-4 pure helpers for P4. |
 | `registry.ts` | `createProviderRegistry(selection, byok, available)` → validates names + byok keys (I2: unknown → error listing available, sorted); accessors per boundary return the instance or `undefined` (absent → I1 skip is caller's job). `createRuleRegistry(rules, severityOverrides)` → duplicate-id error; unknown override id → error listing known ids; `get/list/effectiveSeverity`. |
-| `config.test.ts`, `gate.test.ts`, `registry.test.ts` | Written FIRST: full SC-3/SC-4/SC-5/SC-6/SC-7 edge matrix (see Testing Strategy), using fixture providers/rules and an injected in-memory `read`. |
+| `config.test.ts`, `gate.test.ts`, `registry.test.ts` | Written FIRST: full SC-3/SC-4/SC-5/SC-6/SC-7 edge matrix incl. invalid `failThreshold`/`severityOverrides` enums and the `maxPages` 10 000 clamp (see Testing Strategy), using fixture providers/rules and an injected in-memory `read`. |
 
 Illustrative snippets:
 
@@ -356,9 +369,9 @@ export function createProviderRegistry(
 | File | Why |
 |---|---|
 | `ssrf.ts` | Pure predicate `isBlockedTarget(url: URL): boolean` — scheme whitelist (http/https post-normalization), exact I12 ranges (127/8, 10/8, 172.16/12, 192.168/16, 169.254/16, ::1, fc00::/7, fe80::/10) + conservative additions (0.0.0.0/8, `::`, IPv4-mapped `::ffff:0:0/96`, BA-6); handles brackets/ports/IDN-normalized hosts via `URL`. Zero I/O → testable anywhere (SC-10). |
-| `errors.ts` (extend) | `SsrfBlockedError`, `TimeoutError`, `RetryExhaustedError`, `RedirectError{reason:'loop'\|'hop-cap'\|'scheme'}` — all carry `provider`/label when given (I17). |
-| `ua.ts` | `USER_AGENT = 'seolite/<version> (+https://github.com/nitishagar/seolite)'` — always applied, never suppressible (SC-12). |
-| `fetcher.ts` | `createFetcher(opts): Fetcher` implementing the LOCKED interface. Opts: `timeoutMs`, `maxRetries`, `baseBackoffMs`, `maxRedirects`, `label?`, plus determinism seams `delegate?` (transport), `resolve?` (hostname→IPs), `sleep?`, `rng?` (BA-15). Manual redirect loop (hop cap 5, seen-set loop detection, per-hop scheme+SSRF re-check), per-attempt deadline composed with caller signal, bounded retries (GET/HEAD; network/429/5xx), exponential backoff + full jitter, Retry-After (seconds or HTTP-date, capped 30 s → typed error beyond, BA-4). |
+| `errors.ts` (extend) | `SsrfBlockedError`, `TimeoutError`, `RetryExhaustedError`, `RedirectError{reason:'loop'\|'hop-cap'\|'scheme'}`, `AbortedError` (caller signal aborted; no retries consumed), `RetryAfterCapError` (Retry-After beyond the 30 s cap, BA-4) — all carry `provider`/label when given (I17). |
+| `ua.ts` | `USER_AGENT = 'seolite/<version> (+https://github.com/nitishagar/seolite)'` — always applied, never suppressible (SC-12). `<version>` sourcing: a literal constant in `ua.ts`, kept in sync with `packages/core/package.json` `version` by a unit test — deterministic, no runtime JSON import, Workers-safe (F6). |
+| `fetcher.ts` | `createFetcher(opts): Fetcher` implementing the LOCKED interface. Opts: `timeoutMs`, `maxRetries`, `baseBackoffMs`, `maxRedirects`, `label?`, plus determinism seams `delegate?` (transport), `resolve?` (hostname→IPs), `sleep?`, `rng?`, `now?` (clock — fixed epoch in tests, e.g. Retry-After HTTP-date parsing and deadline bookkeeping; BA-15). Manual redirect loop (hop cap 5, seen-set loop detection, per-hop scheme+SSRF re-check), per-attempt deadline composed with caller signal, bounded retries (GET/HEAD; network/429/5xx), exponential backoff + full jitter, Retry-After (seconds or HTTP-date, capped 30 s → `RetryAfterCapError` beyond, BA-4). |
 | `ssrf.test.ts`, `fetcher-resilience.test.ts`, `fetcher-basics.test.ts` | Written FIRST: full SC-10..SC-13 matrix against injected delegates + fake timers (see Testing Strategy). |
 
 Illustrative snippets:
@@ -372,6 +385,7 @@ export interface FetcherOptions {
   resolve?: (host: string) => Promise<string[]>; // Node: dns lookup; Workers: undefined
   sleep?: (ms: number) => Promise<void>;  // fake timers in tests
   rng?: () => number;                     // seeded jitter in tests
+  now?: () => number;                     // clock seam: fixed epoch in tests (Retry-After HTTP-date, deadlines)
 }
 export const createFetcher = (opts?: FetcherOptions): Fetcher => { /* … */ };
 ```
@@ -399,7 +413,7 @@ export const createFetcher = (opts?: FetcherOptions): Fetcher => { /* … */ };
 
 | File | Why |
 |---|---|
-| `packages/core/package.json` (edit) | Add deps `robots-parser` + `cheerio` (cheerio type-only usage, BA-12); add `exports: { ".": "./src/index.ts", "./node": "./src/node.ts" }`. |
+| `packages/core/package.json` (edit) | Add dep `robots-parser`; add devDep `cheerio` (type-only usage per BA-12 — runtime cheerio ownership is P2/audit); add `exports: { ".": "./src/index.ts", "./node": "./src/node.ts" }`. |
 | `src/robots.ts` | Decision BA-1: `robots-parser` behind core-owned `RobotsPolicy{isAllowed(url): boolean; crawlDelay?: number; sitemaps: URL[]}` + `loadRobots(fetcher, siteUrl, opts)` implementing SC-14 matrix (2xx parse; 4xx allow-all; 429/5xx/network → disallow-all; unparseable body → allow-all). robots fetched through the guarded Fetcher (UA/SSRF/timeout inherit). |
 | `src/node.ts` | Node-only subpath: `createNodeFetcher(opts)` (wires `resolve` from `node:dns` onto Phase 4 fetcher) and `loadPluginRules(paths, {cwd})` — dynamic import, default-export shape-validated as `AuditRule`, failure → typed error naming the file (SC-8). Main entry stays Node-free (import-graph test). |
 | `src/robots.test.ts`, `src/plugins.test.ts`, `src/entry-isolation.test.ts` | Written FIRST: SC-14 matrix (fixture robots bodies via injected fetcher), SC-8 (valid plugin, wrong-shape plugin, missing file, syntax-error module), and a main-entry import-graph guard (no `node:` specifiers, no `./node.ts` re-export) for I6. |
@@ -453,7 +467,7 @@ Every IMPLICIT_SPEC edge → owning test:
 | IMPLICIT_SPEC edge | Test (file → cases) |
 |---|---|
 | SC-1 workspace layout, SC-2 toolchain | Phase 1/6 commands (`npm test`, trio green); per-package smoke tests `index.test.ts`; `test -d packages/*` checks |
-| SC-3 unknown keys → error listing valid keys | `config.test.ts` → unknown top-level key; unknown key under `providers`/`crawl`/`byok`/`severityOverrides`; malformed JSON; non-object JSON; missing file → defaults; range violations (0/negative/non-integer `maxPages` etc.) |
+| SC-3 unknown keys → error listing valid keys | `config.test.ts` → unknown top-level key; unknown key under `providers`/`crawl`/`byok`/`severityOverrides`; malformed JSON; non-object JSON; missing file → defaults; range violations (0/negative/non-integer `maxPages` etc.); invalid enum: `failThreshold: 'fatal'` → ConfigError listing `error\|warning\|info\|off`; `severityOverrides` value outside `error\|warning\|info` → ConfigError (F4); `maxPages: 20000` → resolved `crawl.maxPages === 10000` (R3 clamp, F5) |
 | SC-3 + BA-14 discovery | `config.test.ts` → loads explicit path via injected `read`; cwd default documented |
 | SC-4 failThreshold semantics | `gate.test.ts` → equality at threshold fails (exit 1 class); issue below threshold passes; `off` never gates; ordering info<warning<error; `countIssuesAtOrAbove` tallies `countsBySeverity` correctly |
 | SC-5 BYOK names | `config.test.ts` → invalid env-var name pattern rejected; valid name accepted verbatim; loader asserts values are never read from env |
@@ -466,10 +480,10 @@ Every IMPLICIT_SPEC edge → owning test:
 | SC-10 Node resolver validation | `node` path exercised in `entry-isolation.test.ts`/`fetcher-basics.test.ts` via injected `resolve` returning a private IP → blocked pre-connect |
 | SC-11 timeout | `fetcher-resilience.test.ts` → delegate hangs → fake timers advance → `TimeoutError` (no retries); with retries → `RetryExhaustedError` after 3 attempts |
 | SC-11 backoff+jitter | `fetcher-resilience.test.ts` → seeded `rng` → observed sleep ∈ [0, 2^attempt × base]; attempt count bounded; exponential growth verified |
-| SC-11 Retry-After | `fetcher-resilience.test.ts` → 429 + `Retry-After: 2` → slept 2 s then retried (503 too); HTTP-date form parsed; invalid header → fallback backoff; `Retry-After: 3600` → typed error (30 s cap, BA-4) |
-| SC-11 retry scope | `fetcher-resilience.test.ts` → 500/network-error retried on GET; POST not retried by default; caller abort mid-flight fails immediately without consuming retries |
-| SC-11 typed errors + label | `fetcher-resilience.test.ts` → every error carries `label` ('pagespeed' fixture) and is `instanceof SeoliteError` |
-| SC-12 User-Agent | `fetcher-basics.test.ts` → UA header present on initial + robots-style calls; caller-supplied UA overridden; init headers merged without dropping caller keys |
+| SC-11 Retry-After | `fetcher-resilience.test.ts` → 429 + `Retry-After: 2` → slept 2 s then retried (503 too); HTTP-date form parsed (seeded `now` — F1); invalid header → fallback backoff; `Retry-After: 3600` → `RetryAfterCapError` (30 s cap, BA-4) |
+| SC-11 retry scope | `fetcher-resilience.test.ts` → 500/network-error retried on GET; POST not retried by default; caller abort mid-flight fails immediately with `AbortedError` without consuming retries (F3) |
+| SC-11 typed errors + label | `fetcher-resilience.test.ts` → every error class (incl. `AbortedError`, `RetryAfterCapError` — F3) carries `label` ('pagespeed' fixture) and is `instanceof SeoliteError` |
+| SC-12 User-Agent | `fetcher-basics.test.ts` → UA header present on initial + robots-style calls; caller-supplied UA overridden; init headers merged without dropping caller keys; UA `<version>` equals `packages/core/package.json` `version` (sync test, F6) |
 | SC-13 redirect discipline | `ssrf.test.ts`/`fetcher-resilience.test.ts` → 6-hop chain → RedirectError('hop-cap') at 5; A→B→A → RedirectError('loop'); all hops re-validated (combined with SC-10 redirect cases) |
 | SC-14 robots matrix | `robots.test.ts` → 200 + allow/deny rules via policy; 404 → allow-all; 500, 429, network throw → disallow-all; garbage body → allow-all; `crawlDelay`/`sitemaps` surfaced; robots request itself carries UA + goes through guarded fetcher (fixture delegate asserts) |
 | SC-15 HistoryStore | `models.test.ts` → interface fixture (in-memory) type-checks + `position: null` preserved; no storage impl ships in core (compile-level) |
@@ -483,7 +497,9 @@ previous phases' commands still pass (root trio at Phase 6 is the cumulative gat
 
 - `/Users/nagarwal/repos/learn/seolite/thoughts/shared/research/2026-08-29-seolite-greenfield-research.md` — I1–I17, bounding assumptions, evidence ledger (npm workspaces, robots-parser staleness, Workers limits, Vitest >=4.1)
 - `/Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite/ARCHITECTURE.md` — locked decisions, package table, SPI signatures, payload required fields, M0 sequencing
+- `/Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite/RECONCILIATION.md` — R1–R10 authoritative cross-plan decisions (severity vocabulary, failThreshold default, budget clamp, `@seolite/site` workspace, BYOK scheme, M0 merge order)
 - `/Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite-scaffold-core/IMPLICIT_SPEC.md` — this aspect's edges SC-1..SC-17 + BA-1..BA-15
+- `/Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite-scaffold-core/PLAN_VALIDATION.md` — adversarial review; findings F1–F8 all resolved in this revision
 - RFC 9309 (Robots Exclusion Protocol grammar) — basis for BA-1 staleness-risk reasoning
 - https://www.apache.org/licenses/LICENSE-2.0.txt — full license text for LICENSE (I8)
 - https://docs.npmjs.com/cli/using-npm/workspaces — workspaces + `--workspaces` script fan-out

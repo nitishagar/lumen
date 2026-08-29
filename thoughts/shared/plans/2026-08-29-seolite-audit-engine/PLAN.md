@@ -63,7 +63,7 @@ Pipeline, all deps injected (Fetcher from core; `now`/`delay`/`jitter`/`randomId
 
 1. **Gate** — load robots directives for the seed origin via core's robots module through the core Fetcher. Apply the conservative policy table (Design Analysis → Defaults & policy tables). Refusal → typed error, zero page fetches. `respectRobots: false` (config, default true) skips the gate but never the rate limiter or budgets.
 2. **Discover** — seed the frontier from the seed URL plus sitemap URLs (robots `Sitemap:` lines, else probe `/sitemap.xml`), filtered to same-origin http/https, robots-checked individually, deduplicated by normalized URL.
-3. **Crawl loop** — worker pool at global concurrency cap; per-host minimum spacing (max of configured interval and robots crawl-delay); per-request deadline via injected delay; manual redirect following (≤10 hops, loop-detected, each hop through the core Fetcher so I12 re-validates); capped body read (2 MiB); content-type classification.
+3. **Crawl loop** — worker pool at global concurrency cap; per-host minimum spacing (max of configured interval and robots crawl-delay); per-request deadline via injected delay; manual redirect following (≤ `maxRedirects` 5 per R3, loop-detected, each hop through the core Fetcher so I12 re-validates; cap reached without a repeated URL → `redirect_cap` skip); capped body read (2 MiB); content-type classification.
 4. **Audit** — parse HTML with cheerio into `PageContext`; run per-page built-in rules + any core-registered plugin rules with a `RuleContext{depth, isSeed, crawl?}`; collect out-links and per-URL status into a `CrawlIndex`.
 5. **Finalize** — run crawl-level rules (`broken-internal-link`, `redirect-chain`) against the `CrawlIndex`; place issues on owning pages.
 6. **Assemble** — score (severity-weighted, monotone), summarize counts, sanitize strings, mint path-safe report id, set `stopReason`/`incomplete`, snapshot config (no secrets).
@@ -76,7 +76,7 @@ Cancellation (I14) is enforced at every blocking point: dispatch checks, rate-li
 
 | Invariant | Mechanism in `@seolite/audit` |
 |---|---|
-| I4 etiquette | robots-policy table (below); per-host rate limiter (`nextAllowedAt = max(now + minIntervalMs, robots crawl-delay)`); budgets enforced before dispatch; sitemap discovery; UA set by core Fetcher (never overridden); post-retry 429 → single Retry-After-capped retry, then `rate_limited` skip |
+| I4 etiquette | robots-policy table (below); per-host rate limiter (`nextAllowedAt = now + max(perHostMinDelayMs, crawlDelaySeconds × 1000)` — RFC 9309 crawl-delay is seconds; the seconds→ms conversion is pinned here and encoded in the test fixture); budgets enforced before dispatch; sitemap discovery; UA set by core Fetcher (never overridden); post-retry 429 → single Retry-After-capped retry, then `rate_limited` skip |
 | I12 SSRF | every request and every redirect hop goes through the injected core Fetcher; discovered URLs filtered to http/https before enqueue |
 | I13 output safety | `sanitizeText` strips C0/C1 control chars, caps length on every crawled-derived string entering `Issue.message/evidence.snippet/fixHint`; URLs serialized from `URL` objects; `reportIdFor` produces `[a-z0-9.-]`-only ids; consumers still escape at render (CLI/site ownership per ARCHITECTURE) |
 | I14 concurrency/cancellation/partial failure | global semaphore (worker pool, default 5); per-request deadline; run-level `AbortSignal` checked at dispatch/sleep/fetch; stop on abort resolves with `incomplete: true`; per-page fetch failure → `fetch_error` skip, loop continues; no side effects → safe re-run |
@@ -94,26 +94,26 @@ Cancellation (I14) is enforced at every blocking point: dispatch checks, rate-li
 
 ```ts
 const ac = new AbortController();
-const timer = deps.delay(opts.requestTimeoutMs, signal).then(
-  () => ac.abort(),                      // deadline hit
-  () => {},                              // run aborted or already settled
-);
-signal?.addEventListener('abort', () => ac.abort(), { once: true });
+const onAbort = () => ac.abort();                        // run-level abort → per-request abort
+signal?.addEventListener('abort', onAbort, { once: true });
+const timer = deps.delay(opts.requestTimeoutMs, signal); // cancellable injected sleep (I10)
+timer.then(() => ac.abort(), () => {});                  // deadline hit → abort the request
 try {
   // core Fetcher enforces SSRF (I12) + its own retry/backoff (I17)
   return await deps.fetcher.fetch(url, { ...init, redirect: 'manual', signal: ac.signal });
 } finally {
-  void timer; // stray timer is harmless; fake clock in tests
+  signal?.removeEventListener('abort', onAbort);         // no listener leakage across 10k pages
+  timer.cancel();                                        // deadline timer cancelled (no-op if fired)
 }
 ```
 
 - **Abort promptness**: `abort()` → (1) dispatch loop exits (no new requests), (2) rate-limit sleeps reject, (3) in-flight `AbortController`s fire, (4) pool awaits settlement, (5) report assembled with `stopReason: 'aborted'`, `incomplete: true`. Test asserts no fetch starts after abort and run resolves promptly.
 - **Stop reasons**: `completed` (frontier drained) / `aborted` / `time_budget` (checked before each dispatch) / `page_budget` (fetched count reached). `incomplete = stopReason !== 'completed'` (A5).
-- **Partial failure isolation**: one URL's fetch throw, parse throw, or rule throw is caught, recorded (`fetch_error` skip / rule error logged and that rule skipped for that page), and never fails the run. A rule-throw bug degrades coverage, not the whole audit — recorded in report `configSnapshot`? No: recorded as a warning entry on the page's `skipped`/issues only if fetch-level; rule throws are swallowed with a console-level warning and counted in `summary.byRule` absence. Crawl-level throws (robots refusal) surface as typed errors from `runSiteAudit`: `SeoliteRobotsUnreachableError`, `SeoliteSeedDisallowedError`.
+- **Partial failure isolation**: a per-URL fetch or parse throw is caught and recorded as a `fetch_error` skip. A throwing rule is isolated per rule per page: the rule is skipped for that page and the failure is counted in the additive `summary.ruleErrors: Record<ruleId, number>` — no issue is fabricated for a rule that never ran, no console reliance — and the run continues. Crawl-level throws (robots refusal) surface as typed errors from `runSiteAudit`: `SeoliteRobotsUnreachableError`, `SeoliteSeedDisallowedError`.
 
 ### Blast radius
 
-- **core (P1)**: consumes Fetcher, config, robots directives, payload models. Needs additive optional fields (A12): `Issue.url?`, `PageReport.depth?/skipped?/redirectChain?`, `SiteAuditReport.stopReason?`, `summary.pagesAudited?/pagesSkipped?/byRule?`, robots directives `sitemaps?: string[]`. Types-only PR to core if P1 didn't include them — default action, non-breaking.
+- **core (P1)**: consumes Fetcher, config, robots directives, payload models. Needs additive optional fields (A12): `Issue.url?`, `PageReport.depth?/redirectChain?`, `PageReport.skipped?: { reason: SkipReason }` (pinned single shape — always an object with a reason code, never a bare string), `SiteAuditReport.stopReason?`, `summary.pagesAudited?/pagesSkipped?/byRule?/ruleErrors?`, robots directives `sitemaps?: string[]`. Types-only PR to core if P1 didn't include them — default action, non-breaking.
 - **providers (P3)**: zero interaction. Audit imports nothing from `@seolite/providers`; merge-order independence holds.
 - **surfaces (P4)**: depends on `runSiteAudit`, the built-in rule list (for `seolite config show`), typed robots errors (exit-code mapping), and the report shape. Public API is `src/index.ts` only.
 - **site-docs (P5)**: none at runtime (site has zero package deps); report JSON is the data contract; site escapes at render.
@@ -130,9 +130,9 @@ try {
 8. **`robots-parser` npm** — not audit's decision (core P1 chooses per ARCHITECTURE); audit consumes core's directives object only, so either choice is compatible.
 9. **Dedicated per-page-favicon rule** — rejected (noise; listed in NOT Doing).
 
-### Defaults & policy tables (locked; all overridable via config)
+### Defaults & policy tables (locked; core-owned values per RECONCILIATION R3, audit-owned knobs overridable via config)
 
-Crawl defaults: `maxPages 100` (absolute clamp 10,000) · `maxDepth 5` · `maxDurationMs 300_000` (core-owned default) · `concurrency 5` · `perHostMinDelayMs 250` · `requestTimeoutMs` = core Fetcher `timeoutMs` (10_000, core-owned) · `maxBodyBytes 2_000_000` · `maxRedirectHops 10` · `latencyThresholdMs 1_500` · evidence cap 10 per rule per page · frontier seen-set cap `100 × maxPages`.
+Crawl budgets — R3-authoritative (RECONCILIATION.md R3, core-owned; audit plumbs them, never re-declares): `maxPages 100` (absolute clamp 10,000) · `maxDepth 5` · `maxDurationMs 300_000` · `maxConcurrency 5` · `perHostMinDelayMs 250` · core fetch `timeoutMs 10_000` (audit's per-request deadline composes from it) · `maxRedirects 5`. Audit-owned knobs (R3 audit list + A2/A4 policy): `maxBodyBytes 2_000_000` · `latencyThresholdMs 1_500` · evidence cap 10 per rule per page · robots-429 Retry-After cap 5 s · sitemap caps (≤10 robots-declared `Sitemap:` sources, 10 children per index, 10,000 URLs, 2 MiB) · frontier seen-set cap `100 × maxPages`. Reconciliation note: audit follows redirects manually, but adopts R3's core-owned `maxRedirects 5` — there is no audit-owned hop-count override (earlier draft's `maxRedirectHops 10` is withdrawn).
 
 robots.txt policy (A2):
 
@@ -151,17 +151,21 @@ Boundary-input behavior (I15; skip pages are recorded, never errors):
 | input | behavior |
 |---|---|
 | non-http(s) scheme link | filtered before enqueue (I12) |
-| non-HTML content type (2xx) | page recorded, `skipped: {reason: 'non_html'}`, no rules, consumes budget |
-| body > 2 MiB (Content-Length or streamed) | read aborted at cap, `skipped: 'oversized'`, no parse |
+| non-HTML content type (2xx) | page recorded, `skipped: { reason: 'non_html' }`, no rules, consumes budget |
+| body > 2 MiB (Content-Length or streamed) | read aborted at cap, `skipped: { reason: 'oversized' }`, no parse |
 | empty body (2xx) | parsed as empty document; rules fire naturally (title-missing etc.) |
-| redirect loop (URL repeats within one chain) | `skipped: 'redirect_loop'` on that URL; chain truncated at 10 hops |
+| redirect loop (URL repeats within one chain) | `skipped: { reason: 'redirect_loop' }` on that URL; chain truncated |
+| redirect cap (chain reaches `maxRedirects` 5 with no repeated URL) | `skipped: { reason: 'redirect_cap' }` on that URL |
 | redirect chain ≥2 hops | page fetched; `redirect-chain` rule flags; cross-origin final URL recorded, not crawled |
 | IDN/unicode host | `URL` normalizes (punycode) for frontier, report id slug, and display |
 | malformed sitemap XML | discovery warning (`sitemap_malformed`), fall back to link discovery |
 | oversized sitemap | discovery warning (`sitemap_oversized`), fallback; entries beyond 10k ignored (counted) |
 | sitemapindex | one level of nesting, ≤10 child sitemaps |
-| 429 on a page (post-Fetcher-retries) | one Retry-After-capped retry, then `skipped: 'rate_limited'` |
+| multiple robots `Sitemap:` lines | at most 10 declared sitemap URLs fetched (audit-owned cap; bounds worst case) |
+| 429 on a page (post-Fetcher-retries) | one Retry-After-capped retry, then `skipped: { reason: 'rate_limited' }` |
 | unknown rule id in config | explicit error listing available rule ids (I2 edge) |
+
+All skips serialize identically as `PageReport.skipped = { reason: <SkipReason> }` — one pinned shape, never a bare string (consumed by P4; A4/A12).
 
 Built-in rules (18; default severity overridable via `config.rules[id].severity`; `threshold` where noted):
 
@@ -207,7 +211,8 @@ Key audit-owned types (core-compatible; `o` in the locked `check(page, o)` SPI):
 export type StopReason = 'completed' | 'aborted' | 'time_budget' | 'page_budget';
 export type SkipReason =
   | 'robots_disallowed' | 'non_html' | 'oversized'
-  | 'fetch_error' | 'rate_limited' | 'redirect_loop';
+  | 'fetch_error' | 'rate_limited' | 'redirect_loop' | 'redirect_cap';
+// serialized only as PageReport.skipped = { reason: SkipReason } — never a bare string (A4)
 
 export interface RuleContext { depth: number; isSeed: boolean; crawl?: CrawlIndex }
 export interface CrawlIndex {
@@ -222,9 +227,9 @@ export interface CrawlRule {                       // audit-local extension; cor
 export interface CrawlerDeps {                     // I10: everything non-deterministic is injected
   fetcher: Fetcher;                                 // from core (I12/I17)
   now(): number;
-  delay(ms: number, signal?: AbortSignal): Promise<void>;
+  delay(ms: number, signal?: AbortSignal): Promise<void> & { cancel(): void }; // cancellable sleep (I10)
   jitter(): number;
-  randomId(): string;                               // report-id suffix (I13)
+  randomId(): string;                               // lowercase [a-z0-9]{6}; re-sanitized by reportIdFor (I13)
 }
 export function runSiteAudit(
   seed: URL, config: AuditConfig, deps: CrawlerDeps, signal?: AbortSignal,
@@ -238,20 +243,26 @@ export function sanitizeText(s: string, max = 300): string {
   return [...s.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '')].slice(0, max).join('');
 }
 export function reportIdFor(host: string, startedAtIso: string, rand: string): string {
-  const slug = host.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 63) || 'site';
-  return `audit-${slug}-${startedAtIso.replace(/[-:]/g, '').split('.')[0]}-${rand}`;
+  const safe = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
+  const stamp = startedAtIso.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); // UTC ISO w/ Z
+  return `audit-${safe(host) || 'site'}-${stamp}-${safe(rand) || '0'}`;      // rand sanitized too (I13)
 }
-// e.g. reportIdFor('Bücher.example', '2026-08-29T10:15:00.123Z', 'a1b2c3')
-//   → 'audit-xn--bcher-kva.example-20260829T101500Z-a1b2c3'   (path-safe: [A-Za-z0-9.-] only)
+// e.g. reportIdFor(new URL('https://Bücher.example').host, '2026-08-29T10:15:00.123Z', 'a1b2c3')
+//   new URL(...).host === 'xn--bcher-kva.example'             // URL punycodes the IDN (A8)
+//   → 'audit-xn--bcher-kva.example-20260829T101500Z-a1b2c3'   // path-safe: [a-z0-9.-] only
+// Hostile rand, e.g. path traversal or control chars → sanitized through the same safe() filter:
+//   reportIdFor('ok.example', '2026-08-29T10:15:00.123Z', '../evil')
+//   → 'audit-ok.example-20260829T101500Z-..-evil'             // unconditionally path-safe
 ```
 
 `configSnapshot` = seed URL, budgets, enabled rule ids + effective severities, `respectRobots`, `renderer: 'static'`. Never env values (ARCHITECTURE: BYOK via env var names only).
 
 ## Resource & Cost Analysis
 
-- **Requests per run**: ≤ maxPages page fetches + 1 robots.txt + ≤11 sitemap fetches. Defaults: ≤112 requests, hard-clamped ≤10,012 at the ceiling.
-- **Time floor from politeness**: per-host 250 ms spacing caps throughput at ~4 req/s regardless of concurrency 5, so 100 pages take ≥25 s; core-owned 300 s time budget accommodates this with headroom. Whichever budget bites first sets `stopReason` honestly (A5).
-- **Memory caps**: body reads stop at 2 MiB; cheerio DOMs are parsed, extracted, and released per page (never retained in reports). Worst-case peak ≈ concurrency × (2 MiB body + ~10× DOM overhead) ≈ ~110 MiB on pathological 2 MiB pages; typical pages (~100 KB) make this ≪10 MiB. Frontier memory bounded by the seen-set cap (100 × maxPages entries). Report size bounded by maxPages × evidence caps (few MB at the 10k ceiling).
+- **Requests per run**: ≤ maxPages page fetches + 1 robots.txt + sitemap fetches bounded by ≤10 robots-declared `Sitemap:` sources × (1 + ≤10 children per index) = ≤110. Defaults: ≤211 requests; at the 10,000-page clamp ≤10,111 — finite and honestly stated.
+- **Time floor from politeness**: per-host 250 ms spacing caps throughput at ~4 req/s regardless of concurrency 5, so 100 pages take ≥25 s; the R3 `maxDurationMs 300_000` budget accommodates that 12×, and at defaults the page budget (100) bites first. Whichever budget bites first sets `stopReason` honestly (A5); the robots-429 Retry-After cap (5 s) cannot starve the 300 s budget.
+- **Memory caps**: body reads stop at 2 MiB; cheerio DOMs are parsed, extracted, and released per page (never retained in reports). Worst-case peak ≈ concurrency × (2 MiB body + ~10× DOM overhead) ≈ ~110 MiB on pathological 2 MiB pages; typical pages (~100 KB) make this ≪10 MiB. Frontier memory bounded by the seen-set cap (100 × maxPages entries). Report size: the structural per-page maximum is 37 issues (only `broken-internal-link` and `mixed-content` have multiplicity 10; every other rule emits ≤1 per page) → defaults (100 pages) ≤3.7k issues ≈ ~1 MB JSON; the 10,000-page clamp ≈ 370k issues ≈ ~110 MB worst case — an extreme-config bound, not a default-path one.
 - **Cost**: zero external services, zero API keys (I1); only egress to the user's target; no telemetry (I16); CI cost is plain Vitest on public-repo Actions (free).
 
 ## Phases
@@ -282,11 +293,11 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 **Changes**
 
 - `src/crawl/robots-policy.ts` — maps core robots directives + fetch outcomes to the A2 policy table; exports `robotsOutcomeFor(...)` and the typed errors `SeoliteRobotsUnreachableError`, `SeoliteSeedDisallowedError`; `respectRobots: false` bypass.
-- `src/crawl/rate-limiter.ts` — per-host `nextAllowedAt` from injected `now`; effective delay = max(`perHostMinDelayMs`, robots crawl-delay); abortable via injected `delay`.
-- `src/crawl/sitemap.ts` — robots `Sitemap:` lines else probe `/sitemap.xml`; cheerio `xmlMode` parse of `urlset`/`sitemapindex` (1 level, ≤10 children); caps 10k URLs / 2 MiB; malformed/oversized → warning + fallback to link discovery; same-origin http/https filter.
+- `src/crawl/rate-limiter.ts` — per-host `nextAllowedAt` from injected `now`; effective delay = max(`perHostMinDelayMs`, robots crawl-delay seconds × 1000 per RFC 9309); abortable via injected `delay`.
+- `src/crawl/sitemap.ts` — robots `Sitemap:` lines (≤10 declared sources fetched) else probe `/sitemap.xml`; cheerio `xmlMode` parse of `urlset`/`sitemapindex` (1 level, ≤10 children per index); caps 10k URLs / 2 MiB; malformed/oversized → warning + fallback to link discovery; same-origin http/https filter.
 - `src/crawl/crawler.ts` — wire gate → discovery → loop; robots-denied URLs recorded `robots_disallowed` (skipped, not errored); crawl-delay feeds rate limiter.
 
-**Tests added**: `robots: denied pages are skipped as robots_disallowed, not errored` · `robots: fetch failure (5xx/network after retries) refuses crawl with typed error and zero page fetches` · `robots: 429 retries once honoring Retry-After cap then refuses` · `robots: 404 means no restrictions and crawl proceeds` · `robots: malformed lines are dropped, valid groups enforced` · `robots: crawl-delay overrides configured minimum interval (injected clock)` · `robots: seed disallowed → typed error, zero page fetches` · `rate-limiter: request starts are spaced ≥ min interval per host` · `sitemap: Sitemap: directive URLs seed the frontier` · `sitemap: falls back to /sitemap.xml probe when robots lists none` · `sitemap: malformed XML → warning + link-discovery fallback` · `sitemap: oversized sitemap is capped with warning` · `sitemap: sitemapindex nested one level, child cap enforced` · `sitemap: cross-origin and non-http(s) locs filtered`.
+**Tests added**: `robots: denied pages are skipped as robots_disallowed, not errored` · `robots: fetch failure (5xx/network after retries) refuses crawl with typed error and zero page fetches` · `robots: 429 retries once honoring Retry-After cap then refuses` · `robots: 404 means no restrictions and crawl proceeds` · `robots: malformed lines are dropped, valid groups enforced` · `robots: crawl-delay (seconds per RFC 9309) is converted to ms and overrides the configured interval (injected clock)` · `robots: seed disallowed → typed error, zero page fetches` · `rate-limiter: request starts are spaced ≥ min interval per host` · `sitemap: Sitemap: directive URLs seed the frontier` · `sitemap: falls back to /sitemap.xml probe when robots lists none` · `sitemap: malformed XML → warning + link-discovery fallback` · `sitemap: oversized sitemap is capped with warning` · `sitemap: sitemapindex nested one level, child cap enforced` · `sitemap: multiple robots Sitemap: lines are capped at 10 sources` · `sitemap: cross-origin and non-http(s) locs filtered`.
 
 **Success Criteria**
 
@@ -297,11 +308,11 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 
 **Changes**
 
-- `src/crawl/redirects.ts` — manual hop following (`redirect: 'manual'`), ≤10 hops, per-chain visited-set loop detection, chain recording (`hops`, `finalUrl`, cross-origin terminal recorded not crawled), every hop through the core Fetcher.
+- `src/crawl/redirects.ts` — manual hop following (`redirect: 'manual'`), ≤ `maxRedirects` 5 (R3 core-owned), per-chain visited-set loop detection, chain recording (`hops`, `finalUrl`, cross-origin terminal recorded not crawled), every hop through the core Fetcher; cap reached without a repeated URL → `redirect_cap` skip.
 - `src/crawl/body-reader.ts` — Content-Length pre-check + capped stream read at 2 MiB; oversized → abort read, classify `oversized`; content-type classification (`text/html`, `application/xhtml+xml` vs `non_html`).
 - `src/crawl/crawler.ts` — wire both; post-Fetcher-retry 429 → one Retry-After-capped retry then `rate_limited` skip; any per-URL fetch/parse throw → `fetch_error` skip, run continues; `PageContext` built (url/status/headers/dom/bytes/timingMs/robotsAllowed) and per-page rules invoked with `RuleContext`.
 
-**Tests added**: `redirects: loop terminates at repeated URL with skipped redirect_loop and no hang` · `redirects: chain capped at 10 hops` · `redirects: cross-origin redirect target recorded but not crawled` · `redirects: each hop goes through the injected fetcher (SSRF re-validation point)` · `body: oversized Content-Length page skipped oversized without parse` · `body: streamed body aborted at cap when Content-Length absent` · `body: non-HTML content type skipped non_html and counted in pagesSkipped` · `body: HTML and XHTML both parsed` · `crawl: 429 on page retries once honoring Retry-After then skips rate_limited` · `crawl: fetch error on one page skips fetch_error and crawl continues` · `crawl: 4xx/5xx page is recorded and audited (status-error context)` · `crawl: no conditional-request headers are ever sent`.
+**Tests added**: `redirects: loop terminates at repeated URL with skipped redirect_loop and no hang` · `redirects: chain hitting maxRedirects (5) without a repeated URL skips redirect_cap` · `redirects: cross-origin redirect target recorded but not crawled` · `redirects: each hop goes through the injected fetcher (SSRF re-validation point)` · `body: oversized Content-Length page skipped oversized without parse` · `body: streamed body aborted at cap when Content-Length absent` · `body: non-HTML content type skipped non_html and counted in pagesSkipped` · `body: HTML and XHTML both parsed` · `crawl: 429 on page retries once honoring Retry-After then skips rate_limited` · `crawl: fetch error on one page skips fetch_error and crawl continues` · `crawl: 4xx/5xx page is recorded and audited (status-error context)` · `crawl: no conditional-request headers are ever sent`.
 
 **Success Criteria**
 
@@ -332,9 +343,9 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 - `src/rules/technical.ts` — rules 9, 14–17 (viewport, status-error, insecure-http, mixed-content with subresource scan, response-latency threshold).
 - `src/rules/links.ts` — rules 11, 12 as `CrawlRule`s joined against `CrawlIndex.statusOf` (evidence-based only).
 - `src/rules/social.ts` — rule 18 (og-tags).
-- `src/rules/index.ts` — `createRuleSet(config)`: built-ins + core-registered plugin rules; `config.rules[id]` severity/threshold overrides; unknown id → error listing available ids; evidence cap 10/rule/page with overflow aggregation ("and N more" issue).
+- `src/rules/index.ts` — `createRuleSet(config)`: built-ins + core-registered plugin rules; `config.rules[id]` severity/threshold overrides; unknown id → error listing available ids; evidence cap 10/rule/page with overflow aggregation ("and N more" issue); rule throws isolated per rule per page into `summary.ruleErrors` (no fabricated issue, run continues).
 
-**Tests added**: table-driven positive/negative fixture per rule (18 × ≥2 cases, e.g. `rule title-missing: fires on empty title, silent on present title`, `rule image-alt-coverage: alt="" counts as present`, `rule broken-internal-link: silent when target was never fetched (honesty)`, `rule mixed-content: flags http: subresources only on https: pages`, `rule redirect-chain: silent at 1 hop, warning at ≥2`) · `rules: severity override applied from config` · `rules: threshold override applied (latency, title/description lengths)` · `rules: unknown rule id in config errors listing available ids` · `rules: evidence capped at 10 per rule per page with overflow marker` · `rules: plugin rule from core registry receives RuleContext`.
+**Tests added**: table-driven positive/negative fixture per rule (18 × ≥2 cases, e.g. `rule title-missing: fires on empty title, silent on present title`, `rule image-alt-coverage: alt="" counts as present`, `rule broken-internal-link: silent when target was never fetched (honesty)`, `rule mixed-content: flags http: subresources only on https: pages`, `rule redirect-chain: silent at 1 hop, warning at ≥2`) · `rules: severity override applied from config` · `rules: threshold override applied (latency, title/description lengths)` · `rules: unknown rule id in config errors listing available ids` · `rules: evidence capped at 10 per rule per page with overflow marker` · `rules: a throwing rule is isolated and recorded in summary.ruleErrors, run continues` · `rules: plugin rule from core registry receives RuleContext`.
 
 **Success Criteria**
 
@@ -348,11 +359,11 @@ TDD throughout (I9): each phase lists tests first (red) then implementation (gre
 - `src/report/score.ts` — `scorePage`/`scoreReport` (snippets above).
 - `src/report/sanitize.ts` — `sanitizeText` applied at assembly to every crawled-derived `message`/`evidence.snippet`/`fixHint`; URLs serialized from `URL` objects.
 - `src/report/id.ts` — `reportIdFor` (path-safe; snippet above).
-- `src/report/assemble.ts` — `SiteAuditReport` assembly: required locked fields + `stopReason`, `summary.pagesAudited/pagesSkipped/byRule`; issues placed on owning pages (crawl-rule issues attributed to source page via `Issue.url`); `configSnapshot` (no secrets); `renderer: 'static'`.
+- `src/report/assemble.ts` — `SiteAuditReport` assembly: required locked fields + `stopReason`, `summary.pagesAudited/pagesSkipped/byRule/ruleErrors`; issues placed on owning pages (crawl-rule issues attributed to source page via `Issue.url`); `configSnapshot` (no secrets); `renderer: 'static'`.
 - `src/index.ts` — public exports (`runSiteAudit`, `createRuleSet`, built-in rule metadata, scorer, sanitizers, typed errors, types); TSDoc contract notes for P4 consumers (report strings are untrusted text — escape at render).
 - E2E: `test/e2e.test.ts` — full `runSiteAudit` over a multi-page fake site exercising robots + sitemap + rules + abort + scoring in one run.
 
-**Tests added**: `score: bounds 0–100 and monotone (adding issues never raises score)` · `score: no issues → 100; zero audited pages → 0` · `report: id is path-safe for hostile hosts (spaces, unicode, control chars, overlong)` · `report: messages/snippets contain no C0/C1 control characters and respect length caps` · `report: summary counts match pages and byRule totals` · `report: crawl-rule issues placed on owning pages with url set` · `report: configSnapshot contains no env values` · `report: repeated identical runs produce byte-identical JSON (injected clock/jitter/randomId)` · `e2e: 5-page fixture site produces complete correct report` · `e2e: abort mid-e2e yields incomplete partial report`.
+**Tests added**: `score: bounds 0–100 and monotone (adding issues never raises score)` · `score: no issues → 100; zero audited pages → 0` · `report: id is path-safe for hostile hosts AND hostile randomId components (spaces, unicode, control chars, slashes, overlong)` · `report: messages/snippets contain no C0/C1 control characters and respect length caps` · `report: summary counts match pages and byRule totals` · `report: crawl-rule issues placed on owning pages with url set` · `report: configSnapshot contains no env values` · `report: repeated identical runs produce byte-identical JSON (injected clock/jitter/randomId)` · `e2e: 5-page fixture site produces complete correct report` · `e2e: abort mid-e2e yields incomplete partial report`.
 
 **Success Criteria**
 
@@ -383,7 +394,7 @@ Runner: Vitest (locked). Environment: node; all HTTP through `test/helpers/fake-
 | 13 | Robots 429 honored (I4/I17) | `robots: 429 retries once honoring Retry-After` | 2 |
 | 14 | Robots 404 unrestricted (I4) | `robots: 404 means no restrictions` | 2 |
 | 15 | Malformed robots lenient (I15) | `robots: malformed lines dropped, valid groups enforced` | 2 |
-| 16 | Crawl-delay honored (I4) | `robots: crawl-delay overrides configured interval` | 2 |
+| 16 | Crawl-delay honored, seconds→ms (I4) | `robots: crawl-delay (seconds per RFC 9309) converted to ms, overrides interval` | 2 |
 | 17 | Seed disallowed (I4) | `robots: seed disallowed → typed error` | 2 |
 | 18 | Per-host spacing (I4) | `rate-limiter: requests spaced ≥ min interval` | 2 |
 | 19 | Sitemap discovery via robots (I4) | `sitemap: Sitemap: directive URLs seed the frontier` | 2 |
@@ -391,32 +402,35 @@ Runner: Vitest (locked). Environment: node; all HTTP through `test/helpers/fake-
 | 21 | Malformed sitemap (I15) | `sitemap: malformed XML → warning + fallback` | 2 |
 | 22 | Oversized sitemap (I15) | `sitemap: oversized sitemap capped with warning` | 2 |
 | 23 | Sitemapindex caps (I15) | `sitemap: sitemapindex nested one level, child cap` | 2 |
-| 24 | Redirect loop terminated (I15) | `redirects: loop terminates... no hang` | 3 |
-| 25 | Redirect hop cap (I15) | `redirects: chain capped at 10 hops` | 3 |
-| 26 | Cross-origin redirect recorded (I12/A1) | `redirects: cross-origin target recorded, not crawled` | 3 |
-| 27 | Per-hop SSRF point (I12) | `redirects: each hop goes through the injected fetcher` | 3 |
-| 28 | Oversized page (I15) | `body: oversized Content-Length page skipped oversized` + `streamed body aborted at cap` | 3 |
-| 29 | Non-HTML skip (I15) | `body: non-HTML content type skipped non_html` | 3 |
-| 30 | 429 on page (I4/I17) | `crawl: 429 on page retries once then skips rate_limited` | 3 |
-| 31 | Partial failure isolation (I14) | `crawl: fetch error on one page... crawl continues` | 3 |
-| 32 | Cancellation promptness (I14) | `abort: no new request starts after abort` + `in-flight aborted` + `resolves promptly with incomplete report` | 4 |
-| 33 | Partial report honesty (I14/I3) | `abort: report contains pages fetched before abort, no fabricated data` | 4 |
-| 34 | Safe re-run (I14) | `partial: aborted-then-rerun yields complete report` | 4 |
-| 35 | Rule behavior ×18 (I3) | table-driven per-rule fixtures | 5 |
-| 36 | Rule config validation (I2/I15) | `rules: unknown rule id errors listing available ids` + override tests | 5 |
-| 37 | Evidence caps (I13/resource) | `rules: evidence capped at 10 per rule per page` | 5 |
-| 38 | Honesty on uncrawled links (I3) | `rule broken-internal-link: silent when target never fetched` | 5 |
-| 39 | Score semantics (I3) | `score: bounds/monotone` + `zero audited pages → 0` | 6 |
-| 40 | Path-safe ids (I13) | `report: id path-safe for hostile hosts` | 6 |
-| 41 | Inert stored strings (I13) | `report: no C0/C1 control characters, length caps` | 6 |
-| 42 | Assembly consistency (I3) | `report: summary counts match pages` + issue placement | 6 |
-| 43 | No secrets in snapshot (I1) | `report: configSnapshot contains no env values` | 6 |
-| 44 | End-to-end + abort e2e (I14) | `e2e: 5-page fixture site` + `e2e: abort mid-e2e` | 6 |
+| 24 | Multiple robots Sitemap: lines bounded (I15) | `sitemap: multiple robots Sitemap: lines are capped at 10 sources` | 2 |
+| 25 | Redirect loop terminated (I15) | `redirects: loop terminates at repeated URL → redirect_loop, no hang` | 3 |
+| 26 | Redirect cap without repeat (I15) | `redirects: chain hitting maxRedirects (5) without a repeated URL skips redirect_cap` | 3 |
+| 27 | Cross-origin redirect recorded (I12/A1) | `redirects: cross-origin target recorded, not crawled` | 3 |
+| 28 | Per-hop SSRF point (I12) | `redirects: each hop goes through the injected fetcher` | 3 |
+| 29 | Oversized page (I15) | `body: oversized Content-Length page skipped oversized` + `streamed body aborted at cap` | 3 |
+| 30 | Non-HTML skip (I15) | `body: non-HTML content type skipped non_html` | 3 |
+| 31 | 429 on page (I4/I17) | `crawl: 429 on page retries once then skips rate_limited` | 3 |
+| 32 | Partial failure isolation (I14) | `crawl: fetch error on one page... crawl continues` | 3 |
+| 33 | Rule-throw isolation (I14/I9) | `rules: a throwing rule is isolated and recorded in summary.ruleErrors, run continues` | 5 |
+| 34 | Cancellation promptness (I14) | `abort: no new request starts after abort` + `in-flight aborted` + `resolves promptly with incomplete report` | 4 |
+| 35 | Partial report honesty (I14/I3) | `abort: report contains pages fetched before abort, no fabricated data` | 4 |
+| 36 | Safe re-run (I14) | `partial: aborted-then-rerun yields complete report` | 4 |
+| 37 | Rule behavior ×18 (I3) | table-driven per-rule fixtures | 5 |
+| 38 | Rule config validation (I2/I15) | `rules: unknown rule id errors listing available ids` + override tests | 5 |
+| 39 | Evidence caps (I13/resource) | `rules: evidence capped at 10 per rule per page` | 5 |
+| 40 | Honesty on uncrawled links (I3) | `rule broken-internal-link: silent when target never fetched` | 5 |
+| 41 | Score semantics (I3) | `score: bounds/monotone` + `zero audited pages → 0` | 6 |
+| 42 | Path-safe ids incl. random component (I13) | `report: id path-safe for hostile hosts and hostile randomId` | 6 |
+| 43 | Inert stored strings (I13) | `report: no C0/C1 control characters, length caps` | 6 |
+| 44 | Assembly consistency (I3) | `report: summary counts match pages` + issue placement | 6 |
+| 45 | No secrets in snapshot (I1) | `report: configSnapshot contains no env values` | 6 |
+| 46 | End-to-end + abort e2e (I14) | `e2e: 5-page fixture site` + `e2e: abort mid-e2e` | 6 |
 
 ## References
 
 - `thoughts/shared/research/2026-08-29-seolite-greenfield-research.md` — Implicit Spec I1–I17 (esp. I4, I12–I17), free-source matrix, bounding assumptions
 - `thoughts/shared/plans/2026-08-29-seolite/ARCHITECTURE.md` — locked package boundaries, payload models, AuditRule SPI, M1 sequencing, CLI/MCP names
+- `thoughts/shared/plans/2026-08-29-seolite/RECONCILIATION.md` — R1–R10 authoritative cross-plan decisions (R3 crawl budgets; R1 severity vocabulary); this bundle conforms, maxRedirects 5 adopted
 - `thoughts/shared/plans/2026-08-29-seolite-audit-engine/IMPLICIT_SPEC.md` — aspect edges A1–A12, bounding assumptions
 - RFC 9309 (robots exclusion: 4xx vs unreachable semantics, lenient parsing) — https://www.rfc-editor.org/rfc/rfc9309.html
 - Sitemaps protocol (urlset/sitemapindex) — https://www.sitemaps.org/protocol.html

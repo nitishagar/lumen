@@ -5,6 +5,7 @@ project: seolite
 plan_protocol: create_plan_generic_v2_5 (scale=large)
 inherits: /Users/nagarwal/repos/learn/seolite/thoughts/shared/research/2026-08-29-seolite-greenfield-research.md — Implicit Spec I1–I17 + research bounding assumptions (cited, not restated)
 conforms_to: /Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite/ARCHITECTURE.md (locked decisions, package table, SPI signatures, payload required fields, sequencing)
+reconciled_with: /Users/nagarwal/repos/learn/seolite/thoughts/shared/plans/2026-08-29-seolite/RECONCILIATION.md (R1–R10 authoritative wherever they conflict with any assumption below)
 status: complete
 ---
 
@@ -45,7 +46,8 @@ These are requirements for this aspect only. They refine — never weaken — I1
 - **SC-1 Workspace layout** — The monorepo MUST contain exactly the packages and names of the
   ARCHITECTURE.md package table: `packages/core`→`@seolite/core`, `packages/audit`→`@seolite/audit`,
   `packages/providers`→`@seolite/providers`, `packages/cli`→`@seolite/cli`, `packages/mcp`→`@seolite/mcp`,
-  plus a non-published `site/` placeholder. Every package MUST be independently testable via
+  plus the private npm workspace `@seolite/site` at `site/` (RECONCILIATION R4; unpublished, no
+  scripts in M0). Every package MUST be independently testable via
   `npm test -w <pkg>` and type-checkable via `npm run typecheck -w <pkg>`. Root scripts MUST fan out
   via npm `--workspaces`. All packages MUST declare `engines.node >= 22` and `"type": "module"`.
 
@@ -62,8 +64,8 @@ These are requirements for this aspect only. They refine — never weaken — I1
   MUST produce a typed config error. A missing config file MUST NOT be an error — full defaults apply.
   Numeric fields MUST be range-validated (positive integers where bounded, e.g. `maxPages >= 1`).
 
-- **SC-4 failThreshold semantics** — Severity is the closed set `error | warning | notice`
-  (ordered `notice < warning < error`). `failThreshold` accepts one of those three plus `off`;
+- **SC-4 failThreshold semantics** — Severity is the closed set `error | warning | info`
+  (ordered `info < warning < error`; vocabulary locked by RECONCILIATION R1). `failThreshold` accepts one of those three plus `off`;
   default `error`. The exit-code contract is: 0 = ok/under-threshold, 1 = at least one issue at or
   above `failThreshold` (equality counts), 2 = config/provider error. Core MUST expose pure,
   deterministic threshold-comparison helpers; the CLI (P4) consumes them.
@@ -71,7 +73,9 @@ These are requirements for this aspect only. They refine — never weaken — I1
 - **SC-5 BYOK env-var names** — `byok` values MUST match a valid env-var NAME pattern
   (`^[A-Z_][A-Z0-9_]*$`). The loader MUST NOT read, resolve, log, or persist env-var VALUES;
   values are read at call time by providers (P3). A `byok` key that is not a known provider name
-  MUST raise the I2 unknown-name error listing available provider names.
+  MUST raise the I2 unknown-name error listing available provider names. Cross-plan names follow
+  the `SEOLITE_<PROVIDER>_KEY` scheme (RECONCILIATION R5: `SEOLITE_PSI_KEY`, `SEOLITE_CRUX_KEY`,
+  `SEOLITE_OPR_KEY`).
 
 - **SC-6 Provider SPI + registry** — Core MUST define the five locked provider interfaces
   (`KeywordProvider`, `SerpProvider`, `PageSpeedProvider`, `CruxProvider`, `AuthorityProvider`)
@@ -139,7 +143,9 @@ These are requirements for this aspect only. They refine — never weaken — I1
   the JSONL implementation belongs to the surfaces aspect (P4).
 
 - **SC-16 Repo identity (I8/I11/I16)** — Full Apache-2.0 text at repo root with copyright
-  "2026 Nitish Agarwal"; package author fields set; no telemetry dependencies, calls, or
+  "2026 Nitish Agarwal"; a CONTRIBUTING stub owned by this aspect (build/dev/test commands,
+  commit/PR conventions; CI-enforcement content owned by the ci-deploy aspect per ARCHITECTURE.md
+  repo conventions); package author fields set; no telemetry dependencies, calls, or
   identifiers anywhere in core; `.gitignore` covers local runtime state (`.seolite/`).
 
 - **SC-17 Provenance helpers (I3)** — Core MUST provide small deterministic helpers for building
@@ -152,14 +158,16 @@ These are requirements for this aspect only. They refine — never weaken — I1
   Rationale: robots grammar is frozen (RFC 9309) and a self-vendored checker re-implements subtle
   wildcard/longest-match semantics with high correctness risk; the wrapper is the vendoring escape
   hatch if the unmaintained package ever breaks.
-- **BA-2 Severity model**: three levels (`error|warning|notice`); `failThreshold` default `"error"`,
-  `"off"` disables gating. Conservative for CI gates (fewest false failures).
-- **BA-3 Default budgets/fetch numbers**: crawl `{maxPages:100, maxDepth:5, maxDurationMs:300000,
+- **BA-2 Severity model**: three levels (`error|warning|info` — locked by RECONCILIATION R1);
+  `failThreshold` default `"error"` (RECONCILIATION R2), `"off"` disables gating. Conservative
+  for CI gates (fewest false failures).
+- **BA-3 Default budgets/fetch numbers**: crawl `{maxPages:100 (hard-clamped at 10 000 in the
+  config loader, RECONCILIATION R3), maxDepth:5, maxDurationMs:300000,
   maxConcurrency:5, perHostMinDelayMs:250}`; fetch `{timeoutMs:10000, retries:2 (3 attempts),
   maxRedirects:5}`. All overridable via config/fetcher options; numbers picked small-and-safe.
 - **BA-4 Backoff/Retry-After**: exponential base 500 ms, factor 2, full jitter; `Retry-After`
   honored on 429/503 in seconds-form or HTTP-date form, capped at 30 s — a larger value surfaces as
-  a typed error rather than blocking the run.
+  a typed error (`RetryAfterCapError`) rather than blocking the run.
 - **BA-5 Retry scope**: GET/HEAD only by default; retryable outcomes: network errors, 429, 5xx.
 - **BA-6 SSRF list extension**: I12 minimum plus unspecified-address and IPv4-mapped-IPv6 forms
   (conservative superset; documented).
@@ -175,8 +183,9 @@ These are requirements for this aspect only. They refine — never weaken — I1
   invokes, and the M0 exit gate is that trio green locally.
 - **BA-11 Node-only surface**: `@seolite/core/node` subpath hosts Node-only code (plugin loader,
   resolver-wired fetcher construction); main entry stays Workers-safe.
-- **BA-12 cheerio in core**: dependency of `@seolite/core` for TYPE-ONLY use (typing
-  `PageContext.dom` per ARCHITECTURE); core performs no cheerio calls and no vendor HTTP calls.
+- **BA-12 cheerio in core**: devDependency of `@seolite/core` for TYPE-ONLY use (typing
+  `PageContext.dom` per ARCHITECTURE); core performs no cheerio calls and no vendor HTTP calls;
+  the runtime cheerio dependency belongs to P2/audit, which calls it.
 - **BA-13 Module resolution in-workspace**: package `exports` point at TS source for M0/M1
   (Vitest-native, no build step); `publishConfig` dist overrides deferred to M2 publishing.
 - **BA-14 Config discovery**: `seolite.config.json` in the process cwd; no config-file search up the

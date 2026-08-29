@@ -22,14 +22,14 @@ This plan builds the repo's CI/CD spine: the **first green gate** of the reposit
 
 ci-deploy is the enforcement and delivery layer for the seolite monorepo (6 workspaces: `packages/{core,audit,providers,cli,mcp}`, `site`). It has two landings:
 
-1. **P6a (M0, before any other aspect merge)** — `.github/workflows/ci.yml` with five required checks: `identity` (commit author/committer = Nitish Agarwal `<1592163+nitishagar@users.noreply.github.com>`, rejection of `Co-Authored-By:`/`Generated-…` trailers, `dependabot[bot]` sole allowlist), `workflow-lint` (actionlint 1.7.12), `lint`, `typecheck`, `test` (Node 22, npm workspaces; workspace-scoped selection on branch pushes via reverse-dependency closure from `package-lock.json`, full suite on main and PRs); `.github/dependabot.yml`; `.github/workflows/*` validated by actionlint both locally and in CI; repo metadata it owns (LICENSE verification-or-add, CONTRIBUTING.md, SECURITY.md, root `validate` script); branch protection applied via exact `gh api` commands immediately after landing.
+1. **P6a (M0, before any other aspect merge)** — `.github/workflows/ci.yml` with five required checks: `identity` (AUTHOR must be `Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>` — `dependabot[bot]` sole exception; COMMITTER accepted as Nitish OR GitHub's squash-merge signature `GitHub <noreply@github.com>`/web-flow OR `dependabot[bot]` alongside a dependabot author; rejection of `Co-Authored-By:`/`Generated-…` trailers; zero-SHA new-branch guard), `workflow-lint` (actionlint 1.7.12), `lint`, `typecheck`, `test` (Node 22, npm workspaces; workspace-scoped selection on branch pushes via reverse-dependency closure from `package-lock.json`, full suite on main and PRs); `.github/dependabot.yml`; `.github/workflows/*` validated by actionlint both locally and in CI; repo metadata it owns (LICENSE verification-or-add, CONTRIBUTING.md, SECURITY.md, root `validate` script); branch protection applied via exact `gh api` commands immediately after landing.
 2. **P6b (M2)** — `pages.yml` (configure-pages@v5 → site build → upload-pages-artifact@v3 → deploy-pages@v4, `pages: write` + `id-token: write`, environment `github-pages`), Pages enablement via exact `gh api` sequence (`build_type=workflow`), `deploy-worker.yml` (cloudflare/wrangler-action@v4, guard-step skip when `CLOUDFLARE_API_TOKEN` absent), `release.yml` (tag → build+test → GH Release → token-gated ordered npm publish with idempotent rerun), extended `npm run validate` (+ site build + CLI/stdio-MCP smoke), README badges.
 
 All decisions locked; every `uses:` pinned to an evidence-backed major; no secrets required for the pipeline to stay green.
 
 ## Current State
 
-- Local repo `~/repos/learn/seolite` on `main`, 4 commits (research, audit, architecture contract, init) — all authored `Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>`, no trailers (verified 2026-08-29). **No remote, no package.json, no workflows, no LICENSE** — only `thoughts/` and `.gitignore`.
+- Local repo `~/repos/learn/seolite` on `main`, 5 commits (init, research, audit, architecture contract, plan bundles) — all authored `Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>`, no trailers (verified 2026-08-29). **No remote, no package.json, no workflows, no LICENSE** — only `thoughts/` and `.gitignore`.
 - No Cloudflare credentials on this machine (`wrangler whoami` → not authenticated; research [V]). No npm token. No GitHub repo yet (name `nitishagar/seolite` verified available).
 - Sibling plan bundles (scaffold-core etc.) are being authored in parallel; interfaces come from ARCHITECTURE.md, which is the only coordination surface needed here.
 - Locked context: TS ESM, Node >=22, npm workspaces, Vitest everywhere, cheerio Node-side, MCP via `@modelcontextprotocol/sdk`, Pages via Actions, wrangler-action@v4, Apache-2.0, no AI co-author trailers.
@@ -86,8 +86,8 @@ Two landings, both PR-gated by the very checks they introduce.
 
 **Key mechanism decisions (all evidence-backed):**
 - *Secret-presence skip*: guard step (secret injected via step `env`, checked in shell, output consumed by later steps' `if`) — because `secrets` and `env` contexts are NOT available in job-level `if` (GitHub docs, verified 2026-08-29). actionlint would catch the illegal patterns anyway.
-- *Workspace-scoped branch tests*: `select-workspaces.mjs` computes changed packages from `git diff --name-only $(git merge-base origin/main HEAD)` and expands to the reverse-dependency closure parsed from `package-lock.json`; empty selection or script failure ⇒ full suite (fail-safe toward more testing).
-- *Identity gate*: checks only new commits (push range `github.event.before..sha`, PR range `merge-base(base)..head`), so the compliant existing history is never re-judged and the gate never blocks on old commits.
+- *Workspace-scoped branch tests*: `select-workspaces.mjs` computes changed packages from `git diff --name-only $(git merge-base origin/main HEAD)` and expands to the reverse-dependency closure parsed from `package-lock.json`, emitting exactly one `$GITHUB_OUTPUT`-ready `scope=<value>` line (`-w @seolite/x -w …`, or `scope=ALL` when the diff has no package paths / the lockfile cannot be parsed / the base is unresolvable — fail-safe toward more testing); the runner consumes it via a quoted, array-split expansion (shellcheck-clean).
+- *Identity gate*: strict on AUTHOR (must be Nitish Agarwal, `dependabot[bot]` sole exception), deliberately two-tier on COMMITTER (Nitish, or `GitHub <noreply@github.com>`/web-flow — the committer GitHub stamps on every squash/rebase merge it creates, i.e. the locked merge procedure's own signature, or `dependabot[bot]` alongside a dependabot author); checks only new commits (push range `github.event.before..sha` with a zero-SHA guard falling back to `origin/main..HEAD` on new branches, PR range `merge-base(base)..head`), so the compliant existing history is never re-judged and the gate never false-alarms on its own merge flow.
 - *Pages flow*: research-pinned action chain, artifact path contracted as `site/dist` (imposed on site-docs, P5).
 - *Publish path*: token-gated publish-on-tag chosen over unconditional-on-tag (would fail this machine's reality) and no-publish-v1 (would break the documented `npx @seolite/cli` onboarding surface, ARCHITECTURE CLI/MCP sections); single-version policy with internal dep ranges rewritten to the tag version before publish.
 
@@ -100,7 +100,7 @@ Two landings, both PR-gated by the very checks they introduce.
 | E1 CI-green-before-merge | `ci.yml` five jobs; branch protection (Phase 3 `gh api`): required contexts `["identity","workflow-lint","lint","typecheck","test"]`, `strict: true`, PR required (0 approvals), `enforce_admins: true`, force-push/deletions denied, linear history required. Applied in M0 before any M1 merge. |
 | I9 full suite every push | `test` job: full `npm test` when `github.ref == refs/heads/main` or `pull_request` event; scoped `npm test -w <pkg>…` on branch pushes via select script; selection failure ⇒ full. |
 | I9 TDD | CI scripts themselves are tested first (Phase 1); `vitest run` non-empty from P6a's first green run. |
-| I11 commit identity | `identity` job: author AND committer must equal `Nitish Agarwal / 1592163+nitishagar@users.noreply.github.com` (or `dependabot[bot]`); message body must match none of `/^co-authored-by:/i`, `/^generated[-_ ]?(by\|with)/i`; new-commits-only range. Runs on every push (incl. main — catches squash-merge-message violations) and PR. |
+| I11 commit identity | `identity` job, two-tier rule: AUTHOR must be `Nitish Agarwal / 1592163+nitishagar@users.noreply.github.com` (`dependabot[bot]` sole exception); COMMITTER must be Nitish, `GitHub <noreply@github.com>` (web-flow — the committer on every GitHub-created squash/rebase merge, i.e. the locked merge procedure's own signature), or `dependabot[bot]` when the author is dependabot; message body must match none of `/^co-authored-by:/i`, `/^generated[-_ ]?(by\|with)/i`; zero-SHA `before` (new branch) ⇒ base falls back to `origin/main`; new-commits-only range. Runs on every push (incl. main — catches squash-merge-message violations) and PR. |
 | I8 Apache compliance | `identity` job also asserts `LICENSE` exists and contains `Apache License`, `Version 2.0, January 2004`, `http://www.apache.org/licenses/` (full-text presence ⇒ §4(a) satisfied; research [V] single LICENSE file suffices). |
 | I1 skip-when-unconfigured (at deploy layer) | Guard-step pattern in `deploy-worker.yml` and `release.yml` publish job; `::notice::` documents the skip; job green; `wrangler`/`npm publish` unreachable without credentials. |
 | E3 evidence-pinned actions | All `uses:` from the evidence table; `workflow-lint` job runs `rhysd/actionlint:1.7.12` docker image over all workflow files (catches illegal context use, unknown action inputs); `.github/dependabot.yml` (github-actions + npm, weekly, max 5 PRs) keeps majors fresh; dependabot PRs ride the same green-required gates. |
@@ -115,9 +115,11 @@ Two landings, both PR-gated by the very checks they introduce.
 - **Broken workflow YAML / illegal expression** → `workflow-lint` (actionlint) fails the PR before it can land; if a bad workflow somehow reaches main, `gh run list` in the phase success criteria detects it and a follow-up PR reverts (workflows are versioned like code).
 - **Failed Pages deploy** → previous deployment keeps serving (deploy-pages is atomic per deployment; the site is never half-updated). Rerun (`gh run rerun` or next main push) is safe: artifact upload is idempotent per run.
 - **Failed Worker deploy** → Cloudflare keeps the last successful version serving; `wrangler deploy` failure leaves the running Worker untouched. Rerun safe (deploy is idempotent for the same source). **Missing token** → modeled skip (green), never a failure (E2).
-- **Failed / interrupted publish** → npm versions are immutable. `publish-workspaces.mjs` treats npm's E409 "cannot publish over the previously published version" as success *when the registry version equals the tag version* (idempotent rerun of a partially-published set), retries E404 (fresh-dep registry lag) 3×/15 s, and fails with the package name on anything else. A release that must actually change content ⇒ new tag/new version (never force-retag; force-retagging is not attempted by this plan).
+- **Failed / interrupted publish** → npm versions are immutable. `publish-workspaces.mjs` treats a duplicate-publish response as idempotent success when the registry already holds the tag version: npm signals this as **EPUBLISHCONFLICT / HTTP 403** ("You cannot publish over the previously published versions"), with 409 as the legacy status — the script matches status ∈ {403, 409} OR message `/cannot publish over/i` (a rerun of a partially-published set then completes green); retries registry-lag E404 3×/15 s; anything else fails with the package name attached. A release that must actually change content ⇒ new tag/new version (never force-retag; force-retagging is not attempted by this plan).
 - **GH Release step** is idempotent: `gh release view $TAG || gh release create $TAG --generate-notes` (rerun-safe).
-- **select-workspaces edge cases**: no common ancestor (first branch off main) ⇒ merge-base falls back to `origin/main`; base unavailable ⇒ full suite; non-package paths only (docs/`.github`/`scripts`) ⇒ still run lint+typecheck+scripts tests via root vitest discovery.
+- **select-workspaces edge cases**: no package paths in the diff (docs/`.github`/`scripts`-only change), empty diff, lockfile parse failure, or unresolvable base ⇒ `scope=ALL` (root vitest discovery runs everything — fail-safe toward more testing). The script ALWAYS exits 0 and emits exactly one `scope=<value>` line whose value matches `^(ALL\|-w [A-Za-z0-9@/._-]+( -w [A-Za-z0-9@/._-]+)*)$` (npm names + `-w` flags only — safe to expand in the runner shell).
+- **New-branch push (zero-SHA `github.event.before` = 40 zeros)**: `git log 0000000…` would error ⇒ the identity job substitutes `origin/main` as the range base; if `origin/main` is unresolvable the range check exits 0 with a `::notice::` (possible only before the first push; the LICENSE check still runs). Without this guard, every first push of a new branch would spurious-red `identity`.
+- **Squash-merge committer semantics**: `gh pr merge --squash` produces a commit AUTHORED by the merger (Nitish) and COMMITTED by `GitHub <noreply@github.com>` (web-flow, GPG-signed by GitHub). The gate's author-strict/committer-two-tier rule accepts exactly that signature; without the web-flow committer tier, the first protected squash merge would leave main's `identity` check permanently red while merges continued (PR-side checks run on locally-authored head commits). Dependabot's squash-merged PRs are authored by the merger too, so only its branch commits carry the dependabot identity.
 - **First workflow run on an empty-ish repo** (P6a merge itself): root scripts exist (scaffold contract), P6a's script tests make `vitest run` non-empty, LICENSE exists ⇒ green. Contingency if scaffold is absent: Phase 1b adds minimal `package.json`+lockfile+LICENSE before Phase 2.
 
 ### Blast radius on other aspects
@@ -156,21 +158,21 @@ Two landings, both PR-gated by the very checks they introduce.
 
 ## Phases
 
-> Merge/sequencing contract: **Phase 1–3 = P6a (M0)**, land after scaffold-core's scaffold stub and before any other aspect merge; **Phase 4–7 = P6b (M2)**, land during the M2 integration window on green main. All merges via PR + squash (`gh pr create` → `gh pr merge --squash --subject "<type>: …" --body ""`), author Nitish, no trailers.
+> Merge/sequencing contract: **Phase 1–3 = P6a (M0)**, land after scaffold-core's scaffold stub and before any other aspect merge; **Phase 4–7 = P6b (M2)**, land during the M2 integration window on green main. All merges via PR + squash (`gh pr create` → `gh pr merge --squash --subject "<type>: …" --body ""`): the squash commit is AUTHORED by the merger (Nitish) and COMMITTED by `GitHub <noreply@github.com>` (web-flow) — the identity gate accepts exactly that signature (Phase 1 contract); no trailers.
 
 ### Phase 1 — CI support scripts + owned metadata (TDD) [P6a, M0]
 
 **Changes:**
-- `scripts/ci/check-commits.mjs` — input: range (env `BASE`/`HEAD` or args); reads `git log --format=%H%x00%an%x00%ae%x00%cn%x00%ce%x00%B` for new commits; fails with per-commit, actionable errors when: author/committer ∉ {Nitish identity, `dependabot[bot]`}; message body matches `/^co-authored-by:/im` or `/^generated[-_ ]?(by|with)/im`. Also `--license` mode: asserts `LICENSE` exists and contains the three Apache-2.0 markers. Exit codes: 0 ok, 1 violations (list them).
-- `scripts/ci/select-workspaces.mjs` — input: diff paths (stdin or `git diff` invocation); parses `package-lock.json` `packages` entries to build workspace name↔dir map + dependency graph; outputs changed workspaces expanded to reverse-dependency closure as `test -w @seolite/x -w @seolite/y…` (space-joined, `--` none if empty); `--fallback-full` on any parse/base failure (prints `FULL`).
-- Vitest unit tests for both (fixture lockfile + fixture git-log text; no network, deterministic — I10).
+- `scripts/ci/check-commits.mjs` — input: range (`--base`/`--head`; empty `--base` ⇒ range check skipped, exit 0 with `::notice::`); reads `git log --format=%H%x00%an%x00%ae%x00%cn%x00%ce%x00%B` for new commits; fails with per-commit, actionable errors when: (a) AUTHOR ∉ {`Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>`, `dependabot[bot]`}; (b) COMMITTER ∉ {Nitish identity, `GitHub <noreply@github.com>` (web-flow — GitHub-created squash/rebase merges), `dependabot[bot]` (only alongside a dependabot author)}; (c) message body matches `/^co-authored-by:/im` or `/^generated[-_ ]?(by|with)/im`. Also `--license` mode: asserts `LICENSE` exists and contains the three Apache-2.0 markers. Exit codes: 0 ok, 1 violations (list them).
+- `scripts/ci/select-workspaces.mjs` — input: diff paths (stdin or `git diff` invocation); parses `package-lock.json` `packages` entries to build workspace name↔dir map + dependency graph; ALWAYS exits 0 and emits exactly one `$GITHUB_OUTPUT`-ready line `scope=<value>` — value is the changed workspaces expanded to the reverse-dependency closure as `-w @seolite/x -w @seolite/y…` (space-joined), or `ALL` when the diff contains no package paths / the lockfile cannot be parsed / the base is unresolvable (fail-safe toward full suite). Value charset restricted to `[A-Za-z0-9@/._- ]` (npm names + `-w` flags only) so the runner shell can split it safely.
+- Vitest unit tests for both (fixture lockfile; fixture git-log records covering: Nitish-authored/Nitish-committed compliant, Nitish-authored + `GitHub <noreply@github.com>`-committed squash merge [PASS], wrong author, wrong author with web-flow committer [must FAIL], dependabot branch commit, trailer variants, empty base, license markers; no network, deterministic — I10).
 - Metadata: verify `LICENSE` (add canonical Apache-2.0 full text if scaffold-core hasn't — text is verbatim from apache.org, research [V]); add `CONTRIBUTING.md` (setup, `npm run validate`, PR + commit-identity rules incl. "no AI co-author trailers — CI enforces", Apache licensing note); add `SECURITY.md` (supported = main, GitHub private vulnerability reporting link); add root script `"validate": "npm run typecheck && npm run lint && npm test"` (additive single line).
 - If `package-lock.json` still absent at merge-prep time → **Phase 1b (contingency)**: add minimal root `package.json` (name `seolite`, private, workspaces `packages/*`, `site`, engines node >=22, the four scripts) + run `npm install` to commit the lockfile; scaffold-core rebases onto it.
 
 **Success Criteria:**
 - [ ] Automated: `npm test` green (includes the two new script test files).
 - [ ] Automated: `node scripts/ci/check-commits.mjs --license` exits 0.
-- [ ] Automated: `printf 'packages/core/src/fetcher.ts\n' | node scripts/ci/select-workspaces.mjs` prints a closure including `@seolite/core` (fixture mode: `--lockfile test/fixtures/package-lock.json`).
+- [ ] Automated: `printf 'packages/core/src/fetcher.ts\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=-w @seolite/core …` (fixture closure incl. `@seolite/core`; fixture mode `--lockfile test/fixtures/package-lock.json`), and `printf 'README.md\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=ALL` (GITHUB_OUTPUT `key=value` format asserted in unit tests).
 - [ ] Automated: `npm run validate` exits 0.
 
 ### Phase 2 — ci.yml + dependabot + workflow-lint [P6a, M0]
@@ -202,7 +204,13 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
-          else BASE="${{ github.event.before }}"; fi
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              BASE="origin/main"    # zero-SHA guard: first push of a new branch → check commits not yet on main
+              git rev-parse -q --verify "$BASE" >/dev/null || BASE=""   # unborn main (bootstrap) → range check off
+            else BASE="$BEFORE"; fi
+          fi
           node scripts/ci/check-commits.mjs --base "$BASE" --head "${{ github.sha }}"
           node scripts/ci/check-commits.mjs --license
 
@@ -243,15 +251,20 @@ jobs:
         id: sel
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "scope=FULL" >> "$GITHUB_OUTPUT"          # full suite on main + PRs
+            echo "scope=ALL" >> "$GITHUB_OUTPUT"           # full suite on main + PRs
           else
-            BASE="$(git merge-base origin/main HEAD)"
+            BASE="$(git merge-base origin/main HEAD 2>/dev/null || true)"
             git diff --name-only "$BASE" "${{ github.sha }}" \
-              | node scripts/ci/select-workspaces.mjs >> "$GITHUB_OUTPUT" || echo "scope=FULL" >> "$GITHUB_OUTPUT"
+              | node scripts/ci/select-workspaces.mjs >> "$GITHUB_OUTPUT"   # script always exits 0; emits scope=… or scope=ALL
           fi
-      - run: |
-          if [ "${{ steps.sel.outputs.scope }}" = "FULL" ]; then npm test
-          else npm test ${{ steps.sel.outputs.scope }}; fi   # scope = "-w @seolite/x -w …"
+      - name: Run tests
+        run: |
+          if [ "${{ steps.sel.outputs.scope }}" = "ALL" ]; then
+            npm test
+          else
+            read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @seolite/x -w @seolite/y" (charset-restricted, Phase 1)
+            npm test "${WS[@]}"                                # array-split: shellcheck-clean, correct word boundaries
+          fi
 ```
 ```yaml
 # .github/dependabot.yml
@@ -307,7 +320,8 @@ gh run watch "$(gh run list --workflow=ci.yml --repo nitishagar/seolite --limit 
 - [ ] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_status_checks.contexts'` = `["identity","workflow-lint","lint","typecheck","test"]`.
 - [ ] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_pull_request_reviews.required_approving_review_count'` = `0` and `.enforce_admins.enabled` = `true`.
 - [ ] Automated: `gh run list --workflow=ci.yml --repo nitishagar/seolite --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` on main.
-- [ ] Automated: a deliberately red push to a scratch branch shows a failed `identity` check with an actionable message (one-time adversarial probe, then delete branch) — validates the gate actually gates.
+- [ ] Automated (GREEN squash-merge probe): the protected squash merge of this phase's PR is itself the probe — its commit is authored by Nitish and committed by `GitHub <noreply@github.com>` (web-flow); after merge, `gh api repos/nitishagar/seolite/commits/main --jq '.commit.committer.email'` = `noreply@github.com` AND `gh run list --workflow=ci.yml --branch main --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` — proving the committer tier accepts the plan's own merge signature.
+- [ ] Automated: a deliberately non-compliant commit pushed to a NEW scratch branch shows a failed `identity` check with an actionable message — exercising the zero-SHA guard path (`before` = 40 zeros ⇒ base falls back to `origin/main`, which does not contain the bad commit, so it is still flagged) (one-time adversarial probe, then delete branch) — validates the gate actually gates.
 
 ### Phase 4 — pages.yml + Pages enablement + badges [P6b, M2]
 
@@ -469,7 +483,7 @@ jobs:
         env: { NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}, TAG: ${{ github.ref_name }} }
         run: node scripts/ci/publish-workspaces.mjs --tag "$TAG"
 ```
-- `scripts/ci/publish-workspaces.mjs` (unit-tested ordering logic with an injected runner): validates tag is SemVer (`v0.1.0` ⇒ `0.1.0`); rewrites every workspace `package.json` version to the tag version and internal `@seolite/*` dependency ranges to the exact tag version (runner-local, never committed); publishes `@seolite/core → audit → providers → mcp → cli` via `npm publish -w <pkg> --access public --tag latest`; **E409 "previously published" at the same version ⇒ success (idempotent rerun)**; E404 during dependent resolution ⇒ retry 3× / 15 s (I17); other failures ⇒ typed error naming the package. Local dry-run: `node scripts/ci/publish-workspaces.mjs --tag v0.1.0 --dry-run`.
+- `scripts/ci/publish-workspaces.mjs` (unit-tested ordering logic with an injected runner): validates tag is SemVer (`v0.1.0` ⇒ `0.1.0`); rewrites every workspace `package.json` version to the tag version and internal `@seolite/*` dependency ranges to the exact tag version (runner-local, never committed); publishes `@seolite/core → audit → providers → mcp → cli` via `npm publish -w <pkg> --access public --tag latest`; **duplicate publish at the same version ⇒ idempotent success** — npm emits this as EPUBLISHCONFLICT / HTTP 403 ("You cannot publish over the previously published versions"; 409 is the legacy status), so the script matches status ∈ {403, 409} OR message `/cannot publish over/i` (rerun of a partially-published set completes green); E404 during dependent resolution ⇒ retry 3× / 15 s (I17); other failures ⇒ typed error naming the package. Local dry-run: `node scripts/ci/publish-workspaces.mjs --tag v0.1.0 --dry-run`.
 - README: add npm badge after first verified publish.
 
 **Decision record (locked):** NODE_AUTH_TOKEN-gated publish-on-tag. Evidence: `npx @seolite/cli` is a documented onboarding surface (ARCHITECTURE CLI + MCP sections); npm names verified unregistered/available; machine has no npm token ⇒ unconditional publish would violate the no-fail spirit of E2; no-publish-v1 would strand the CLI/MCP onboarding; OIDC trusted publishing requires a pre-existing package + npmjs.com config ⇒ documented migration path post-first-publish.
@@ -478,7 +492,7 @@ jobs:
 - [ ] Automated: `node scripts/ci/publish-workspaces.mjs --tag v0.1.0 --dry-run` exits 0 and prints the ordered publish plan.
 - [ ] Automated: `npm test` green (publish-order unit tests included).
 - [ ] Automated (skip-mode): push `v0.1.0` with no `NODE_AUTH_TOKEN` → `gh run list --workflow=release.yml --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`; `gh release view v0.1.0 --repo nitishagar/seolite` exists; log shows the `::notice::` skip.
-- [ ] Automated (post-token, whenever the user adds it): `npm view @seolite/cli version` returns the tag version; re-running the publish job is green via E409 idempotency.
+- [ ] Automated (post-token, whenever the user adds it): `npm view @seolite/cli version` returns the tag version; re-running the publish job is green via duplicate-publish idempotency ({403, 409} + `/cannot publish over/i`).
 
 ### Phase 7 — validate meta-gate (final form) + M2 end-to-end verification [P6b, M2]
 
@@ -499,7 +513,7 @@ jobs:
 - Local (dev machine, darwin): `brew install actionlint` (v1.7.12 current release, verified); run `actionlint` from repo root before every workflow-affecting commit.
 - CI: `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12` as the required `workflow-lint` job (docker image tag pinned; same engine locally).
 
-**Script correctness — vitest unit tests (TDD).** `check-commits.mjs` (fixture git-log records: compliant, wrong author, trailer, dependabot, license variants) and `select-workspaces.mjs` (fixture lockfile: leaf change, core change ⇒ dependents included, docs-only ⇒ FULL fallback, malformed lockfile ⇒ FULL fallback) — deterministic, offline, fast. `publish-workspaces.mjs` ordering + E409/E404 handling tested with an injected command runner (no registry calls in tests).
+**Script correctness — vitest unit tests (TDD).** `check-commits.mjs` (fixture git-log records: Nitish/Nitish compliant, Nitish-authored + `GitHub <noreply@github.com>`-committed squash [PASS], wrong author, wrong author with web-flow committer [FAIL], trailer, dependabot branch commit, empty base, license variants) and `select-workspaces.mjs` (fixture lockfile: leaf change, core change ⇒ dependents included, docs-only ⇒ `scope=ALL`, malformed lockfile ⇒ `scope=ALL`; asserts the exact `scope=` `key=value` line format) — deterministic, offline, fast. `publish-workspaces.mjs` ordering + duplicate-publish ({403, 409} + `/cannot publish over/i`) + E404 handling tested with an injected command runner (no registry calls in tests).
 
 **Local dry-runs (act-free verification of the deploy paths).**
 - Site flow: `npm run build -w @seolite/site` proves the build step; upload/deploy steps are runner-only, verified post-push.
@@ -518,5 +532,6 @@ jobs:
 - GitHub docs (fetched 2026-08-29): Pages via Actions + `POST /repos/{owner}/{repo}/pages` `build_type: "workflow"`; contexts availability (secrets/env NOT in job-level `if`; secrets available in workflow-level `env`); branch protection API (`PUT /repos/{owner}/{repo}/branches/{branch}/protection`); docs.github.com/billing (Actions free for public repos); Pages limits (1 GB / 100 GB-mo soft).
 - Action evidence: `actions/checkout` v5.1.0 + `actions/setup-node` v5 (node24 runtime era; Node 20 removed from runners Sept 2026); `actions/upload-pages-artifact` v3 / `actions/deploy-pages` v4 / `actions/configure-pages` v5 (research [V], corroborated); `cloudflare/wrangler-action` v4 (`apiToken`, optional `accountId`, `command`, `workingDirectory`; global-key auth removed).
 - `rhysd/actionlint` v1.7.12 (static workflow checker; docker image `rhysd/actionlint:1.7.12`).
-- npm: publish docs + trusted-publishing (OIDC) migration path (docs.npmjs.com/trusted-publishers); E409 immutability semantics; workspace publish flags (`-w`, `--access public`, `--tag`).
+- npm: publish docs + trusted-publishing (OIDC) migration path (docs.npmjs.com/trusted-publishers); duplicate-publish semantics — EPUBLISHCONFLICT, HTTP 403 "cannot publish over the previously published versions", legacy 409 (npm blog; npm/cli#5058); workspace publish flags (`-w`, `--access public`, `--tag`).
+- GitHub web-flow committer: `github.com/web-flow` ("Git committer for all web commits (merge/revert/edit/etc.) made on GitHub.com") + community discussion #135214 — GitHub-created squash/rebase merges are authored by the merger and committed by web-flow; basis for the identity gate's committer tier.
 - Cloudflare: Workers free limits (100k req/day, 10 ms CPU) — developers.cloudflare.com/workers/platform/limits/; `wrangler deploy` semantics (failed deploy leaves previous version serving).
