@@ -139,7 +139,7 @@ describe('stdio round-trip via the real bin (E2/E14)', () => {
         ].sort(),
       );
       const payload = JSON.parse(
-        (responses.get(3)!.result?.content as { type: string; text: string }[])[0].text,
+        (responses.get(3)!.result?.content as { type: string; text: string }[])[0]?.text ?? '{}',
       ) as Record<string, unknown>;
       expect(payload.url).toBe('https://example.com/');
       expect(payload.passesThreshold).toBe(true); // fixture audit runner — zero network

@@ -25,7 +25,7 @@ export default tseslint.config(
   {
     // Plain-Node CI gate scripts and their tests are dependency-free .mjs
     // (ci-deploy PLAN Phase 1) — declare the Node runtime globals for them.
-    files: ['scripts/**/*.mjs', 'test/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
     languageOptions: { globals: { ...globals.node } },
   },
   {

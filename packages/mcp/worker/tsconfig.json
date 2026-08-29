@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  // Worker program: workers-runtime types instead of node types (the main
+  // package tsconfig keeps types:["node"] — the two global sets conflict).
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2023"]
+  },
+  "include": ["./*.ts", "../vitest.worker.config.ts"]
+}

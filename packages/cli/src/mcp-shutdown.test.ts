@@ -81,7 +81,7 @@ describe('mcp shutdown contract (E14)', () => {
       const session = spawnServing();
       await waitReady(session);
       const child = (session as Session & { child: ReturnType<typeof spawn> }).child;
-      child.stdin.end(); // client disconnect
+      child.stdin!.end(); // client disconnect
       await withTimeout(session.exit, 10_000, 'exit after stdin close');
       expect(await session.exit).toBe(0);
     },

@@ -50,3 +50,44 @@
 - Phase-4 mcp `test` script chains `test:worker` (pre-committed by the prior agent per the
   Phase 5 spec), so until Phase 5 lands the Phase 4 gate uses `npx vitest run packages/mcp`
   + typecheck; the full `npm test -w @lumen-seo/mcp` gate is run from Phase 5 on.
+
+## 2026-08-29 — Phase 5 notes
+
+- **wrangler dry-run does NOT write the bundle**: `wrangler deploy --dry-run --outdir dist`
+  emits only README + metafile in wrangler 4.127 (both `deploy` and `versions upload`
+  dry-runs). `build:worker` therefore chains (a) `wrangler deploy --dry-run` as the real
+  production-pipeline compile validation and (b) an esbuild bundle of the same entry to
+  `dist/index.js` + `dist/metafile.json` for `check:size` (E10 gzip) and the bundle-scan
+  test (which the plan describes as parsing "the esbuild metafile/wrangler output").
+  esbuild added as a devDep of @lumen-seo/mcp (was already in the tree via vitest).
+  Measured bundle: 285 KiB gzip vs the 1.5 MB self-cap.
+- **agents createMcpHandler API**: the installed agents@0.22 handler is typed against the
+  MCP SDK v2 `Server` and takes a FACTORY `() => McpServer` (not a server instance as the
+  plan snippet showed); the per-request-built server is supplied via the factory closure,
+  preserving B8's stateless semantics (fresh server + fresh BYOK composition per request).
+  The v1.30 McpServer is runtime-compatible through the handler's legacy lane; the type
+  bridge is a documented cast. Also: the handler natively applies CORS — we pass
+  `corsOptions: false` so the plan's own `worker/cors.ts` (with the x-lumen-* BYOK header
+  names, E9) stays authoritative, and `allowedOriginHostnames: '*'` for B9's permissive
+  authless v1.
+- **wrangler.jsonc `main`** is resolved relative to the config file, so with the config at
+  `worker/wrangler.jsonc` the entry is `./index.ts` (the plan's `worker/index.ts` path
+  assumed a package-root config). `Env` lives in `worker/providers.ts` (the file that
+  consumes env both pre- and post-rebase); `workerDeps` (header seam) lives in
+  `worker/composition.ts` and is passed INTO providers.ts, avoiding the plan's latent
+  composition<->providers import cycle.
+- **testkit split**: provider fixtures moved to `src/testkit/providers.ts` (zero harness
+  imports) so the Worker fixture composition does not bundle the MCP SDK Client; the
+  testkit root re-exports everything, so all existing imports are unchanged. The plan's
+  "testkit providers behind the identical McpDeps shape" (B21) is satisfied with the
+  bundle kept lean.
+- **Miniflare specifics**: vitest.worker.config.ts uses the installed plugin's
+  `cloudflareTest` Vite-plugin API (1.1.x has no `./config` defineWorkersConfig subpath).
+  JSON-RPC notifications over POST /mcp return HTTP 202 with an EMPTY body (the rpc test
+  helper handles this); responses arrive SSE-framed when SSE is accepted. The outbound
+  recorder lives in node-side module state (`worker/outbound-recorder.ts`) shared with the
+  `outboundService` hook; pre-rebase it asserts ZERO outbound calls, and the host
+  allowlist (googleapis/openpagerank/suggestqueries/wikipedia) activates post-rebase.
+- worker typecheck is a separate tsc program (`worker/tsconfig.json`,
+  types:["@cloudflare/workers-types"]) chained into `typecheck` — node and workers global
+  sets conflict in one program. `@cloudflare/workers-types` added as a devDep.

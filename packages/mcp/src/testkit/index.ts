@@ -1,104 +1,33 @@
 /**
  * @lumen-seo/mcp/testkit — deterministic fixture providers and harnesses
  * (B17/I9/I10): every surfaces test runs against these, never live network.
- * Fixtures are parameterizable (hit/fail positions, error injection) and
- * deterministic: identical inputs give identical outputs.
+ * The pure provider fixtures live in `providers.ts` (no harness imports) so
+ * the Worker fixture composition can use them without bundling the MCP SDK;
+ * this entry re-exports them alongside the node-only harness pieces.
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type {
-  AuthoritySignal,
-  CruxRecord,
-  Fetcher,
-  KeywordIdea,
-  PageSpeedReport,
-  SerpResult,
-  SiteAuditReport,
-} from '@lumen-seo/core';
-import { countIssuesBySeverity, mkSource } from '@lumen-seo/core';
+import type { Fetcher, HistoryListQuery, RankHistoryEntry, SiteAuditReport } from '@lumen-seo/core';
+import { countIssuesBySeverity } from '@lumen-seo/core';
 import type { AuditInput, AuditRunner, PageMeta, PageMetaFetcher } from '../ports.js';
 import type { McpDeps } from '../server.js';
+import {
+  FIXED_CLOCK,
+  fixtureAuthorityProvider,
+  fixtureCruxProvider,
+  fixtureKeywordProvider,
+  fixturePageSpeedProvider,
+  fixtureSerpProvider,
+} from './providers.js';
 
-export const FIXED_CLOCK = (): string => '2026-08-29T12:00:00Z';
-
-export interface SerpFixtureOptions {
-  hitDomain?: string;
-  position?: number;
-  fail?: boolean;
-}
-
-export const fixtureSerpProvider = (o: SerpFixtureOptions = {}) => ({
-  name: 'fixture-serp',
-  search: async (q: string, opts: { limit?: number } = {}): Promise<SerpResult[]> => {
-    if (o.fail === true) throw Object.assign(new Error(`fixture serp failure for "${q}"`), { name: 'RetryExhaustedError', label: 'fixture-serp' });
-    const n = opts.limit ?? 20;
-    const results: SerpResult[] = Array.from({ length: n }, (_, i) => ({
-      position: i + 1,
-      url: `https://other${i}.example/r`,
-      title: `Result ${i + 1}`,
-    }));
-    if (o.hitDomain !== undefined && o.position !== undefined && o.position !== null && o.position >= 1) {
-      const idx = Math.min(o.position, n) - 1;
-      results[idx] = { position: idx + 1, url: `https://${o.hitDomain}/hit`, title: 'The hit' };
-    }
-    return results;
-  },
-});
-
-const SUFFIXES = ['tutorial', 'examples', 'checker', 'vs alternatives', 'pricing', '2026'];
-
-export const fixtureKeywordProvider = (name = 'fixture-suggest', o: { fail?: boolean } = {}) => ({
-  name,
-  ideas: async (seed: string, opts: { limit?: number } = {}): Promise<KeywordIdea[]> => {
-    if (o.fail === true) throw Object.assign(new Error('fixture keywords failure'), { name: 'RetryExhaustedError', label: name });
-    const n = opts.limit ?? 20;
-    return SUFFIXES.slice(0, Math.min(SUFFIXES.length, n)).map((suffix, i) => ({
-      term: `${seed} ${suffix}`,
-      source: mkSource(name, 'community', `${name} suggestions, CC-BY`),
-      estimateLabel: i % 2 === 0 ? 'rough estimate' : 'modeled estimate',
-    }));
-  },
-});
-
-export const fixtureAuthorityProvider = (name = 'fixture-tranco', value = 42, o: { fail?: boolean } = {}) => ({
-  name,
-  authority: async (domain: string): Promise<AuthoritySignal[]> => {
-    if (o.fail === true) throw Object.assign(new Error('fixture authority failure'), { name: 'RetryExhaustedError', label: name });
-    return [{ domain, kind: 'rank' as const, value, provider: name, attribution: `${name} list, CC BY 4.0` }];
-  },
-});
-
-export const fixturePageSpeedProvider = (o: { fail?: boolean } = {}) => ({
-  name: 'fixture-psi',
-  report: async (): Promise<PageSpeedReport> => {
-    if (o.fail === true) throw Object.assign(new Error('quota exceeded'), { name: 'RetryExhaustedError', label: 'fixture-psi' });
-    return {
-      scores: { performance: 84, seo: 92, accessibility: 96, bestPractices: 100 },
-      metrics: { lcp: 2400, cls: 0.11, tbt: 180, fcn: 1600 },
-      source: mkSource('fixture-psi', 'lab', 'PageSpeed Insights fixture data'),
-    };
-  },
-});
-
-export const fixtureCruxProvider = (o: { none?: boolean; fail?: boolean } = {}) => ({
-  name: 'fixture-crux',
-  record: async (): Promise<CruxRecord | null> => {
-    if (o.fail === true) throw Object.assign(new Error('key invalid'), { name: 'RetryExhaustedError', label: 'fixture-crux' });
-    if (o.none === true) return null;
-    return {
-      metrics: {
-        lcp: {
-          p75: 2800,
-          histogramBins: [
-            { start: 0, end: 2500, density: 0.41 },
-            { start: 2500, density: 0.59 },
-          ],
-        },
-      },
-      source: mkSource('fixture-crux', 'field', 'CrUX data is CC BY 4.0'),
-    };
-  },
-});
+export {
+  FIXED_CLOCK,
+  fixtureAuthorityProvider,
+  fixtureCruxProvider,
+  fixtureKeywordProvider,
+  fixturePageSpeedProvider,
+  fixtureSerpProvider,
+} from './providers.js';
 
 export const fixturePageMetaFetcher = (): PageMetaFetcher => ({
   fetch: async (url: URL): Promise<PageMeta> => ({
@@ -155,13 +84,11 @@ export const fixtureAuditRunner = (o: AuditFixtureOptions = {}): AuditRunner => 
 
 /** In-memory HistoryStore recording appends (concurrency tests, E13). */
 export class MemoryHistoryStore {
-  readonly entries: import('@lumen-seo/core').RankHistoryEntry[] = [];
-  readonly append = async (e: import('@lumen-seo/core').RankHistoryEntry): Promise<void> => {
+  readonly entries: RankHistoryEntry[] = [];
+  readonly append = async (e: RankHistoryEntry): Promise<void> => {
     this.entries.push(e);
   };
-  readonly list = async (
-    q?: import('@lumen-seo/core').HistoryListQuery,
-  ): Promise<import('@lumen-seo/core').RankHistoryEntry[]> => {
+  readonly list = async (q?: HistoryListQuery): Promise<RankHistoryEntry[]> => {
     let all = [...this.entries];
     if (q?.domain !== undefined) all = all.filter((e) => e.domain === q.domain);
     if (q?.keyword !== undefined) all = all.filter((e) => e.keyword === q.keyword);
