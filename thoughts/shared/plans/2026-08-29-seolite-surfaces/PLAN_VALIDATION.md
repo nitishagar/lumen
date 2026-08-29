@@ -78,6 +78,54 @@ method: re-derivation at scale=large; every item defaulted FAIL until earned PAS
 
 ## Bundled-file internal contradiction (cross-cutting)
 
-IMPLICIT_SPEC **B3 still reads `Default failThreshold = "warning"`** (L68) while PLAN.md's defaults table says `error` "B3, reconciled" (L141) and the audit snippet defaults to `"error"` (L288), per RECONCILIATION R2 ("patched in surfaces PLAN"). The spec file was not patched alongside the plan file — the bundle contradicts itself on its hard edge #1 input. FAIL until synced.
+IMPLICIT_SPEC **B3 still reads `Default failThreshold = "warning"`** (rev-1 L68) while PLAN.md's defaults table says `error` "B3, reconciled", per RECONCILIATION R2 ("patched in surfaces PLAN"). The spec file was not patched alongside the plan file — the bundle contradicted itself on its hard edge #1 input. FAIL until synced.
 
-VERDICT: MINOR-FAIL
+---
+
+# RE-VERIFICATION (rev 2 — post-patch, 2026-08-29)
+
+Re-read rev-2 IMPLICIT_SPEC.md (now E1–E15, B1–B21, status "rev 2 — post MINOR-FAIL validation patch") and PLAN.md (rev 2). Each original finding re-confirmed against the updated text and, where the fix consumes sibling seams, against the sibling plans themselves. No new investigation opened.
+
+## Finding 1 — Severity vocabulary (R1/R2 violation + CLI/MCP parity break): RESOLVED
+`critical` is purged everywhere. E1 (spec L50) locks the closed R1 set, flag `--fail-threshold <info|warning|error|off>` default `error`, `off` never gates while `incomplete: true` still gates; B3 (spec L70) states "critical does not exist in the vocabulary (R1)". Parity restored: MCP `THRESHOLD = z.enum(["info","warning","error","off"]).default("error")` is explicitly "identical to the CLI flag" (PLAN L341), audit.ts now uses core's `countIssuesAtOrAbove` with the `off` short-circuit (L309–311), Phase 3 matrix tests `info|warning|error` + `off` never gates (L327), defaults table (L143) and SIGNPOST (L18) updated. Matches audit-engine's 3-level `WEIGHT` map and core's `off` SC-4.
+
+## Finding 2 — IMPLICIT_SPEC B3 stale `warning` default: RESOLVED
+B3 now reads `Default failThreshold = "error" per R2` (spec L70); spec §2 L46 carries the R1–R10 authoritative block. Bundle is internally consistent and R2-conformant.
+
+## Finding 3 — HistoryStore interface conformance: RESOLVED
+Spec §2 L43 quotes core's locked `HistoryStore{append, list}` + `RankHistoryEntry` verbatim and mandates exact implementation; E4 (L53) stores exactly `RankHistoryEntry` (no `v`/`found`/`limit`; `found` derived in output). PLAN `JsonlHistoryStore` now declares `append(e: RankHistoryEntry)` / `list(q?: {keyword?;domain?;limit?})` matching scaffold-core SC-15 signatures (L250–268), rank.ts appends a core-shaped entry with `retrievedAt` from the injected clock (L277–278), and the Phase 2 SC adds compile-level `implements HistoryStore{append,list}` conformance (L287). Cross-checked: scaffold-core L287 signature matches.
+
+## Finding 4 — Worker provider seam (`createWorkerSafeProviders` + barrel, fixture-first rebase, deps): RESOLVED
+Worker composition now consumes the R7-named `createWorkerSafeProviders(config, deps)` over the single barrel (spec L45, PLAN L69–78, L136), rejecting the fictional subpath exports as a redundant parallel contract. `ProviderDeps.env(name)` — the BYOK header pass-through seam the composition depends on — verified to exist in the providers plan (providers PLAN L175–180); tranco's Worker exclusion is justified by the 10 ms CPU ceiling (spec E6). Sequencing fixed via B21 (spec L88): `packages/mcp` deps = core+SDK+zod from Phase 4 (PLAN L334), fixture composition pre-rebase behind the identical `McpDeps` shape, real wiring in `worker/providers.ts` at the Phase 6 rebase with both packages' package.json patched (L570–572); index.ts unchanged across the rebase. Suite green pre- and post-rebase asserted (L540).
+
+## Finding 5 — `seolite mcp` shutdown/SIGINT: RESOLVED
+E14 (spec L63) mandates a resolvable wait promise (stdin close → exit 0, `transport.onclose`, run() AbortController → exit 2; "Ctrl-C must never hang"). PLAN L119 spells out the race; the mcp.ts snippet resolves via `transport.onclose`, `stdin.once("end") → server.close()`, and an abort listener returning `EXIT.ERROR` — "the promise RESOLVES — no hang" (L396–409). New spawn test `cli/test/mcp-shutdown.test.ts :: sigint-and-stdin-close` (L592) plus Phase 4 SC (L417) cover both shutdown paths with bounded timeouts.
+
+## Finding 6 — Help/discoverability (E15): RESOLVED
+New E15 (spec L64): bare `seolite`, `--help`/`-h`, and per-command help print deterministic usage to stdout with exit 0, intercepted BEFORE strict parseArgs so help is never a usage error; not a subcommand. args.ts snippet implements the pre-strict intercept (L204–208); defaults table row "Discoverability is a decision, not an error path" (L145); Alternatives #1 updated (L131); snapshot-tested in Phase 1 SC (L231) and `cli/test/help.test.ts :: help-snapshots` (L588).
+
+## Finding 7 — E7/B7 wire-strictness risk: RESOLVED
+E7 downgraded to a guaranteed asserted set (type/required/enums/bounds/names) with `additionalProperties:false` + defaults asserted opportunistically and snapshot-documented per installed SDK; strict rejection of unknown args is guaranteed regardless via a shared handler-side `strictArgs` guard on all five handlers (spec L56, B7 L74). PLAN: strict-args.ts (L365–367), handlers wrapped (L337, L357), Phase 4 SC (L416), Alternatives #2 (L132), and test row (L604) all updated consistently. CLI/MCP behavioral identity preserved either way.
+
+## Finding 8 — Mechanical nits (rotation filename, check-size path, zod inventory, search() shape, build chaining): RESOLVED
+- Rotation is the literal `history.1.jsonl` in spec (L43, L53), code (L265), defaults table (L150), and test row (L595); `list` reads both generations newest-last.
+- check-size reads `dist/index.js` with the entry-basename rationale and an existsSync guard with actionable message (L526–529).
+- zod (and `@seolite/core`) are in the Worker bundle inventory (L160).
+- rank.ts uses the locked `search(q, o): Promise<SerpResult[]>` shape with provenance from `deps.serp.name` + clock (L272–283).
+- Build chaining: cli `test` = `npm run build && vitest run` (L180, L185); `test:worker` and `check:size` chain `build:worker` (L540–541).
+
+## Cross-checks on the fix's new seams (confirmation-only)
+- `ProviderDeps.env(name)` exists as the locked providers seam (providers PLAN L175–180) — the Worker BYOK pass-through rests on a real interface.
+- `isBlockedTarget(url)` exists in scaffold-core `ssrf.ts` (scaffold-core PLAN L371) — surfaces' `validatePublicHttpUrl()` composition (spec I12, PLAN L105) now names a real core export.
+- R8 applied consistently: no `maxPages` default on the CLI flag or the tool arg (`z.number().int().min(1).max(10_000).optional()`, PLAN L353–354; B14 L81).
+
+## Residual (non-blocking) observations
+
+1. Abort-signal plumbing ambiguity: Phase 6 run.ts passes the signal as the second argument (`cmd.execute(io, ac.signal)`, L555) while mcp.ts reads `io.signal` (L406) — the two snippets must land the signal in one place; the mechanism and spawn tests are otherwise fully specified.
+2. `npm test -w @seolite/mcp` includes the bundle-scan test that parses wrangler/esbuild output, but only `test:worker`/`check:size` are shown chaining `build:worker` — the mcp `test` script needs the same chain (or bundle-scan must build on demand) to pass on a fresh checkout.
+3. Real-outbound allowlist assertions activate only post-rebase (B21), so pre-rebase CI cannot catch a real-provider-graph regression by itself — accepted and mitigated by the surfaces bundle-scan test + providers TC-REG-5, but the coverage gap is timing-dependent.
+4. `workerConfig(env)` and `fixtureWorkerComposition` are named seams without specified shapes (snippet-level; behavior is constrained by the surrounding contracts).
+
+All eight findings from the rev-1 validation are resolved with cited evidence; residuals are snippet-level polish that does not affect contract conformance, sequencing, or testability.
+
+VERDICT: PASS

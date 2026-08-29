@@ -103,17 +103,54 @@ npm workspaces (locked, ARCHITECTURE.md:9), ESLint 9 flat config (PLAN.md:169-17
 
 ---
 
-## Fixes required (all localized)
+## Re-verification (second pass, 2026-08-29) — F1–F8 status
 
-1. **F1** PLAN.md:368-376 — add `now?: () => number` (clock) to `FetcherOptions`; seed it in Retry-After/HTTP-date tests (SC-11, IMPLICIT_SPEC.md:118).
-2. **F2** PLAN.md:52, 223, 242, 233 — include `site` in root `workspaces` with a private placeholder `site/package.json`; correct "not an npm workspace" (R4, RECONCILIATION.md:10).
-3. **F3** PLAN.md:359 — name the abort error class and the Retry-After-cap error class; assert them in the existing tests (PLAN.md:130-132, 469-470).
-4. **F4** PLAN.md:456-458 — add config.test cases: `failThreshold` outside `error|warning|info|off` → ConfigError; invalid severity value in `severityOverrides` → ConfigError.
-5. **F5** PLAN.md:320 — implement/test the R3 `maxPages` clamp at 10 000 (RECONCILIATION.md:9).
-6. **F6** PLAN.md:360 — state the `<version>` sourcing mechanism for the UA constant.
-7. **F7** PLAN.md:229/72-87 — CONTRIBUTING: Phase 1 stub or explicit deferral with named owner (ARCHITECTURE.md:55).
-8. **F8** IMPLICIT_SPEC.md:65,155 — replace stale `notice` with `info` per R1 (doc hygiene only; plan already conforms).
+Re-read of the author-revised PLAN.md and IMPLICIT_SPEC.md, scoped strictly to the eight findings
+above. The per-checklist verdicts in the sections above are the first-pass record; this section
+supersedes them. Line refs below are against the revised files.
 
-None of these requires structural rework: the phase decomposition, TDD cycle, locked-signature conformance, and consumer enumeration all hold under re-derivation.
+1. **F1 clock seam — RESOLVED.** `now?: () => number` added to `FetcherOptions` (PLAN.md:388) and
+   the Phase 4 opts row (PLAN.md:374: "clock — fixed epoch in tests, e.g. Retry-After HTTP-date
+   parsing and deadline bookkeeping"); the Retry-After test now states "HTTP-date form parsed
+   (seeded `now` — F1)" (PLAN.md:483). Satisfies SC-11's clock-injectability (IMPLICIT_SPEC.md:121-122).
+2. **F2 `@seolite/site` workspace per R4 — RESOLVED.** Root `workspaces: ["packages/*", "site"]`
+   (PLAN.md:234, snippet PLAN.md:255); private placeholder `site/package.json` named
+   `@seolite/site`, `private: true`, deliberately script-less so the root Vitest projects glob and
+   `--workspaces --if-present` fan-outs stay unaffected (PLAN.md:245); site/README no longer claims
+   "not an npm workspace" (PLAN.md:246); Phase 1 SC adds `grep -q "@seolite/site" site/package.json`
+   (PLAN.md:284); SC-1 updated to require the private `@seolite/site` workspace at `site/`
+   (IMPLICIT_SPEC.md:49-50). Matches RECONCILIATION.md:10; `-w @seolite/site` resolves from day one.
+3. **F3 abort / Retry-After-cap error classes — RESOLVED.** `AbortedError` ("caller signal aborted;
+   no retries consumed") and `RetryAfterCapError` ("Retry-After beyond the 30 s cap, BA-4") added to
+   `errors.ts` (PLAN.md:372) and to the failure-containment list (PLAN.md:138-141); tests assert
+   abort → `AbortedError` without consuming retries (PLAN.md:484), `Retry-After: 3600` →
+   `RetryAfterCapError` (PLAN.md:483), and label/`instanceof SeoliteError` for both (PLAN.md:485).
+4. **F4 invalid-enum validation tests — RESOLVED.** `config.ts` now specifies enum restriction:
+   `failThreshold ∈ error|warning|info|off` and `severityOverrides` values `∈ error|warning|info`
+   (R1), else ConfigError (PLAN.md:333, echoed in the test-file row PLAN.md:336); explicit test
+   cases `failThreshold: 'fatal'` → ConfigError listing valid values and out-of-set
+   `severityOverrides` value → ConfigError (PLAN.md:470).
+5. **F5 maxPages 10 000 clamp — RESOLVED.** `loadConfig` "hard-clamped at 10 000 (R3)" (PLAN.md:333)
+   with test `maxPages: 20000` → resolved `crawl.maxPages === 10000` (PLAN.md:470); BA-3 updated to
+   record the clamp at the source of authority (IMPLICIT_SPEC.md:164-165). Matches R3's "clamp" wording.
+6. **F6 UA `<version>` sourcing — RESOLVED.** Literal constant in `ua.ts` kept in sync with
+   `packages/core/package.json` `version` by a unit test — deterministic, no runtime JSON import,
+   Workers-safe (PLAN.md:373); sync test named in the SC-12 row (PLAN.md:486).
+7. **F7 CONTRIBUTING stub ownership — RESOLVED.** `CONTRIBUTING.md` stub owned by this aspect:
+   build/dev/test commands, commit/PR conventions, link to CI-enforcement docs owned by ci-deploy
+   (PLAN.md:241); explicit NOT-Doing boundary for CI-enforcement content (PLAN.md:82-83); added to
+   Desired End State (PLAN.md:55) and Phase 1 SC (`test -f CONTRIBUTING.md`, PLAN.md:284); SC-16
+   updated with the ownership split (IMPLICIT_SPEC.md:146-148). Covers ARCHITECTURE.md:55.
+8. **F8 `notice` → `info` per R1 — RESOLVED.** SC-4 now reads "closed set `error | warning | info`
+   (ordered `info < warning < error`; vocabulary locked by RECONCILIATION R1)" (IMPLICIT_SPEC.md:67-68)
+   and BA-2 "(error|warning|info — locked by RECONCILIATION R1)" (IMPLICIT_SPEC.md:161-162). Bundle
+   is now self-consistent with R1 and PLAN.md:293.
 
-VERDICT: MINOR-FAIL
+No new issues introduced by the fixes (checked only within the scope of F1–F8: the script-less
+`site` placeholder is explicitly exempted in SC-1; the clamp/enum additions are consistent with SC-3/SC-4
+and R1/R3; `now?` composes cleanly with the existing seams). The revision also picked up the two
+non-numbered nits (cheerio moved to devDependency, PLAN.md:416/BA-12; Current State commit updated to
+`dfcec53`, PLAN.md:25-26) and now cites RECONCILIATION.md directly (PLAN.md:38-41, 500;
+IMPLICIT_SPEC.md:8). All checklist verdicts above become PASS with the fixes applied.
+
+VERDICT: PASS

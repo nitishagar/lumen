@@ -65,4 +65,34 @@
 
 One mechanism-defeating defect (I11 identity gate vs GitHub-created squash-merge committer) invalidates the plan's flagship invariant gate and one Phase 3 success criterion under the plan's own locked merge procedure; three further concrete defects are small and locally fixable. Everything else (guard-step design, consumer names, sequencing, cost math, criteria exactness) is evidence-backed and internally consistent.
 
-VERDICT: MAJOR-FAIL
+## Round 2 (2026-08-29, fresh adversarial reviewer — rework verification)
+
+Scope: verify the round-1 MAJOR is actually fixed (identity gate × GitHub squash merges), spot-check the three minors, re-derive everything the rework touched (`check-commits.mjs` contract, `identity` job, Phase 3 probes) against five scenarios (first push/unborn main, new-branch push, PR squash merge, direct push to main, dependabot PR), and scan for new TBDs. Default stance: FAIL until earned.
+
+### Round-1 items
+
+1. **MAJOR — I11 identity gate false-reds forever on its own squash merges: RESOLVED.** The two-tier rule now appears consistently in all four homes (IMPLICIT_SPEC I11 row; PLAN Overview identity bullet; Approach "Identity gate"; Phase 1 spec clause (b)): AUTHOR strict {`Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>`, `dependabot[bot]` sole exception}; COMMITTER ∈ {Nitish, `GitHub <noreply@github.com>`/web-flow, `dependabot[bot]` only alongside a dependabot author}. The false-green hole is locked shut by an explicit fixture — "wrong author with web-flow committer [must FAIL]" (Phase 1 + Testing Strategy) — and structurally: web-flow commits are created only by GitHub's merge machinery on PRs that already passed the author-strict check, so the permissive committer tier adds no bypass. The green probe round-1 demanded now exists in Phase 3: the protected squash merge of P6a's own PR must yield `gh api .../commits/main --jq '.commit.committer.email'` = `noreply@github.com` AND `gh run list --workflow=ci.yml --branch main … conclusion` = `success`.
+   - Re-derivation of PR-side runs (round-1's "PR checks run on locally-authored head commits" was imprecise): on `pull_request`, `github.sha` is GitHub's transient test-merge commit on `refs/pull/N/merge`, so the range `base.sha..github.sha` includes that machine-created commit. Verified against real-world evidence (actions/checkout issue #494 shows the merge-ref commit authored by the PR author, `jsoref@users.noreply.github.com`): in this repo the merge-ref author is always Nitish or `dependabot[bot]`, and its committer is GitHub-created (web-flow or a user noreply address) — both tiers pass ⇒ no PR-side false-red, including for P6a's own landing PR. No `--no-merges` needed.
+2. **Minor — publish idempotency keyed on legacy E409: RESOLVED.** Phase 6 + Failure handling + IMPLICIT_SPEC I14 + Testing Strategy now match EPUBLISHCONFLICT reality: idempotent success when status ∈ {403, 409} OR message matches `/cannot publish over/i`, with the {403,409}+message handling covered by unit tests on the injected runner.
+3. **Minor — zero-SHA `github.event.before` spurious red: RESOLVED.** ci.yml sketch: 40-zero `before` ⇒ `BASE=origin/main` (comment names the new-branch case); `git rev-parse -q --verify` ⇒ unborn main (bootstrap) ⇒ `BASE=""`; `check-commits.mjs` contract: empty `--base` ⇒ range check skipped, exit 0 with `::notice::`, LICENSE gate still runs. The Phase 3 red probe deliberately exercises this path (new scratch branch; the bad commit is still flagged because `origin/main` does not contain it).
+4. **Minor — select-workspaces stdout contract + unquoted expansion: RESOLVED.** Script contract locked to exactly one `$GITHUB_OUTPUT`-ready `scope=<value>` line (`scope=-w @seolite/x …` or `scope=ALL`), charset `[A-Za-z0-9@/._- ]`, `key=value` format asserted in unit tests and in the Phase 1 success criteria (exact `scope=-w @seolite/core …` / `scope=ALL` outputs); runner consumes via `read -ra WS <<< "${{ steps.sel.outputs.scope }}"` + `npm test "${WS[@]}"` (array-split, shellcheck-clean). `ALL` vs round-1's suggested `FULL` is an equivalent rename — producer, consumer, and tests all say `ALL`.
+
+### Re-derivation of reworked surfaces (five scenarios)
+
+| Scenario | identity behavior | Verdict |
+|---|---|---|
+| First push creating main (unborn main) | `before`=40 zeros ⇒ origin/main fallback ⇒ unresolvable ⇒ BASE="" ⇒ range skipped + `::notice::`; LICENSE gate still runs | no false-red; no material false-green (nothing yet to judge) |
+| New-branch push | zero-SHA ⇒ `origin/main..HEAD`; Nitish commits pass; non-compliant commit goes red (Phase 3 red probe) | correct |
+| PR squash merge to main | push range `before..sha` = squash commit only: author is Nitish (multi-commit squash) or the PR head author (single-commit squash, already author-gated PR-side), committer web-flow ⇒ pass; green probe asserts exactly this | correct |
+| Direct push to main | mechanically blocked by protection (PR required, `enforce_admins: true`, both re-verified by Phase 3 criteria); identity job on main runs as defense-in-depth | correct |
+| Dependabot PR | branch commits author+committer `dependabot[bot]` (author exception + pairing rule); squash merge author=Nitish/committer=web-flow passes, and even the alternate squash-authorship variant (author=dependabot preserved) passes both tiers; dependabot messages carry no `Co-Authored-By:` | correct |
+
+Additional false-red/false-green sweep: PR with advanced base (range picks up newer main commits — all Nitish/web-flow ⇒ pass); local branch commits (author+committer Nitish per Current State verification); web-UI edit commits (author Nitish, committer web-flow ⇒ pass); Nitish-author + dependabot-committer correctly rejected by the pairing rule. Residual nano-edge, recorded for honesty and not gate-affecting: a force-pushed rewritten branch could leave `github.event.before` unfetchable and red a *branch* push run — branch runs are not required contexts, main cannot be force-pushed, and PR runs use `base.sha`, so no merge-blocking impact.
+
+### New TBDs / conformance
+
+- **No new TBDs or open questions introduced.** Every reworked section is closed-form: the two-tier rule, dependabot pairing rule, fixture list, probe assertions, and the fallback ladder (`BEFORE` → `origin/main` → skip+`::notice::`) are fully specified; Phase 1b and Phase 5's "block and surface the gap" remain defined contingencies, not TBDs.
+- R6 merge order still honored (Phase header: after scaffold-core's scaffold stub, before any other aspect merge; Phase 1b keeps the order unblocking). R10 still honored (tag `v*` → `NODE_AUTH_TOKEN`-gated publish; the {403,409} superset only strengthens R10's E409-idempotent intent; no publish in normal CI).
+- Round-1 items 4–8 re-checked on the reworked text: unchanged conclusions. The previously unsatisfiable Phase 3 "main run = success" criterion is now satisfiable by construction and explicitly probed.
+
+VERDICT: PASS

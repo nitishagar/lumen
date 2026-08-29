@@ -41,7 +41,7 @@ Evidence (all verified against ARCHITECTURE.md):
 - Other locked names (`seolite.config.json`, `failThreshold`, `plugins` with Node-only note, REST routes as subset) all present via the locked-names fixture + configuration page (L38 IMPLICIT_SPEC, L312); `claude mcp add --transport stdio seolite -- npx -y @seolite/cli mcp` matches BA-5 and research Seam 4 verbatim.
 - Severity vocabulary (R1) and `failThreshold` semantics (R2) are treated as contract content per BA-6; no contradiction found.
 
-## 5. Build/deploy contract complete and consistent for ci-deploy — FAIL
+## 5. Build/deploy contract complete and consistent for ci-deploy — FAIL → **RESOLVED (re-verified 2026-08-29)**
 
 The contract CONTENT is complete — output dir `site/dist/`, base `/seolite`, required files `index.html` / `404.html` / `sitemap.xml` / `robots.txt` / `pagefind/`, `@astrojs/sitemap` + `public/robots.txt`, workflow step ordering documented, handoff note + clean-checkout dry run in Phase 6 (L66, L201–210, L215, L355, L364). But the contract's COMMAND half contradicts itself and violates RECONCILIATION R4 ("Authoritative decision: npm workspace `@seolite/site` … commands `npm run build -w @seolite/site`, `npm run check -w @seolite/site` … patched in site-docs PLAN"):
 
@@ -50,6 +50,8 @@ The contract CONTENT is complete — output dir `site/dist/`, base `/seolite`, r
 - Meanwhile the SIGNPOST single verify command (L18), Owns (L17), Approach (L70), Phase 1 SCs L215/L217, all Phase 2–6 SCs, and CI wiring (L372) use the R4-correct `-w @seolite/site`.
 
 The file is split between the pre-reconciliation and post-reconciliation decisions in the exact snippets ci-deploy consumes "verbatim" (L202). Fix (mechanical, no design change): set `"name": "@seolite/site"` in the Phase 1 snippet and normalize every occurrence to `npm run build|check|test -w @seolite/site`; delete the `-w site` forms.
+
+Re-verification: fix applied and mechanically confirmed. Phase 1 snippet now reads `"name": "@seolite/site"` (updated PLAN L170); grep over the updated PLAN.md finds **29 occurrences of `-w @seolite/site`, zero bare `-w site` remnants**, and the only remaining `seolite-site` substring is the thoughts bundle directory name (`2026-08-29-seolite-site-docs/`), not a package name. The author reported 27 forms; the independent recount finds 29 — all consistent with R4 either way. The contract is now single-sourced and ci-deploy-consumable as written.
 
 ## 6. No TBDs / no mechanisms smuggled into the spec — PASS
 
@@ -73,15 +75,17 @@ Evidence:
 
 ---
 
-## Minor observations (non-blocking, folded into the above items)
+## Minor observations (non-blocking, folded into the above items) — ALL RESOLVED on re-verification
 
-- M1 (item 2): no gate enforces CC BY 4.0 attribution on a hypothetical future page displaying CrUX-derived sample data outside attributions/providers-byok; add to G9 if example payloads ever grow a `crux` source.
-- M2 (item 4/I4): the I4 mechanism row names "robots default/override, UA identification, budgets" but does not explicitly list sitemap-discovery or per-host rate limiting as documented content points (IMPLICIT_SPEC I4 edge requires both); they are implied by R3 budget plumbing but should be named on the configuration page bullet (L312).
-- M3 (item 1): dark-theme link color wobbles between "link = accent" (L110) and `--link: #65a0ff` (L229/L113 docs-surface rule). Both clear AA (7.1:1 / 7.6:1) and G2 pins whichever is enumerated, but the plan should state whether landing links differ from docs links or pick one.
-- M4 (item 7): the Phase 5 search sketch `const pagefind = new Pagefind()` (L338) is not Pagefind's actual JS API (`import * as pagefind from "/pagefind/pagefind.js"`); it is comment-level pseudo-code and non-load-bearing, but should be corrected before implementation.
+- M1 (item 2): **RESOLVED** — G9 now "grows a per-display rule if CrUX-derived sample data ever renders outside attributions/providers-byok" (updated PLAN L369).
+- M2 (item 4/I4): **RESOLVED** — I4 mechanism row now names "crawl budgets, sitemap discovery, per-host rate limiting" (L88); configuration page adds "sitemap discovery + per-host rate limiting (I4)" (L312); providers page adds "gray-provider rate-limit/cache etiquette (I4: honor 429/Retry-After, cache aggressively)" (L311).
+- M3 (item 1): **RESOLVED** — one pinned `--link` pair site-wide, "landing and docs surfaces alike — no per-surface wobble" (L113), accent explicitly excluded from links (L110). Ratios re-verified: `#65a0ff` on `#09090b` = 7.6:1, `#0066cc` on `#ffffff` = 5.57:1 (claimed 5.6) — both AA; both enumerated in G2.
+- M4 (item 7): **RESOLVED** — Pagefind sketch corrected to the real JS API: `import * as pagefind from "/pagefind/pagefind.js"; pagefind.search(q)` (L338).
 
 ## Verdict
 
-One FAIL: item 5, the R4 workspace-name/command contradiction (`seolite-site` + `-w site` remnants vs `-w @seolite/site`) inside the contract ci-deploy consumes verbatim. Mechanical fix; no design rework required; all other items earned PASS with evidence.
+Original review (2026-08-29, first pass): one FAIL — item 5, the R4 workspace-name/command contradiction (`seolite-site` + `-w site` remnants vs `-w @seolite/site`) inside the contract ci-deploy consumes verbatim; mechanical fix; all other items earned PASS with evidence.
 
-VERDICT: MINOR-FAIL
+Re-verification (2026-08-29, second pass): all five claimed fixes confirmed against the updated PLAN.md — (1) package renamed `@seolite/site` with 29 consistent `-w @seolite/site` forms and zero `-w site` remnants (grep-verified); (2) I4 doc points (sitemap discovery, per-host rate limiting, gray-provider 429/Retry-After/cache etiquette) added to the named pages and the I4 mechanism row; (3) link token pinned to one pair site-wide with accurately recomputed AA ratios; (4) Pagefind pseudo-code replaced with the real JS API; (5) CrUX per-display attribution folded into G9 as a conditional growth rule. Items 1–4 and 6–8 remain PASS unchanged; the edits introduced no new contradictions.
+
+VERDICT: PASS
