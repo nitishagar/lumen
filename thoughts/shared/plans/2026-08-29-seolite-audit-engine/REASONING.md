@@ -105,3 +105,16 @@ Append-only. One entry per non-obvious decision or confusion, newest last.
   run, so adversarial reviewers are executed as fresh headless `claude -p`
   sessions (separate context, read-only tool allowlist, output contract) —
   the closest available equivalent to the skill's fresh sub-agents.
+
+## Review round 1 (2026-08-29) — both phases
+
+- Phase 5 impl review: MINOR-FAIL — crawl-level rule-throw isolation was
+  implemented but untested. Fixed by extracting the finalize step into
+  exported `applyCrawlRuleIssues` (behavior-preserving) + `src/run.test.ts`
+  stub-rule isolation tests. Resumed the same reviewer session -> PASS.
+- Phase 6 impl review: PASS first round.
+- Test review: MINOR-FAIL — the latency-threshold test never exercised real
+  timing (instant fake fetcher, zero delta) and one conjoined boolean
+  assertion. Fixed: the latency test now drives a raw-429 Retry-After retry
+  through the injected step-clock INSIDE the timed window (measured ~1000ms,
+  override fires at 500ms, default 1500ms silent). Resumed same reviewer -> PASS.

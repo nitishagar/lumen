@@ -17,13 +17,13 @@ import { AbortedError } from '@lumen-seo/core';
 import type { Issue, RobotsPolicy, SiteAuditReport } from '@lumen-seo/core';
 import { resolveAuditConfig } from './config.js';
 import { crawl } from './crawl/crawler.js';
-import type { CrawlGate } from './crawl/crawler.js';
+import type { CrawlGate, CrawledPage } from './crawl/crawler.js';
 import { createRuleSet } from './rules/rule-set.js';
 import { robotsGate } from './crawl/robots-policy.js';
 import { RateLimiter } from './crawl/rate-limiter.js';
 import { discoverSitemaps } from './crawl/sitemap.js';
 import { assembleReport } from './report/assemble.js';
-import type { AuditConfig, CrawlerDeps, ResolvedAuditConfig } from './types.js';
+import type { AuditConfig, CrawlIndex, CrawlerDeps, CrawlRule, ResolvedAuditConfig } from './types.js';
 import { LumenSeedDisallowedError } from './types.js';
 
 export const runSiteAudit = async (
@@ -94,24 +94,7 @@ export const runSiteAudit = async (
   // 4. Finalize — crawl-level rules (broken-internal-link, redirect-chain)
   //    place their issues on OWNING pages via Issue.url (I3).
   const ruleErrors = { ...result.ruleErrors };
-  const crawlIssuesByPage = new Map<string, Issue[]>();
-  for (const rule of ruleSet.crawlRules) {
-    try {
-      const found = rule.checkCrawl(result.index, { depth: 0, isSeed: true, signal });
-      for (const issue of found) {
-        if (issue.url === undefined) continue;
-        const list = crawlIssuesByPage.get(issue.url) ?? [];
-        list.push(issue);
-        crawlIssuesByPage.set(issue.url, list);
-      }
-    } catch {
-      ruleErrors[rule.id] = (ruleErrors[rule.id] ?? 0) + 1;
-    }
-  }
-  for (const page of result.pages) {
-    const extra = crawlIssuesByPage.get(page.url);
-    if (extra !== undefined) page.issues.push(...extra);
-  }
+  applyCrawlRuleIssues(result.pages, result.index, ruleSet.crawlRules, ruleErrors, signal);
 
   return assembleReport(
     result.pages,
@@ -134,3 +117,37 @@ const emptyAbortedReport = (
   deps: CrawlerDeps,
   warnings: string[],
 ): SiteAuditReport => assembleReport([], 'aborted', deps.now(), deps.now(), {}, resolved, seed, deps, warnings, {});
+
+/**
+ * Finalize (I3/I14): run the crawl-level rules against the index and place
+ * each issue on its OWNING page (`Issue.url`). A throwing crawl rule is
+ * isolated per rule into `ruleErrors` — no fabricated issue, run continues.
+ * Issues without `url` are dropped (a crawl-rule issue is never attributed to
+ * the wrong page). Exported for direct isolation testing with stub rules.
+ */
+export const applyCrawlRuleIssues = (
+  pages: readonly CrawledPage[],
+  index: CrawlIndex,
+  crawlRules: readonly CrawlRule[],
+  ruleErrors: Record<string, number>,
+  signal?: AbortSignal,
+): void => {
+  const byPage = new Map<string, Issue[]>();
+  for (const rule of crawlRules) {
+    try {
+      const found = rule.checkCrawl(index, { depth: 0, isSeed: true, signal });
+      for (const issue of found) {
+        if (issue.url === undefined) continue;
+        const list = byPage.get(issue.url) ?? [];
+        list.push(issue);
+        byPage.set(issue.url, list);
+      }
+    } catch {
+      ruleErrors[rule.id] = (ruleErrors[rule.id] ?? 0) + 1;
+    }
+  }
+  for (const page of pages) {
+    const extra = byPage.get(page.url);
+    if (extra !== undefined) page.issues.push(...extra);
+  }
+};

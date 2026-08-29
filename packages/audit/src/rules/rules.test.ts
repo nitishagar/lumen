@@ -28,7 +28,8 @@ describe('built-in rules (per-page, table-driven)', () => {
     expect(await run(rule, '<html><head><title>This title is exactly right</title></head></html>')).toEqual([]); // 32 chars
     expect((await run(rule, '<html><head><title>tiny</title></head></html>'))).toHaveLength(1); // < 15
     const long = 'x'.repeat(66);
-    expect((await run(rule, `<html><head><title>${long}</title></head></html>`)).length === 1 && long.length > 65).toBe(true);
+    expect(long.length).toBeGreaterThan(65); // fixture sanity
+    expect((await run(rule, `<html><head><title>${long}</title></head></html>`))).toHaveLength(1);
   });
 
   it('rule description-missing: fires on absent/empty, silent on present', async () => {

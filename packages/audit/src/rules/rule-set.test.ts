@@ -82,13 +82,29 @@ describe('rule-set configuration (I2)', () => {
     expect(under).toEqual([]);
   });
 
-  it('rules: latency threshold uses measured crawl timing', async () => {
-    const time = { value: 0 };
-    const fetcher = new FakeFetcher(site(''), () => 0);
-    // simulate a slow page: clock advances between fetch start and end
-    const deps = makeTestDeps(fetcher, { time });
-    const slow = await runSiteAudit(new URL(ORIGIN), { thresholds: { latencyMs: 5 } }, deps);
-    expect(slow.pages[0]?.issues.map((i) => i.ruleId)).not.toContain('response-latency'); // instant fetch
+  it('rules: latency threshold uses measured crawl timing (step-clock advances inside the timed window)', async () => {
+    // First response is a RAW 429 (non-retrying transport): audit's single
+    // retry honors Retry-After: 1 via the injected step-clock DURING the
+    // timed fetch, so measured timingMs is ~1000 — measured, not fabricated.
+    const routes: Record<string, FakeRoute | readonly FakeRoute[]> = {
+      ...site(''),
+      'https://example.com/': [
+        { status: 429, contentType: 'text/html', body: '', headers: { 'retry-after': '1' }, passStatus: true },
+        { status: 200, contentType: 'text/html', body: html('') },
+      ],
+    };
+    const slow = await runSiteAudit(
+      new URL(ORIGIN),
+      { thresholds: { latencyMs: 500 } },
+      makeTestDeps(new FakeFetcher(routes)),
+    );
+    const issue = slow.pages[0]?.issues.find((i) => i.ruleId === 'response-latency');
+    expect(issue?.message).toContain('1000ms'); // the Retry-After sleep is part of measured latency
+    expect(issue?.message).toContain('threshold 500ms'); // the OVERRIDE is in effect
+
+    // boundary: the default 1500ms threshold leaves the same ~1000ms fetch silent
+    const fast = await runSiteAudit(new URL(ORIGIN), {}, makeTestDeps(new FakeFetcher(routes)));
+    expect(fast.pages[0]?.issues.some((i) => i.ruleId === 'response-latency')).toBe(false);
   });
 
   it('rules: evidence capped at 10 per rule per page with overflow marker', async () => {
