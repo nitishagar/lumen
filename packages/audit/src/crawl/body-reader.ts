@@ -40,3 +40,14 @@ export const readBodyCapped = async (res: Response, cap: number, o: { keepPartia
   text += decoder.decode(); // flush the decoder
   return { text, bytes, oversized: false };
 };
+
+/**
+ * Content-type classification: HTML flavors are parsed; everything else is
+ * skipped `non_html`. An absent content-type is treated as HTML (lenient
+ * default — rules then fire naturally on the parsed document).
+ */
+export const isHtmlContentType = (res: Response): boolean => {
+  const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+  if (ct === '') return true;
+  return ct.includes('text/html') || ct.includes('application/xhtml+xml');
+};

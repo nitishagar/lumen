@@ -30,6 +30,9 @@ import type {
 import { extractLinks } from './links.js';
 import { Frontier } from './frontier.js';
 import type { FrontierEntry } from './frontier.js';
+import { fetchPage } from './fetch-page.js';
+import { isHtmlContentType, readBodyCapped } from './body-reader.js';
+import type { BodyResult } from './body-reader.js';
 import { normalizeKey } from './url-normalize.js';
 
 /** Internal per-page record — everything assembly needs, nothing DOM-shaped retained. */
@@ -80,8 +83,6 @@ export interface CrawlOptions {
   /** Extra URLs known to discovery but robots-denied — recorded as skips (Phase 2). */
   onWarning?: (code: string) => void;
 }
-
-const byteLength = (s: string): number => new TextEncoder().encode(s).length;
 
 export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
   const { config, deps, signal } = o;
@@ -167,35 +168,37 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       throw e;
     }
 
-    const t0 = deps.now();
-    let res: Response;
-    try {
-      // `redirect: 'manual'` routes every hop through the core fetcher's own
-      // iterator: per-hop SSRF revalidation, R3 hop cap, loop detection (I12).
-      res = await deps.fetcher.fetch(entry.url, { redirect: 'manual', signal });
-    } catch (e) {
-      if (isAborted(e)) throw new AbortedError('audit');
-      markSkip(entry, 'fetch_error', { timingMs: deps.now() - t0 });
+    const outcome = await fetchPage(entry.url, deps, signal);
+    if (outcome.skip !== undefined) {
+      markSkip(entry, outcome.skip, { timingMs: outcome.timingMs });
       return;
     }
-    const timingMs = deps.now() - t0;
+    const res = outcome.res as Response; // present whenever skip is undefined
+    const timingMs = outcome.timingMs;
 
     const finalUrlHref = res.url !== '' ? res.url : entry.url.href;
-    let text: string;
+    let body: BodyResult;
     try {
-      text = await res.text();
+      body = await readBodyCapped(res, config.maxBodyBytes);
     } catch (e) {
       if (isAborted(e)) throw new AbortedError('audit');
       markSkip(entry, 'fetch_error', { timingMs, finalUrl: finalUrlHref });
       return;
     }
-    const bytes = byteLength(text);
+    if (body.oversized) {
+      markSkip(entry, 'oversized', { timingMs, finalUrl: finalUrlHref, bytes: body.bytes });
+      return;
+    }
+    if (!isHtmlContentType(res)) {
+      markSkip(entry, 'non_html', { timingMs, finalUrl: finalUrlHref, bytes: body.bytes });
+      return;
+    }
 
     let dom: CheerioAPI;
     try {
-      dom = loadDom(text); // empty body parses as an empty document (I15)
+      dom = loadDom(body.text); // empty body parses as an empty document (I15)
     } catch {
-      markSkip(entry, 'fetch_error', { timingMs, finalUrl: finalUrlHref, bytes });
+      markSkip(entry, 'fetch_error', { timingMs, finalUrl: finalUrlHref, bytes: body.bytes });
       return;
     }
 
@@ -204,7 +207,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       status: res.status,
       headers: res.headers,
       dom,
-      bytes,
+      bytes: body.bytes,
       timingMs,
       robotsAllowed: o.gate !== undefined ? o.gate.isAllowed(entry.url) : true,
     };
@@ -222,7 +225,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       hops: redirected ? 1 : 0,
       status: res.status,
       timingMs,
-      bytes,
+      bytes: body.bytes,
       robotsAllowed: pageContext.robotsAllowed,
       depth: entry.depth,
       title: dom('title').first().text() || undefined,
