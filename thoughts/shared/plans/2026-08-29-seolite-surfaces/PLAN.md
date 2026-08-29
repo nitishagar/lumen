@@ -574,9 +574,9 @@ rules: { "no-restricted-globals": ["error", { name: "fetch",
 
 Success Criteria
 
-- [ ] Automated: `npm test -w @seolite/cli` — SIGINT mid-audit (fixture runner honors AbortSignal) → prompt stop, `incomplete:true` report written atomically when `--out`, exit 2; 25 concurrent `rank` invocations → 25 intact history lines; no-telemetry test: global `fetch` stubbed to throw, every command + tool run with fixture providers → zero direct fetch calls, recorded-Fetcher call list matches the allowlist exactly (I16); sentinel-key grep over all command outputs.
-- [ ] Automated: `npm test -w @seolite/mcp` — client-cancelled tool call (InMemoryTransport `notifications/cancelled`) resolves promptly with partial/no side effects; strictArgs rejection re-verified; CORS preflight tests on worker config-level unit tests; bundle-scan + size still green post-rebase.
-- [ ] Automated: `npm run test:worker -w @seolite/mcp` (post-rebase: real `createWorkerSafeProviders` composition; outbound-host allowlist assertions active), `npm run check:size -w @seolite/mcp`, `npm run lint` (fetch-restriction rule active), `npm run typecheck -w @seolite/cli && npm run typecheck -w @seolite/mcp`.
+- [x] Automated: `npm test -w @seolite/cli` — SIGINT mid-audit (fixture runner honors AbortSignal) → prompt stop, `incomplete:true` report written atomically when `--out`, exit 2; 25 concurrent `rank` invocations → 25 intact history lines; no-telemetry test: global `fetch` stubbed to throw, every command + tool run with fixture providers → zero direct fetch calls, recorded-Fetcher call list matches the allowlist exactly (I16); sentinel-key grep over all command outputs.
+- [x] Automated: `npm test -w @seolite/mcp` — client-cancelled tool call (InMemoryTransport `notifications/cancelled`) resolves promptly with partial/no side effects; strictArgs rejection re-verified; CORS preflight tests on worker config-level unit tests; bundle-scan + size still green post-rebase.
+- [x] Automated: `npm run test:worker -w @seolite/mcp` (post-rebase: real `createWorkerSafeProviders` composition; outbound-host allowlist assertions active), `npm run check:size -w @seolite/mcp`, `npm run lint` (fetch-restriction rule active), `npm run typecheck -w @seolite/cli && npm run typecheck -w @seolite/mcp`.
 
 ## Testing Strategy
 

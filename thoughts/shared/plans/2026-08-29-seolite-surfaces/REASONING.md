@@ -91,3 +91,22 @@
 - worker typecheck is a separate tsc program (`worker/tsconfig.json`,
   types:["@cloudflare/workers-types"]) chained into `typecheck` — node and workers global
   sets conflict in one program. `@cloudflare/workers-types` added as a devDep.
+
+## 2026-08-29 — Phase 6 notes
+
+- Much of Phase 6 was already delivered with its owning feature: `extra.signal` flows into
+  every tool handler + provider call (Phase 4 server.ts), run()'s SIGINT wiring landed in
+  Phase 1-3, worker CORS in Phase 5. Phase 6 added: the repo-wide ESLint `no-restricted-globals`
+  ban on `fetch` (the sanctioned site is core's default transport — note the file is
+  `packages/core/src/fetcher.ts`, the plan's `fetch.ts` being a token-level inexactness;
+  `globalThis.fetch(...)` is a property access and not a banned bare reference), the real
+  SIGINT mid-audit test (sends an actual SIGINT to the test process while run()'s handler
+  is registered — exit 2, `cancelled`, atomic incomplete:true report, zero history side
+  effects), 25 concurrent `rank` invocations through the REAL JsonlHistoryStore (cross-
+  instance O_APPEND integrity: exactly 25 well-formed RankHistoryEntry lines, no torn
+  writes), and the CLI no-telemetry/sentinel suite (global fetch stubbed to throw across
+  every command + all five tools; BYOK sentinel values never on stdout/stderr).
+- Known cosmetic: 25 concurrent in-process run() calls trip Node's MaxListenersExceeded
+  warning (each run registers its own SIGINT handler per the plan's E14 wiring — real CLI
+  usage is one handler per process). Functionally correct; documented rather than worked
+  around in production code.

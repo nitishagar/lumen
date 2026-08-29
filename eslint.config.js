@@ -29,6 +29,27 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } },
   },
   {
+    // I16/I17 fetch restriction (surfaces PLAN Phase 6): ALL HTTP must flow
+    // through the @lumen-seo/core Fetcher so the set of outbound requests is
+    // enumerable in tests. Direct `fetch` is banned repo-wide; the ONE allowed
+    // call site is the Fetcher's default transport seam.
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'fetch',
+          message:
+            'All HTTP must go through the @lumen-seo/core Fetcher (packages/core/src/fetcher.ts) — I16/I17',
+        },
+      ],
+    },
+  },
+  {
+    // The Fetcher's default transport is the single sanctioned call site.
+    files: ['packages/core/src/fetcher.ts'],
+    rules: { 'no-restricted-globals': 'off' },
+  },
+  {
     // Package bin entries are plain Node scripts (the CLI bin boots the
     // TypeScript sources — BA-13 no-build convention).
     files: ['packages/*/bin/**/*.js'],

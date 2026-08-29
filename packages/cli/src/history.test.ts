@@ -172,3 +172,52 @@ describe('domainDir path safety (I13/B5)', () => {
     expect(() => domainDir(root, 'a b.example')).toThrow(ConfigError);
   });
 });
+
+describe('25 concurrent rank invocations (E13/E14, Phase 6)', () => {
+  it('25 interleaved `rank` runs leave exactly 25 intact, well-formed history lines', async () => {
+    const { run } = await import('./run.js');
+    const { MemoryIo } = await import('./io.js');
+    const { fixtureSerpProvider } = await import('@lumen-seo/mcp/testkit');
+    const { MemoryHistoryStore } = await import('@lumen-seo/mcp/testkit');
+    void MemoryHistoryStore; // the runs write through the real JsonlHistoryStore
+    const at = '2026-08-29T12:00:00Z';
+
+    const results = await Promise.all(
+      Array.from({ length: 25 }, (_, i) => {
+        const io = new MemoryIo();
+        const deps = {
+          clock: (): string => at,
+          failThreshold: 'error' as const,
+          keywords: [],
+          serp: fixtureSerpProvider({ hitDomain: 'example.com', position: 3 }),
+          authority: [],
+          authorityUnconfigured: [],
+          history: new JsonlHistoryStore(root), // cross-instance: O_APPEND per line (B6)
+        };
+        return run(['rank', `kw-${i}`, '--domain', 'example.com', '--json'], io, deps).then((code) => ({
+          code,
+          io,
+          kw: `kw-${i}`,
+        }));
+      }),
+    );
+
+    for (const r of results) expect(r.code).toBe(0);
+    const dir = domainDir(root, 'example.com');
+    const file = join(dir, 'history.jsonl');
+    const raw = await readFile(file, 'utf8');
+    const lines = raw.split('\n').filter((l) => l.trim() !== '');
+    expect(lines.length).toBe(25); // every append landed, none torn or lost
+    const keywords = new Set<string>();
+    for (const line of lines) {
+      const e = JSON.parse(line) as RankHistoryEntry;
+      expect(Object.keys(e).sort()).toEqual(
+        ['domain', 'keyword', 'position', 'provider', 'retrievedAt', 'url'].sort(),
+      );
+      expect(e.provider).toBe('fixture-serp');
+      expect(e.position).toBe(3);
+      keywords.add(e.keyword);
+    }
+    expect(keywords.size).toBe(25); // every invocation's distinct line survived
+  });
+});
