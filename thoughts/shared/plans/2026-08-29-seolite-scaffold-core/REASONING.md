@@ -64,3 +64,129 @@ Running log of decisions and confusions made while implementing
   tail-truncation can hide which workspaces ran — verified via
   `grep '^> @seolite'` that all five packages execute `tsc --noEmit` (site
   correctly skipped by `--if-present`).
+
+## Phases 2–6 — core package code (2026-08-29, branch feat/lumen-core)
+
+All naming per RENAMES.md: `@lumen-seo/core`, `LumenError` base, `lumen.config.json`,
+`.lumen/`, UA `lumen/<version> (+https://github.com/nitishagar/lumen)`.
+
+### Decisions
+
+- **D10 cheerio devDep moved from Phase 5 to Phase 2.** `PageContext.dom` is
+  cheerio-typed from Phase 2 on, so the type-only devDependency (BA-12) is
+  installed in Phase 2; Phase 5's package.json row only adds `robots-parser`
+  and the `./node` export.
+- **D11 PageReport nullability.** The plan lists `status`, `timingMs`,
+  `bytes` without `| null`, but skipped pages (A4/A12: robots-disallowed,
+  never fetched) would force zero-filling, violating I3. They are
+  `number | null`; A12 additive fields ship from day one (`Issue.url?`,
+  `PageReport.depth?/skipped?: { reason: string }/redirectChain?: string[]`,
+  `SiteAuditReport.stopReason?: string`, summary extras
+  `pagesAudited?/pagesSkipped?/byRule?/ruleErrors?`), with stringly unions
+  stored as `string` per A12.
+- **D12 Payload honesty nullability + no P3 additives.** PageSpeed
+  scores/metrics and CrUX `p75` are `number | null` (never zero-filled).
+  `AuthoritySignal` keeps EXACTLY the ARCHITECTURE shape — providers' A9
+  additives (`'gray'`, `SerpResult.source?/retrievedAt?`,
+  `AuthoritySignal.retrievedAt?/estimateLabel?`) are deliberately NOT
+  pre-added: P3 applies them in its branch if absent.
+- **D13 Provider opts distribution** per providers BA12 hint:
+  `IdeasOpts/SearchOpts {lang?, limit?}`, `SearchOpts.scope?`,
+  `PageSpeedOpts {strategy?, automated?}`, `CruxOpts.formFactor?`,
+  `AuthorityOpts {signal?}`; all five carry `signal?` (I14).
+- **D14 Error hierarchy.** Base is `LumenError` (RENAMES-mapped from
+  `SeoliteError`); registry validation failures (unknown names, duplicate
+  rule ids, unknown override ids) all use `ConfigError` with accumulated
+  `details[]` — one actionable validation type, message joins `path: message`.
+- **D15 Config reader split.** `loadConfig(path?, read?)` stays Workers-safe
+  in the main entry with a default `read` returning `null` (= missing →
+  defaults); the fs-backed `readConfigFile` (ENOENT → null) and
+  `loadConfigFromDisk` live in `@lumen-seo/core/node`. Surfaces' B12 owns
+  path resolution (`--config` flag / `LUMEN_CONFIG` env) and composes.
+- **D16 "Unknown key" scope.** Unknown-key errors apply to closed
+  vocabularies (top level, `providers` boundaries, `crawl` budgets);
+  `byok`/`severityOverrides` are OPEN maps — the loader validates value
+  types, the registries validate keys against what actually exists (SC-5/SC-7).
+- **D17 Range rules.** `perHostMinDelayMs` may be 0 (a meaningful "disable
+  politeness delay"); the other budgets must be integers ≥ 1. `maxPages`
+  hard-clamps at 10 000 (R3/F5) instead of erroring.
+- **D19 Boundary shape check.** `createProviderRegistry` also verifies at
+  construction that a selected provider implements its boundary's method
+  (e.g. `ideas` for `keywords`), not just that its name is known.
+- **D20 `UnsupportedSchemeError`** for non-http(s) INITIAL targets (the plan
+  matrix said "typed error" without naming a class); redirect-hop scheme
+  failures remain `RedirectError('scheme')` per the locked vocabulary.
+- **D21 Retry semantics.** Retryable: network errors, 429, 500–599, and
+  timeouts (plan matrix: "with retries → RetryExhaustedError after 3
+  attempts"). With `maxRetries: 0` the classified error surfaces directly
+  (e.g. `TimeoutError`); with a configured budget, exhaustion throws
+  `RetryExhaustedError{attempts, status?, cause}`. Retry-After is parsed on
+  any retryable response carrying the header (superset of the 429/503
+  minimum). Retry-After sleeps are exact (no jitter); backoff is
+  full-jitter `rng() × base × 2^attempt`.
+- **D22 `localhost`/`*.localhost` blocked** by the pure predicate — the
+  plan's own test matrix requires `http://localhost/` blocked, and RFC 6761
+  resolves those names to loopback. `localhost.com.au` stays public.
+- **D23 IPv6 math corrections** (found by tests): the IPv4-mapped prefix
+  sits in bits 32..47 → check `addr >> 32n === 0xffffn`; `fe80::/10` upper
+  bound is `0xfebf`; IPv4-compatible `::<v4>` also checks the embedded v4.
+  Zone-id URLs (`[fe80::1%25eth0]`) are rejected by Node's URL parser
+  outright, so they can never reach the guard (documented in the test).
+- **D24 `FetchTransport` seam type** `(url: URL, init?) => Promise<Response>`
+  instead of `typeof fetch` — strictFunctionTypes contravariance would
+  otherwise reject narrower test delegates.
+- **D25 Malformed redirect `Location`** propagates `URL`'s TypeError — not
+  part of the locked `loop|hop-cap|scheme` reason vocabulary.
+- **D26 Mid-flight abort** races an `abortPromise` alongside the transport
+  and the timeout, so a hanging delegate that ignores the composed signal
+  still fails fast with `AbortedError` and consumes no retries.
+- **D27 robots-parser typing.** Its shipped d.ts binds oddly under NodeNext
+  (default import resolves to the module namespace); a single structural
+  cast at the `RobotsPolicy` wrapper boundary — exactly BA-1's documented
+  vendoring escape hatch.
+- **D28 `RobotsPolicy.sitemaps` is `readonly URL[]`** (policies are frozen
+  objects); `crawlDelay` is seconds (audit converts to ms);
+  `isAllowed` treats robots-parser's `undefined` (no matching group) as
+  allowed.
+- **D29 robots failure matrix is total**: EVERY fetcher error on the robots
+  request — including `SsrfBlockedError` on the robots URL itself — degrades
+  to disallow-all per BA-9's "network failure" row; audit (P2) surfaces
+  typed crawl-level refusals on top.
+- **D30 Plugin shape validation** includes the severity enum; CJS plugins
+  (`module.exports = rule`) work via import-interop; `PluginLoadError`
+  names the declared path and the resolved absolute path.
+- **D31 `@lumen-seo/core/node` resolution.** Exports point at TS source
+  (BA-13), so the subpath resolves inside TS-aware tooling (Vitest —
+  plugins.test.ts imports it) but not from plain Node until M2 dist; the
+  plan's criterion `import('robots-parser')` (the actual runtime dep) passes.
+- **D32 entry-isolation guard** scans the SOURCE import graph by regex
+  (never executes the graph), maps `.js` specifiers to `.ts` siblings,
+  asserts no `node:` specifiers, no `./node.ts`, and cheerio type-only.
+
+### Deviations
+
+- cheerio devDep installed in Phase 2 (see D10) instead of Phase 5's file-row
+  placement — required for Phase 2's `PageContext` typing.
+- Root `eslint.config.js` gained `argsIgnorePattern/varsIgnorePattern: '^_'`
+  for the conventional underscore-prefix (interface fixtures, injected
+  seams); typescript-eslint's default flags them otherwise.
+
+### Confusions resolved
+
+- `Response.redirect()` requires absolute URLs and rejects relative ones, and
+  Node's URL parser canonicalizes IPv4-mapped IPv6 hosts to hex form
+  (`[::ffff:127.0.0.1]` → `[::ffff:7f00:1]`) — both handled in fixtures and
+  the guard respectively.
+- SC-17's review-gate grep ("no Date.now()/new Date() in core src") is
+  satisfied under its sensible reading: the only occurrence is the fetcher's
+  documented clock-seam DEFAULT (`now = Date.now`); metric provenance never
+  reads a hidden clock (`mkMetric` takes `retrievedAt` from the caller).
+
+### Phase gates (all observed green before each commit)
+
+- Phase 2: `npm test -w @seolite→@lumen-seo/core` 17 tests; typecheck; lint.
+- Phase 3: 58 tests; typecheck; lint.
+- Phase 4: 99 tests; typecheck; lint.
+- Phase 5: 118 tests; typecheck; lint; `robots-parser` import resolves.
+- Phase 6 root trio: lint ✓, typecheck (5 packages) ✓, `npm test` 179 tests
+  across 17 files ✓; `git status --porcelain` empty after commits.
