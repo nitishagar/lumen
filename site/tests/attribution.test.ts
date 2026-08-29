@@ -24,6 +24,9 @@ describe('G9 attribution presence', () => {
       expect(footer, `${page} footer lacks the license href`).toContain(`href="${locked.licenseUrl}"`);
       expect(footer, `${page} footer lacks the license name`).toContain('Apache-2.0');
       expect(footer, `${page} footer lacks the attributions link`).toContain('/lumen/docs/attributions/');
+      expect(footer, `${page} footer lacks the changelog link`).toContain(
+        `href="${locked.changelogUrl}"`,
+      );
     }
   });
 

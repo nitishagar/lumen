@@ -233,6 +233,23 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.footer-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border);
+  padding-block: 1rem 1.25rem;
+}
+
+.footer-inspiration {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--dim);
+}
+
 /* ---------- hero ---------- */
 
 .hero {

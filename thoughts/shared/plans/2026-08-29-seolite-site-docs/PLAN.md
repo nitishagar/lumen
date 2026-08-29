@@ -199,6 +199,16 @@ export default defineConfig({
 });
 ```
 
+> **Plan fix (2026-08-29, implementation):** `@astrojs/sitemap` emits
+> `sitemap-index.xml` (+ chunked sitemap files) and cannot emit a literal
+> `sitemap.xml` at the required artifact path, so the integration above and
+> the required-artifact list below (`sitemap.xml`, consumed verbatim by
+> ci-deploy) cannot both hold. Resolution: ship a hand-authored
+> `public/sitemap.xml` (satisfies the contract) and close the drift risk with
+> a gate asserting the sitemap agrees with the built page set EXACTLY in both
+> directions (`site/tests/artifact.test.ts`). The integration dependency is
+> therefore intentionally NOT added.
+
 Output contract (recorded in `site/README.md`, consumed verbatim by ci-deploy):
 ```
 command:  npm run build -w @seolite/site        (repo root, npm workspaces)

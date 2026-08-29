@@ -35,7 +35,7 @@ no network, no wall clock, no real browser.
 | --- | --- | --- |
 | G1 token conformance | `tokens.test.ts` | every required CSS variable exists in the built stylesheet; theme blocks + reduced-motion block present |
 | G2 contrast math | `contrast.test.ts` | every enumerated fg/bg token pair ≥ 4.5:1 in dark AND light; no-JS media block token-identical to the light block |
-| G3 trade-dress scan | `trade-dress.test.ts` | banned distinctive strings absent from `site/src/**` + built HTML; `pi.dev` appears only on `/docs/attributions/` |
+| G3 trade-dress scan | `trade-dress.test.ts` | banned distinctive strings absent from `site/src/**` + built HTML; `pi.dev` only on `/docs/attributions/` and in the single footer inspiration line |
 | G4 escaping ban | `escaping.test.ts` | zero `set:html` / `is:raw` in `site/src/**` (allowlist intentionally empty) |
 | G5 axe + structure | `a11y.test.ts` | jest-axe over 100% of built pages; skip link, landmarks, single `h1`, tabs/modal ARIA structure |
 | G6 internal links | `links.test.ts` | every internal link/anchor resolves to a built file/anchor; external links recorded, never fetched |

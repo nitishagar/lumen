@@ -19,6 +19,13 @@ describe('G6 internal links', () => {
     expect(result.broken).toEqual([]);
   });
 
+  test('a real internal link graph was walked (not vacuously zero links)', () => {
+    // Structural guard: the checker must have classified a non-trivial number
+    // of internal targets (nav + footer + cross-links + on-this-page anchors),
+    // so "zero broken" can never pass on an artifact with no links.
+    expect(result.internalLinks).toBeGreaterThanOrEqual(40);
+  });
+
   test('external links are recorded (not fetched) and all https', () => {
     for (const { target } of result.external) {
       expect(target.startsWith('https://'), `non-https external link: ${target}`).toBe(true);

@@ -194,3 +194,59 @@ from a clean build, and is landing Phase 6.
   adversarial reviewers (impl + test + security) are spawned as headless
   one-shot `claude` CLI sessions in the worktree, each writing its bundle
   artifact and returning verdict + findings only.
+
+---
+
+# REVIEW ROUND 1 — 2026-08-29 (resume log continued)
+
+Both adversarial reviews ran on the Phase 6 commit (c08f880) as fresh
+headless sessions; artifacts:
+`IMPLEMENTATION_VALIDATION.md` (VERDICT: MINOR-FAIL, 4 findings) and
+`TEST_VALIDATION.md` (VERDICT: MINOR-FAIL, 5 findings). Dispositions:
+
+## Fixed in code (all plan-aligned; check re-run green: 193 tests)
+
+1. **Footer inspiration line added** (impl finding 2) — the Phase 2 footer
+   composition and the I8 mechanism row name it; the earlier narrowing
+   (deviation 2 above) is WITHDRAWN. `Footer.astro` now carries
+   "Visual design inspired by pi.dev; tokens reimplemented from scratch",
+   and the G3 gate implements the plan's exact two-location allowlist
+   (attributions page + that single footer line), asserting the line on
+   every built footer and banning pi.dev everywhere else outside footers.
+   README's G3 row updated to match.
+2. **Footer theme toggle added** (impl finding 3) — Phase 2 lists a footer
+   toggle; the existing JS already binds all `[data-theme-toggle]` buttons.
+3. **font-weight 500 now used** (impl finding 4b) — the footer inspiration
+   line is set at 500, making the plan's 500/600/800 ramp fully shipped.
+4. **check-links.mjs `internalLinks`** was a duplicate of the page count
+   (test finding 5) — now the real count of internal targets classified
+   (255 on the current artifact; 60 external recorded; 0 broken).
+5. **links.test.ts vacuous-pass guard** (test finding 4) — new assertion
+   that ≥ 40 internal targets were walked, so "zero broken" can never pass
+   on a link-less artifact.
+6. **G7(c) local-only semantics asserted** (test finding 1) — new test:
+   mcp-onboarding built HTML states local-only crawl semantics, the typed
+   "local-only capability" error pointing at `npx @lumen-seo/cli`, and the
+   BA-7 "not deployed by default" Worker scoping.
+7. **G7 fixture fields now checked** (test finding 2) — exit codes with
+   their locked meanings in the CLI reference; all six `configKeys` on the
+   configuration page; `response_format` note on the MCP page.
+8. **CHANGELOG link asserted** (test finding 3) — G9 now requires
+   `href="{changelogUrl}"` in every built page footer.
+
+## Justified, not "fixed" (plan-vs-plan conflicts; evidence recorded)
+
+- **Badge light-theme 800-family kept** (impl finding 4a): the plan's
+  "700-family (e.g. #15803d)" is unsatisfiable together with its own other
+  two constraints ("~10% tint" + "≥4.5:1"): computed ratios on the shipped
+  tints are green-700 4.38:1 and amber-700 4.40:1 (both FAIL), vs shipped
+  green-800 6.23:1 and amber-800 6.21:1 (PASS). The normative anchor is the
+  G2 ≥4.5:1 floor (WCAG AA), so the "e.g." family yields to it. Blue/purple/
+  red light values already are 700-family.
+- **Sitemap mechanism** (impl finding 1): recorded as a formal plan fix in
+  PLAN.md Phase 1 (see addendum) — `@astrojs/sitemap` cannot emit the
+  contract's literal `sitemap.xml`; the hand-authored file + both-direction
+  agreement gate satisfies the stronger, ci-deploy-locked contract.
+
+Reviewer resume confirmations: both sessions resumed with the fix list;
+verdicts recorded below (appended after confirmations).

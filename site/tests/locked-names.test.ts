@@ -94,9 +94,40 @@ describe('G7 locked names', () => {
     }
     expect(html).toContain(locked.snippets.claudeMcpAdd);
     expect(html).toContain(locked.snippets.mcpServersJson);
+    expect(html, 'response_format note missing from the MCP page').toContain(
+      locked.responseFormatNote,
+    );
     for (const route of locked.restRoutes) {
       expect(html, `route "${route}" missing`).toContain(route);
     }
+  });
+
+  test('exit codes appear in the CLI reference with their locked meanings', () => {
+    const html = decodeHtml(readDist('docs/cli-reference/index.html'));
+    for (const { code, meaning } of locked.exitCodes) {
+      expect(html, `exit code ${code} missing from the CLI reference`).toContain(String(code));
+      expect(html, `meaning of exit code ${code} ("${meaning}") missing`).toContain(meaning);
+    }
+  });
+
+  test('all locked config keys appear on the configuration page', () => {
+    const html = readDist('docs/configuration/index.html');
+    for (const key of locked.configKeys) {
+      expect(html, `config key "${key}" missing from the configuration page`).toContain(key);
+    }
+  });
+
+  test('local-only audit semantics + typed remote error are stated (G7c / I6)', () => {
+    const html = decodeHtml(readDist('docs/mcp-onboarding/index.html'));
+    // Local-only crawl semantics stated, with the typed error the remote
+    // gateway returns instead of crawling — pointing at the CLI.
+    expect(html.toLowerCase()).toContain('local-only');
+    expect(html.toLowerCase()).toContain('local-only capability');
+    expect(html, 'remote error must point at npx @lumen-seo/cli').toContain(
+      `npx ${locked.packages.cli}`,
+    );
+    // BA-7: the Worker is deployable-but-not-deployed; stdio is primary.
+    expect(html).toContain('not deployed by default');
   });
 
   test('config + history + threshold tokens appear in the docs', () => {

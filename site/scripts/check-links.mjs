@@ -52,6 +52,7 @@ const resolveInternal = (distDir, urlPath) => {
 export function checkLinks(distDir) {
   const broken = [];
   const external = [];
+  let internalLinks = 0;
   const htmlFiles = walkFiles(distDir).filter((f) => f.endsWith('.html'));
   const htmlContents = new Map(htmlFiles.map((f) => [f, readFileSync(f, 'utf8')]));
   const idsByFile = new Map();
@@ -72,6 +73,7 @@ export function checkLinks(distDir) {
 
     for (const target of attrs) {
       if (target.startsWith('#')) {
+        internalLinks++;
         const ids = idsByFile.get(file);
         if (!ids.has(target.slice(1))) {
           broken.push({ page, target, reason: 'same-page anchor id missing' });
@@ -80,6 +82,7 @@ export function checkLinks(distDir) {
       }
       if (/^(https?:)?\/\//.test(target) || target.startsWith('mailto:') || target.startsWith('data:')) {
         if (target.startsWith(SITE_ORIGIN)) {
+          internalLinks++;
           const url = new URL(target);
           const file2 = resolveInternal(distDir, url.pathname);
           if (!htmlContents.has(file2)) {
@@ -95,6 +98,7 @@ export function checkLinks(distDir) {
           broken.push({ page, target, reason: 'root-absolute link missing the /lumen base' });
           continue;
         }
+        internalLinks++;
         const [path, frag] = target.split('#');
         const file2 = resolveInternal(distDir, path ?? '');
         if (!htmlContents.has(file2) && !exists(file2)) {
@@ -117,7 +121,7 @@ export function checkLinks(distDir) {
     broken,
     external,
     pages: htmlFiles.length,
-    internalLinks: htmlFiles.length,
+    internalLinks,
   };
 }
 
