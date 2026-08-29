@@ -1,0 +1,67 @@
+name: Release
+
+# P6b release layer (ci-deploy PLAN Phase 6): a pushed `v*` tag runs the full
+# validation gate, creates the GitHub Release (idempotent), then publishes the
+# @lumen-seo/* workspaces to npm in dependency order — only when
+# NODE_AUTH_TOKEN is configured (skip-cleanly semantics, IMPLICIT_SPEC E2/E3).
+#
+# Nothing here commits to the repository (E5): version rewriting happens
+# runner-local inside publish-workspaces.mjs and is never pushed; npm versions
+# are immutable, so a partially-published set is completed green on rerun via
+# duplicate-publish idempotency (EPUBLISHCONFLICT 403 / legacy 409).
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: { contents: write }        # GH Release only; nothing commits to the repo
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run validate            # typecheck + lint + test + site build + CLI/stdio-MCP smoke
+
+  github-release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create the GitHub Release (idempotent)
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+               --verify-tag --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    needs: [build-and-test, github-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard — skip cleanly when NODE_AUTH_TOKEN is absent
+        id: guard
+        env:
+          NPM_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::NODE_AUTH_TOKEN not configured — tag $GITHUB_REF_NAME produced a GitHub Release only; no npm publish"
+          else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.guard.outputs.skip != 'true'
+      - uses: actions/setup-node@v5
+        if: steps.guard.outputs.skip != 'true'
+        with: { node-version: 22, cache: npm, registry-url: 'https://registry.npmjs.org' }
+      - run: npm ci
+        if: steps.guard.outputs.skip != 'true'
+      - name: Publish workspaces in dependency order
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: node scripts/ci/publish-workspaces.mjs --tag "$TAG"

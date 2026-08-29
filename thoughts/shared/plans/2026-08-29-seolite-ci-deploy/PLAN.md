@@ -370,10 +370,10 @@ gh run watch "$(gh run list --workflow=pages.yml --repo nitishagar/seolite --lim
 - README badges (additive block; README body remains scaffold-core's): CI badge, Pages badge, License (Apache-2.0) badge. npm badge deferred to Phase 6.
 
 **Success Criteria:**
-- [ ] Automated: `gh api repos/nitishagar/seolite/pages --jq '.build_type'` = `workflow`.
-- [ ] Automated: `gh run list --workflow=pages.yml --repo nitishagar/seolite --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`.
-- [ ] Automated: `curl -fsSI https://nitishagar.github.io/seolite/ | head -1` = `HTTP/2 200`.
-- [ ] Automated: `actionlint` green with pages.yml present; `gh api repos/nitishagar/seolite --jq '.has_pages'` = `true`.
+- [ ] Automated: `gh api repos/nitishagar/lumen/pages --jq '.build_type'` = `workflow`. *(orchestrator-run: Pages enablement API sequence; not executable locally. Plan's `seolite` URLs realized as `lumen` per the rename mapping.)*
+- [ ] Automated: `gh run list --workflow=pages.yml --repo nitishagar/lumen --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`. *(orchestrator-run post-merge)*
+- [ ] Automated: `curl -fsSI https://nitishagar.github.io/lumen/ | head -1` = `HTTP/2 200`. *(orchestrator-run post-deploy)*
+- [ ] Automated: `actionlint` green with pages.yml present; `gh api repos/nitishagar/lumen --jq '.has_pages'` = `true`. *(actionlint part verified green locally via the pinned docker image; `has_pages` is orchestrator-run)*
 
 ### Phase 5 — deploy-worker.yml (skip-cleanly gated) [P6b, M2]
 
@@ -427,9 +427,9 @@ jobs:
 - Secret setup instructions for the user (documented in CONTRIBUTING/README deploy section, executed only when the user has credentials): create a Workers-scoped API token; `gh secret set CLOUDFLARE_API_TOKEN --repo nitishagar/seolite` (+ optional `CLOUDFLARE_ACCOUNT_ID`).
 
 **Success Criteria:**
-- [ ] Automated: `actionlint` green with deploy-worker.yml present.
-- [ ] Automated (skip-mode, no secret — the expected state on this machine): push to main touching `packages/mcp/**` → `gh run list --workflow=deploy-worker.yml --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`, log contains the `::notice::` skip line, and the run duration is seconds (guard-only).
-- [ ] Automated: `grep -q account_id packages/mcp/wrangler.*` passes (config contract satisfied).
+- [x] Automated: `actionlint` green with deploy-worker.yml present.
+- [ ] Automated (skip-mode, no secret — the expected state on this machine): push to main touching `packages/mcp/**` → `gh run list --workflow=deploy-worker.yml --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`, log contains the `::notice::` skip line, and the run duration is seconds (guard-only). *(orchestrator-run post-merge; guard logic verified by inspection + actionlint)*
+- [ ] Automated: `grep -q account_id packages/mcp/wrangler.*` passes (config contract satisfied). *(DEFERRED to the surfaces merge: `packages/mcp` is still a stub on main — no wrangler config, no build script. The workflow is committed now and skips cleanly without the secret; the contract becomes verifiable when the real Worker lands. Do not invent the file.)*
 
 ### Phase 6 — release.yml: tag → GH Release → token-gated npm publish [P6b, M2]
 
@@ -489,10 +489,10 @@ jobs:
 **Decision record (locked):** NODE_AUTH_TOKEN-gated publish-on-tag. Evidence: `npx @seolite/cli` is a documented onboarding surface (ARCHITECTURE CLI + MCP sections); npm names verified unregistered/available; machine has no npm token ⇒ unconditional publish would violate the no-fail spirit of E2; no-publish-v1 would strand the CLI/MCP onboarding; OIDC trusted publishing requires a pre-existing package + npmjs.com config ⇒ documented migration path post-first-publish.
 
 **Success Criteria:**
-- [ ] Automated: `node scripts/ci/publish-workspaces.mjs --tag v0.1.0 --dry-run` exits 0 and prints the ordered publish plan.
-- [ ] Automated: `npm test` green (publish-order unit tests included).
-- [ ] Automated (skip-mode): push `v0.1.0` with no `NODE_AUTH_TOKEN` → `gh run list --workflow=release.yml --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`; `gh release view v0.1.0 --repo nitishagar/seolite` exists; log shows the `::notice::` skip.
-- [ ] Automated (post-token, whenever the user adds it): `npm view @seolite/cli version` returns the tag version; re-running the publish job is green via duplicate-publish idempotency ({403, 409} + `/cannot publish over/i`).
+- [x] Automated: `node scripts/ci/publish-workspaces.mjs --tag v0.1.0 --dry-run` exits 0 and prints the ordered publish plan.
+- [x] Automated: `npm test` green (publish-order unit tests included). *(40 publish-workspaces tests with an injected runner, no registry calls; full suite 477 green)*
+- [ ] Automated (skip-mode): push `v0.1.0` with no `NODE_AUTH_TOKEN` → `gh run list --workflow=release.yml --limit 1 --json conclusion --jq '.[0].conclusion'` = `success`; `gh release view v0.1.0 --repo nitishagar/lumen` exists; log shows the `::notice::` skip. *(orchestrator-run at tag time)*
+- [ ] Automated (post-token, whenever the user adds it): `npm view @lumen-seo/cli version` returns the tag version; re-running the publish job is green via duplicate-publish idempotency ({403, 409} + `/cannot publish over/i`). *(user/orchestrator-run; idempotency logic unit-tested)*
 
 ### Phase 7 — validate meta-gate (final form) + M2 end-to-end verification [P6b, M2]
 
@@ -502,10 +502,10 @@ jobs:
 - Final verification sweep (orchestrator, M2 close): run the Desired-End-State verify commands; optionally enable private vulnerability reporting: `gh api -X PUT repos/nitishagar/seolite/private-vulnerability-reporting`.
 
 **Success Criteria:**
-- [ ] Automated: `npm run validate` exits 0 on main (the orchestrator's final M2 gate).
-- [ ] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_status_checks.contexts'` still = `["identity","workflow-lint","lint","typecheck","test"]` (deploy workflows deliberately NOT required checks — skipped/path-filtered checks must never block merges).
-- [ ] Automated: `gh api repos/nitishagar/seolite/actions/workflows --jq '.workflows[].path'` lists all four (ci, pages, deploy-worker, release).
-- [ ] Automated: `actionlint` green over all four workflows.
+- [x] Automated: `npm run validate` exits 0 on main (the orchestrator's final M2 gate). *(verified green locally on `feat/ci-deploy-p6b`: typecheck + lint + 477 tests + site build + cli-smoke skip; the on-main re-check after merge remains the orchestrator's M2 gate. Full cli-smoke e2e activates when the surfaces merge lands the CLI `bin` entry.)*
+- [ ] Automated: `gh api repos/nitishagar/lumen/branches/main/protection --jq '.required_status_checks.contexts'` still = `["identity","workflow-lint","lint","typecheck","test"]` (deploy workflows deliberately NOT required checks — skipped/path-filtered checks must never block merges). *(orchestrator-run; nothing in this branch touches protection)*
+- [ ] Automated: `gh api repos/nitishagar/lumen/actions/workflows --jq '.workflows[].path'` lists all four (ci, pages, deploy-worker, release). *(orchestrator-run; all four workflow files verified present in the tree)*
+- [x] Automated: `actionlint` green over all four workflows. *(pinned rhysd/actionlint:1.7.12 docker image, local = CI engine)*
 
 ## Testing Strategy
 
