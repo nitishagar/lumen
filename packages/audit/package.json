@@ -15,6 +15,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@lumen-seo/core": "*",
+    "cheerio": "^1.2.0"
+  },
+  "devDependencies": {},
+  "description": "lumen site-audit engine \u2014 bounded polite crawler, 18 built-in rules, scorer, report assembly"
 }
