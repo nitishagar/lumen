@@ -319,9 +319,9 @@ export interface IdeasOpts { lang?: string; limit?: number; signal?: AbortSignal
 ```
 
 **Success Criteria**
-- [ ] Automated: `npm test -w @seolite/core -- models.test`
-- [ ] Automated: `npm run typecheck -w @seolite/core`
-- [ ] Automated: `npm test -w @seolite/core` (phase-1 smoke still green)
+- [x] Automated: `npm test -w @seolite/core -- models.test`
+- [x] Automated: `npm run typecheck -w @seolite/core`
+- [x] Automated: `npm test -w @seolite/core` (phase-1 smoke still green)
 
 ### Phase 3 — Config loader, severity gate & registries
 
@@ -357,10 +357,10 @@ export function createProviderRegistry(
 ```
 
 **Success Criteria**
-- [ ] Automated: `npm test -w @seolite/core -- config.test`
-- [ ] Automated: `npm test -w @seolite/core -- registry.test`
-- [ ] Automated: `npm test -w @seolite/core -- gate.test`
-- [ ] Automated: `npm run typecheck -w @seolite/core`
+- [x] Automated: `npm test -w @seolite/core -- config.test`
+- [x] Automated: `npm test -w @seolite/core -- registry.test`
+- [x] Automated: `npm test -w @seolite/core -- gate.test`
+- [x] Automated: `npm run typecheck -w @seolite/core`
 
 ### Phase 4 — Fetcher: SSRF guard, resilience, User-Agent, redirects
 
@@ -402,10 +402,10 @@ export const createFetcher = (opts?: FetcherOptions): Fetcher => { /* … */ };
 ```
 
 **Success Criteria**
-- [ ] Automated: `npm test -w @seolite/core -- ssrf.test`
-- [ ] Automated: `npm test -w @seolite/core -- fetcher-resilience.test`
-- [ ] Automated: `npm test -w @seolite/core -- fetcher-basics.test`
-- [ ] Automated: `npm run typecheck -w @seolite/core`
+- [x] Automated: `npm test -w @seolite/core -- ssrf.test`
+- [x] Automated: `npm test -w @seolite/core -- fetcher-resilience.test`
+- [x] Automated: `npm test -w @seolite/core -- fetcher-basics.test`
+- [x] Automated: `npm run typecheck -w @seolite/core`
 
 ### Phase 5 — robots.txt policy, Node-only surface (`@seolite/core/node`)
 
@@ -438,10 +438,10 @@ export const loadPluginRules = async (paths: string[], o: { cwd: string })
 ```
 
 **Success Criteria**
-- [ ] Automated: `npm test -w @seolite/core -- robots.test`
-- [ ] Automated: `npm test -w @seolite/core -- plugins.test`
-- [ ] Automated: `npm test -w @seolite/core -- entry-isolation.test`
-- [ ] Automated: `node -e "import('robots-parser').then(m=>process.exit(typeof m==='object'?0:1))"` (dep resolves)
+- [x] Automated: `npm test -w @seolite/core -- robots.test`
+- [x] Automated: `npm test -w @seolite/core -- plugins.test`
+- [x] Automated: `npm test -w @seolite/core -- entry-isolation.test`
+- [x] Automated: `node -e "import('robots-parser').then(m=>process.exit(typeof m==='object'?0:1))"` (dep resolves)
 
 ### Phase 6 — M0 exit gate (CI-contract handoff to P6a)
 
@@ -452,9 +452,9 @@ export const loadPluginRules = async (paths: string[], o: { cwd: string })
 | (none new — verification pass) | Run the root trio; fix any lint/type fallout; confirm file inventory matches the ARCHITECTURE package table + this plan's Desired End State; confirm `git status` tracks only intended files. Handoff note for the ci-deploy aspect: its M0 workflow invokes exactly `npm run lint`, `npm run typecheck`, `npm test` (BA-10) — no flags, no extra steps. |
 
 **Success Criteria**
-- [ ] Automated (from repo root): `npm run lint && npm run typecheck && npm test`
-- [ ] Automated: `npm test -w @seolite/core` (full core edge matrix)
-- [ ] Automated: `git status --porcelain` shows no untracked build/runtime artifacts (`.seolite/`, `node_modules/`, `coverage/` ignored)
+- [x] Automated (from repo root): `npm run lint && npm run typecheck && npm test`
+- [x] Automated: `npm test -w @seolite/core` (full core edge matrix)
+- [x] Automated: `git status --porcelain` shows no untracked build/runtime artifacts (`.seolite/`, `node_modules/`, `coverage/` ignored)
 
 ---
 

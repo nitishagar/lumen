@@ -9,12 +9,17 @@
     "node": ">=22"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "cheerio": "^1.2.0"
+  },
+  "dependencies": {
+    "robots-parser": "^3.0.1"
+  }
 }
