@@ -90,5 +90,8 @@ jobs:
             npm test
           else
             read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @lumen-seo/x -w @lumen-seo/y" (charset-restricted, Phase 1)
-            npm test --if-present "${WS[@]}"                   # array-split: shellcheck-clean; --if-present lets script-less workspaces (site) skip cleanly
+            if printf '%s\n' "${WS[@]}" | grep -qx '@lumen-seo/site'; then
+              npm run build -w @lumen-seo/site                 # site gate suite tests the BUILT artifact (no silent rebuilds) — build explicitly first
+            fi
+            npm test --if-present "${WS[@]}"                   # array-split: shellcheck-clean; --if-present lets script-less workspaces skip cleanly
           fi
