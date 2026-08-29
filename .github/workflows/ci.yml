@@ -1,0 +1,94 @@
+name: CI
+
+# P6a bootstrap gate (ci-deploy PLAN Phase 2). Five required checks:
+# identity, workflow-lint, lint, typecheck, test — the exact job ids below
+# are the branch-protection required contexts (PLAN Phase 3).
+on:
+  push:                      # all branches (worktree branches + main)
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - name: Commit identity + Apache LICENSE gate
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR: judge only the head-side new commits (base..head), never the
+            # ephemeral merge commit the runner checks out.
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+          else
+            HEAD="${{ github.sha }}"
+            BEFORE="${{ github.event.before }}"
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              BASE="origin/main"    # zero-SHA guard: first push of a new branch → check commits not yet on main
+              git rev-parse -q --verify "$BASE" >/dev/null || BASE=""   # unborn main (bootstrap) → range check off
+            else BASE="$BEFORE"; fi
+          fi
+          node scripts/ci/check-commits.mjs --base "$BASE" --head "$HEAD"
+          node scripts/ci/check-commits.mjs --license
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: actionlint (pinned 1.7.12)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
+      - run: npm ci
+      - name: Resolve test scope
+        id: sel
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "scope=ALL" >> "$GITHUB_OUTPUT"           # full suite on main + PRs
+          else
+            BASE="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+            git diff --name-only "$BASE" "${{ github.sha }}" \
+              | node scripts/ci/select-workspaces.mjs >> "$GITHUB_OUTPUT"   # script always exits 0; emits scope=… or scope=ALL
+          fi
+      - name: Run tests
+        run: |
+          if [ "${{ steps.sel.outputs.scope }}" = "ALL" ]; then
+            npm test
+          else
+            read -ra WS <<< "${{ steps.sel.outputs.scope }}"   # scope = "-w @seolite/x -w @seolite/y" (charset-restricted, Phase 1)
+            npm test --if-present "${WS[@]}"                   # array-split: shellcheck-clean; --if-present lets script-less workspaces (site) skip cleanly
+          fi
