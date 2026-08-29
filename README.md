@@ -1,9 +1,9 @@
-# seolite
+# lumen
 
 <!-- Badges (CI, npm) are placeholders: the CI badge lands with the ci-deploy
      aspect (P6a bootstrap CI), the npm badge with the M2 publish step. -->
-<!-- [![CI](https://github.com/nitishagar/seolite/actions/workflows/ci.yml/badge.svg)](https://github.com/nitishagar/seolite/actions/workflows/ci.yml) -->
-<!-- [![npm](https://img.shields.io/npm/v/@seolite/cli.svg)](https://www.npmjs.com/package/@seolite/cli) -->
+<!-- [![CI](https://github.com/nitishagar/lumen/actions/workflows/ci.yml/badge.svg)](https://github.com/nitishagar/lumen/actions/workflows/ci.yml) -->
+<!-- [![npm](https://img.shields.io/npm/v/@lumen-seo/cli.svg)](https://www.npmjs.com/package/@lumen-seo/cli) -->
 
 > Lightweight, pluggable, MCP-first SEO toolkit — free services only.
 
@@ -15,12 +15,12 @@ for the working plan bundles.
 
 | Package | Purpose |
 | --- | --- |
-| `@seolite/core` | types + payload models, config loader (`failThreshold`), Fetcher (SSRF/timeout/backoff), robots, provider/rule SPIs + registries |
-| `@seolite/audit` | bounded crawler, built-in AuditRules, severity scorer, report assembly |
-| `@seolite/providers` | built-in data providers (BYOK, free services only) |
-| `@seolite/cli` | `seolite` CLI, JSONL history, stdio MCP launcher |
-| `@seolite/mcp` | MCP tool definitions + transport adapters (Cloudflare Worker) |
-| `@seolite/site` | docs site (GitHub Pages) |
+| `@lumen-seo/core` | types + payload models, config loader (`failThreshold`), Fetcher (SSRF/timeout/backoff), robots, provider/rule SPIs + registries |
+| `@lumen-seo/audit` | bounded crawler, built-in AuditRules, severity scorer, report assembly |
+| `@lumen-seo/providers` | built-in data providers (BYOK, free services only) |
+| `@lumen-seo/cli` | `lumen` CLI, JSONL history, stdio MCP launcher |
+| `@lumen-seo/mcp` | MCP tool definitions + transport adapters (Cloudflare Worker) |
+| `@lumen-seo/site` | docs site (GitHub Pages) |
 
 ## Development
 

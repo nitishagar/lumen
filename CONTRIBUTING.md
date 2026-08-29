@@ -1,4 +1,4 @@
-# Contributing to seolite
+# Contributing to lumen
 
 ## Requirements
 
@@ -22,11 +22,11 @@ npm run typecheck   # tsc --noEmit in every workspace that declares it
 npm test            # Vitest 4 projects across all packages
 ```
 
-Per-package variants (works for any `@seolite/*` workspace):
+Per-package variants (works for any `@lumen-seo/*` workspace):
 
 ```bash
-npm test -w @seolite/core
-npm run typecheck -w @seolite/core
+npm test -w @lumen-seo/core
+npm run typecheck -w @lumen-seo/core
 ```
 
 ## Commit & PR conventions
