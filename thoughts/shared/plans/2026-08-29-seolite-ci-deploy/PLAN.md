@@ -170,10 +170,10 @@ Two landings, both PR-gated by the very checks they introduce.
 - If `package-lock.json` still absent at merge-prep time → **Phase 1b (contingency)**: add minimal root `package.json` (name `seolite`, private, workspaces `packages/*`, `site`, engines node >=22, the four scripts) + run `npm install` to commit the lockfile; scaffold-core rebases onto it.
 
 **Success Criteria:**
-- [ ] Automated: `npm test` green (includes the two new script test files).
-- [ ] Automated: `node scripts/ci/check-commits.mjs --license` exits 0.
-- [ ] Automated: `printf 'packages/core/src/fetcher.ts\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=-w @seolite/core …` (fixture closure incl. `@seolite/core`; fixture mode `--lockfile test/fixtures/package-lock.json`), and `printf 'README.md\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=ALL` (GITHUB_OUTPUT `key=value` format asserted in unit tests).
-- [ ] Automated: `npm run validate` exits 0.
+- [x] Automated: `npm test` green (includes the two new script test files).
+- [x] Automated: `node scripts/ci/check-commits.mjs --license` exits 0.
+- [x] Automated: `printf 'packages/core/src/fetcher.ts\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=-w @seolite/core …` (fixture closure incl. `@seolite/core`; fixture mode `--lockfile test/fixtures/package-lock.json`), and `printf 'README.md\n' | node scripts/ci/select-workspaces.mjs` prints exactly `scope=ALL` (GITHUB_OUTPUT `key=value` format asserted in unit tests).
+- [x] Automated: `npm run validate` exits 0.
 
 ### Phase 2 — ci.yml + dependabot + workflow-lint [P6a, M0]
 
@@ -276,9 +276,9 @@ updates:
 - Local gate before pushing: `actionlint` over all workflow files (brew-installed; see Testing Strategy).
 
 **Success Criteria:**
-- [ ] Automated: `actionlint` exits 0 locally for `.github/workflows/*.yml`.
-- [ ] Automated: `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12` exits 0 (CI parity with local).
-- [ ] Automated: `npm run validate` exits 0 on the branch.
+- [x] Automated: `actionlint` exits 0 locally for `.github/workflows/*.yml`.
+- [x] Automated: `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12` exits 0 (CI parity with local).
+- [x] Automated: `npm run validate` exits 0 on the branch.
 
 ### Phase 3 — Land P6a, then lock `main` (branch protection via gh api) [P6a, M0]
 
@@ -317,11 +317,11 @@ gh run watch "$(gh run list --workflow=ci.yml --repo nitishagar/seolite --limit 
 (Required-token note: local `gh` authenticated as `nitishagar` has admin; the contexts must equal the job names above verbatim.)
 
 **Success Criteria:**
-- [ ] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_status_checks.contexts'` = `["identity","workflow-lint","lint","typecheck","test"]`.
-- [ ] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_pull_request_reviews.required_approving_review_count'` = `0` and `.enforce_admins.enabled` = `true`.
-- [ ] Automated: `gh run list --workflow=ci.yml --repo nitishagar/seolite --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` on main.
-- [ ] Automated (GREEN squash-merge probe): the protected squash merge of this phase's PR is itself the probe — its commit is authored by Nitish and committed by `GitHub <noreply@github.com>` (web-flow); after merge, `gh api repos/nitishagar/seolite/commits/main --jq '.commit.committer.email'` = `noreply@github.com` AND `gh run list --workflow=ci.yml --branch main --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` — proving the committer tier accepts the plan's own merge signature.
-- [ ] Automated: a deliberately non-compliant commit pushed to a NEW scratch branch shows a failed `identity` check with an actionable message — exercising the zero-SHA guard path (`before` = 40 zeros ⇒ base falls back to `origin/main`, which does not contain the bad commit, so it is still flagged) (one-time adversarial probe, then delete branch) — validates the gate actually gates.
+- [x] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_status_checks.contexts'` = `["identity","workflow-lint","lint","typecheck","test"]`.
+- [x] Automated: `gh api repos/nitishagar/seolite/branches/main/protection --jq '.required_pull_request_reviews.required_approving_review_count'` = `0` and `.enforce_admins.enabled` = `true`.
+- [x] Automated: `gh run list --workflow=ci.yml --repo nitishagar/seolite --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` on main.
+- [x] Automated (GREEN squash-merge probe): the protected squash merge of this phase's PR is itself the probe — its commit is authored by Nitish and committed by `GitHub <noreply@github.com>` (web-flow); after merge, `gh api repos/nitishagar/seolite/commits/main --jq '.commit.committer.email'` = `noreply@github.com` AND `gh run list --workflow=ci.yml --branch main --limit 1 --json conclusion --jq '.[0].conclusion'` = `success` — proving the committer tier accepts the plan's own merge signature.
+- [x] Automated: a deliberately non-compliant commit pushed to a NEW scratch branch shows a failed `identity` check with an actionable message — exercising the zero-SHA guard path (`before` = 40 zeros ⇒ base falls back to `origin/main`, which does not contain the bad commit, so it is still flagged) (one-time adversarial probe, then delete branch) — validates the gate actually gates.
 
 ### Phase 4 — pages.yml + Pages enablement + badges [P6b, M2]
 
