@@ -39,6 +39,8 @@ export const runSiteAudit = async (
   };
   const limiter = new RateLimiter(deps, resolved.crawl.perHostMinDelayMs);
 
+  if (signal?.aborted) return emptyAbortedReport(resolved, seed, deps, warnings); // zero requests
+
   // 1. Gate — robots.txt, conservative on failure (A2). `respectRobots: false`
   //    skips the gate but never the rate limiter or budgets.
   let policy: RobotsPolicy = Object.freeze({ isAllowed: () => true, sitemaps: Object.freeze([]) });
