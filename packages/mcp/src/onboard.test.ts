@@ -44,6 +44,6 @@ describe('onboarding payloads (E11)', () => {
     expect(JSON.parse(onboardPayload('json', REMOTE))).toEqual({
       mcpServers: { lumen: { type: 'http', url: REMOTE } },
     });
-    expect(onboardPayload('claude', REMOTE)).toBe(`claude mcp add --transport http lumen ${REMOTE}`);
+    expect(onboardPayload('claude', REMOTE)).toBe(`claude mcp add --transport http lumen '${REMOTE}'`);
   });
 });

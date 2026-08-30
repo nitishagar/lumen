@@ -13,7 +13,7 @@ import type { PageSpeedOpts, PageSpeedProvider, PageSpeedReport, PageSpeedScores
 import type { ProviderSettings } from './config.js';
 import { resolveEnvVar } from './config.js';
 import type { ProviderDeps } from './deps.js';
-import { isoNow } from './deps.js';
+import { isoNow, normalizeEnvKey } from './deps.js';
 import { NotConfiguredError, ParseError, RateLimitedError, UpstreamError } from './errors.js';
 import { json, retryAfterMs } from './http.js';
 import { ATTRIBUTION } from './provenance.js';
@@ -66,7 +66,7 @@ export class PageSpeedProviderImpl implements PageSpeedProvider {
   async report(url: URL, o: PageSpeedOpts): Promise<PageSpeedReport> {
     return withProviderErrors(this.name, async () => {
       const opts = toReportQueryOpts(o);
-      const key = this.deps.env(this.envVarName);
+      const key = normalizeEnvKey(this.deps.env(this.envVarName));
       if (key === undefined && opts.automated) {
         throw new NotConfiguredError(this.name, this.envVarName, 'required for automated multiple queries (A4/BA5)');
       }

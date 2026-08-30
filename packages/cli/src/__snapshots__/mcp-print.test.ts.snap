@@ -6,7 +6,7 @@ exports[`mcp --print onboarding payloads (E11) > lumen mcp --print claude (local
 `;
 
 exports[`mcp --print onboarding payloads (E11) > lumen mcp --print claude --url <remote> — remote variant matches builder > print-claude-remote 1`] = `
-"claude mcp add --transport http lumen https://mcp.example.com/mcp
+"claude mcp add --transport http lumen 'https://mcp.example.com/mcp'
 "
 `;
 

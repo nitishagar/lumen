@@ -30,6 +30,7 @@ import {
   LICENSE_MARKERS,
   checkLicenseText,
   parseGitLog,
+  validateRecord,
   validateRecords,
 } from '../scripts/ci/check-commits.mjs';
 
@@ -472,5 +473,31 @@ describe('check-commits.mjs CLI (unreachable base — force-push fallback)', () 
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('red-team round 1: dependabot identity is email-pinned', () => {
+  it('a commit authored dependabot[bot] with an attacker email is rejected', () => {
+    const res = validateRecord({
+      sha: 'a'.repeat(40),
+      authorName: 'dependabot[bot]',
+      authorEmail: 'attacker@evil.example',
+      committerName: 'GitHub',
+      committerEmail: 'noreply@github.com',
+      body: 'chore: bump',
+    });
+    expect(res.some((p) => p.kind === 'author')).toBe(true);
+  });
+
+  it('the real bot identity (name + noreply email) is accepted', () => {
+    const res = validateRecord({
+      sha: 'b'.repeat(40),
+      authorName: 'dependabot[bot]',
+      authorEmail: '49699333+dependabot[bot]@users.noreply.github.com',
+      committerName: 'dependabot[bot]',
+      committerEmail: '49699333+dependabot[bot]@users.noreply.github.com',
+      body: 'chore: bump',
+    });
+    expect(res).toHaveLength(0);
   });
 });

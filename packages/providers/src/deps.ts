@@ -22,3 +22,13 @@ export interface ProviderDeps {
 
 /** Renders the injected clock as the ISO-8601 timestamp every payload carries (SC-17: no hidden clock). */
 export const isoNow = (clock: () => number): string => new Date(clock()).toISOString();
+
+/**
+ * An empty or whitespace-only key value (e.g. `PSI_API_KEY=` in an env file)
+ * is treated as absent (red-team round 1): keyed mode used to send
+ * `x-goog-api-key: ''` and misread the resulting 403 as quota exhaustion.
+ */
+export const normalizeEnvKey = (v: string | undefined): string | undefined => {
+  const t = v?.trim();
+  return t === undefined || t === '' ? undefined : t;
+};

@@ -288,3 +288,20 @@ describe('TC-CRUX-5: cache TTL, scope, formFactor', () => {
     expect(fetcher.calls).toHaveLength(2); // TTL boundary
   });
 });
+
+describe('red-team round 1: empty-string key values are treated as absent', () => {
+  it('PSI with LUMEN_PSI_KEY="" runs the TRIAL pacer, sending no key header', async () => {
+    const clock = new FakeClock(NOW);
+    const { p, fetcher } = psiProvider(clock, () => jsonResponse(psiReport), { LUMEN_PSI_KEY: '   ' });
+    await p.report(URL_, {});
+    const call = fetcher.calls[0]!;
+    expect((call.init?.headers as Record<string, string>)['x-goog-api-key']).toBeUndefined();
+  });
+
+  it('CrUX with LUMEN_CRUX_KEY="" → not_configured (0 fetches), not a keyed 403', async () => {
+    const clock = new FakeClock(NOW);
+    const { p, fetcher } = cruxProvider(clock, () => jsonResponse('{}'), { LUMEN_CRUX_KEY: '' });
+    await expect(p.record(URL_, {})).rejects.toMatchObject({ code: 'not_configured' });
+    expect(fetcher.calls).toHaveLength(0);
+  });
+});

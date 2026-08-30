@@ -74,9 +74,22 @@ export const loadRobots = async (
   }
 
   const crawlDelay = parsed.getCrawlDelay(USER_AGENT);
+  // Sitemap: values are site-controlled and frequently relative (or garbage);
+  // resolve against the robots URL and drop anything invalid — a throw here
+  // would reject the entire audit run (red-team round 1).
+  const sitemaps = parsed
+    .getSitemaps()
+    .map((s) => {
+      try {
+        return new URL(s, robotsUrl);
+      } catch {
+        return null;
+      }
+    })
+    .filter((u): u is URL => u !== null);
   return Object.freeze({
     isAllowed: (url: URL): boolean => parsed.isAllowed(url.href, USER_AGENT) ?? true,
     ...(crawlDelay !== undefined ? { crawlDelay } : {}),
-    sitemaps: Object.freeze(parsed.getSitemaps().map((s) => new URL(s))),
+    sitemaps: Object.freeze(sitemaps),
   });
 };

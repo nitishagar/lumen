@@ -336,13 +336,17 @@ export const buildMcpServer = (deps: McpDeps): McpServer => {
     async (args, extra) => {
       const violation = strictArgs(args, ALLOWED_ARGS.lumen_authority);
       if (violation !== null) return err(violation);
+      const ascii = normalizeDomainArg(args.domain);
+      if (ascii === null) {
+        return err({ code: 'INVALID_ARGUMENTS', message: `invalid domain: ${args.domain}` });
+      }
       const retrievedAt = deps.clock();
       const unavailable: { provider: string; reason: string }[] = [];
       const signals = (
         await Promise.all(
           deps.authority.map(async (p) => {
             try {
-              return await p.authority(args.domain, { signal: extra.signal });
+              return await p.authority(ascii, { signal: extra.signal });
             } catch (e) {
               unavailable.push({ provider: p.name, reason: reasonOf(e) });
               return [];
@@ -357,7 +361,7 @@ export const buildMcpServer = (deps: McpDeps): McpServer => {
         });
       }
       return ok({
-        domain: args.domain,
+        domain: ascii,
         signals: signals.map((s) => ({
           provider: s.provider,
           kind: s.kind,

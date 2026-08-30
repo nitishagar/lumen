@@ -335,6 +335,18 @@ describe('CORS + outbound enumeration (E9/I16)', () => {
 });
 
 describe('budget kill-switch (B10/E10)', () => {
+  it('red-team round 1: UNSET WORKER_ENABLE_PSI also disables the PSI leg (strict opt-in)', async () => {
+    const env: Env = {};
+    const req = new Request('http://example.com/api/v1/page-report?url=https://example.com/page');
+    const res = await pageReportRoute(req, env, restComposition(new Headers(), env));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { lab: { status: string; reason: string } };
+    // Strict opt-in: with no var the pagespeed leg is never wired, so PSI is
+    // unavailable — reported via the generic not-configured reason.
+    expect(body.lab.status).toBe('unavailable');
+    expect(body.lab.reason).toContain('not configured');
+  });
+
   it('WORKER_ENABLE_PSI=false disables the PSI leg with an explicit reason', async () => {
     const env: Env = { WORKER_ENABLE_PSI: 'false' };
     const req = new Request('http://example.com/api/v1/page-report?url=https://example.com/page');

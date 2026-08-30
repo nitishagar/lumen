@@ -67,8 +67,8 @@ export interface CrawlResult {
 export interface CrawlGate {
   /** Robots decision for a URL about to be dispatched (never fetched when false). */
   isAllowed(url: URL): boolean;
-  /** Wait for the per-host politeness slot (abortable). */
-  waitForTurn(url: URL, signal?: AbortSignal): Promise<void>;
+  /** Wait for the per-host politeness slot (abortable). `deadlineMs` caps the wait at the audit time budget. */
+  waitForTurn(url: URL, signal?: AbortSignal, deadlineMs?: number): Promise<void>;
 }
 
 export interface CrawlOptions {
@@ -88,6 +88,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
   const { config, deps, signal } = o;
   const budgets = config.crawl;
   const startedAtMs = deps.now();
+  const deadlineMs = startedAtMs + budgets.maxDurationMs;
   const ruleErrors: Record<string, number> = {};
   const pages: CrawledPage[] = [];
   const outLinksByKey = new Map<string, OutLink[]>();
@@ -173,10 +174,20 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
     state.fetched += 1;
 
     try {
-      await o.gate?.waitForTurn(entry.url, signal);
+      await o.gate?.waitForTurn(entry.url, signal, deadlineMs);
     } catch (e) {
       if (isAborted(e)) throw new AbortedError('audit');
       throw e;
+    }
+
+    // Post-wait budget check (red-team round 1): the politeness wait is
+    // capped at the deadline, so waking at/after it means the time budget
+    // is spent — stop without fetching (entry dropped, honestly labeled
+    // incomplete). Without this, a hostile robots crawl-delay parks every
+    // worker past maxDurationMs and the fetches still go out.
+    if (deps.now() - startedAtMs >= budgets.maxDurationMs) {
+      state.stop = 'time_budget';
+      return;
     }
 
     const outcome = await fetchPage(entry.url, deps, signal);

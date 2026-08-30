@@ -15,9 +15,14 @@ export const onboardPayload = (target: OnboardTarget, remoteUrl?: string): strin
     return JSON.stringify({ mcpServers: { [SERVER_NAME]: cfg } }, null, 2);
   }
   if (target === 'claude') {
-    return remoteUrl === undefined
-      ? `claude mcp add --transport stdio ${SERVER_NAME} -- npx -y @lumen-seo/cli mcp`
-      : `claude mcp add --transport http ${SERVER_NAME} ${remoteUrl}`;
+    if (remoteUrl === undefined) {
+      return `claude mcp add --transport stdio ${SERVER_NAME} -- npx -y @lumen-seo/cli mcp`;
+    }
+    // POSIX single-quote the URL (red-team round 1): a raw interpolation let
+    // a crafted URL smuggle extra flags into the copy-paste command. Each '
+    // becomes the POSIX escape sequence '\'' (close, escaped quote, reopen).
+    const quoted = `'${remoteUrl.replaceAll("'", `'\\''`)}'`;
+    return `claude mcp add --transport http ${SERVER_NAME} ${quoted}`;
   }
   if (target === 'cursor') {
     const config = Buffer.from(JSON.stringify(cfg)).toString('base64');

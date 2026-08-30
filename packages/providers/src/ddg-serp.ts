@@ -81,19 +81,25 @@ export class DdgSerpProvider implements SerpProvider {
     if (res.status >= 500) throw new UpstreamError(this.name, res.status); // retryable class, NOT "bot protection"
     if (res.status >= 400) throw new BlockedError(this.name, `HTTP ${res.status} — likely bot protection`);
     const html = await res.text();
-    if (/anomaly|challenge|captcha/i.test(html)) throw new BlockedError(this.name, 'challenge page');
 
     const $ = cheerio.load(html);
     const anchors =
       host === LITE_HOST
         ? $('a.result-link').toArray()
         : $('div.result:not(.result--ad) a.result__a').toArray(); // ads excluded
-    const bodyText = $('body').text();
-    if (anchors.length === 0 && !/no\s+results/i.test(bodyText)) {
-      throw new ParseError(
-        this.name,
-        'layout drift: 0 result anchors and no no-results marker — provider needs updating',
-      );
+    if (anchors.length === 0) {
+      // Challenge detection runs ONLY when zero anchors parsed (red-team
+      // round 1): legitimate results may quote "captcha"/"challenge"/
+      // "anomaly" in titles/snippets, and a whole-body scan used to
+      // misclassify every such SERP as bot protection.
+      const bodyText = $('body').text();
+      if (/anomaly|challenge|captcha/i.test(html)) throw new BlockedError(this.name, 'challenge page');
+      if (!/no\s+results/i.test(bodyText)) {
+        throw new ParseError(
+          this.name,
+          'layout drift: 0 result anchors and no no-results marker — provider needs updating',
+        );
+      }
     }
 
     const retrievedAt = isoNow(this.deps.clock);

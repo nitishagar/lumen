@@ -54,8 +54,12 @@ export interface WorkerRestDeps {
  * the compositions below leave `pageSpeed` unwired — both the REST leg and
  * the MCP tool path answer with an explicit unavailability reason.
  */
+// PSI on the Worker is STRICT OPT-IN (red-team round 1): an unauthenticated
+// PSI proxy must default OFF. Note the GCRA bound holds per-isolate, not
+// globally — a multi-colo deployment needs a shared pacer (Durable Object),
+// accepted out of scope for v0.1.0.
 export const workerConfig = (env: Env): ProvidersConfig =>
-  env.WORKER_ENABLE_PSI === 'false' ? {} : { pagespeed: {} };
+  env.WORKER_ENABLE_PSI === 'true' ? { pagespeed: {} } : {};
 
 const isoClock = (deps: WorkerProviderDeps) => (): string => new Date(deps.clock()).toISOString();
 

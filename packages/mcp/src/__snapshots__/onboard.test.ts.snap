@@ -2,7 +2,7 @@
 
 exports[`onboarding payloads (E11) > claude (local stdio) — snapshot > onboard-claude-local 1`] = `"claude mcp add --transport stdio lumen -- npx -y @lumen-seo/cli mcp"`;
 
-exports[`onboarding payloads (E11) > claude (remote http via --url) — snapshot > onboard-claude-remote 1`] = `"claude mcp add --transport http lumen https://mcp.example.com/mcp"`;
+exports[`onboarding payloads (E11) > claude (remote http via --url) — snapshot > onboard-claude-remote 1`] = `"claude mcp add --transport http lumen 'https://mcp.example.com/mcp'"`;
 
 exports[`onboarding payloads (E11) > cursor (local stdio) — snapshot > onboard-cursor-local 1`] = `"cursor://anysphere.cursor-deeplink/mcp/install?name=lumen&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBsdW1lbi1zZW8vY2xpIiwibWNwIl19"`;
 

@@ -34,6 +34,7 @@ import { pathToFileURL } from 'node:url';
 const NITISH_NAME = 'Nitish Agarwal';
 const NITISH_EMAIL = '1592163+nitishagar@users.noreply.github.com';
 const DEPENDABOT_NAME = 'dependabot[bot]';
+const DEPENDABOT_EMAIL = '49699333+dependabot[bot]@users.noreply.github.com';
 const WEBFLOW_NAME = 'GitHub';
 const WEBFLOW_EMAIL = 'noreply@github.com';
 
@@ -54,8 +55,10 @@ export function isNitish(name, email) {
   return name === NITISH_NAME && email === NITISH_EMAIL;
 }
 
-export function isDependabot(name) {
-  return name === DEPENDABOT_NAME;
+export function isDependabot(name, email) {
+  // Email PINNED to the real bot identity (red-team round 1): a name-only
+  // check let `dependabot[bot] <attacker@evil.example>` impersonate the bot.
+  return name === DEPENDABOT_NAME && email === DEPENDABOT_EMAIL;
 }
 
 /** Parse `git log -z --format=<GIT_LOG_FORMAT>` output into records. */
@@ -85,7 +88,7 @@ export function validateRecord(record) {
   const problems = [];
   const body = typeof record.body === 'string' ? record.body : '';
 
-  if (!isNitish(record.authorName, record.authorEmail) && !isDependabot(record.authorName)) {
+  if (!isNitish(record.authorName, record.authorEmail) && !isDependabot(record.authorName, record.authorEmail)) {
     problems.push({
       kind: 'author',
       message:
@@ -96,7 +99,7 @@ export function validateRecord(record) {
 
   const committerNitish = isNitish(record.committerName, record.committerEmail);
   const committerWebflow = record.committerName === WEBFLOW_NAME && record.committerEmail === WEBFLOW_EMAIL;
-  const committerDependabotPaired = isDependabot(record.committerName) && isDependabot(record.authorName);
+  const committerDependabotPaired = isDependabot(record.committerName, record.committerEmail) && isDependabot(record.authorName, record.authorEmail);
   if (!committerNitish && !committerWebflow && !committerDependabotPaired) {
     problems.push({
       kind: 'committer',

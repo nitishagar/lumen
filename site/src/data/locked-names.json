@@ -3,7 +3,7 @@
   "tagline": "See your site clearly.",
   "repoUrl": "https://github.com/nitishagar/lumen",
   "siteUrl": "https://nitishagar.github.io/lumen/",
-  "changelogUrl": "https://github.com/nitishagar/lumen/blob/main/CHANGELOG.md",
+  "changelogUrl": "https://github.com/nitishagar/lumen/releases",
   "licenseUrl": "https://github.com/nitishagar/lumen/blob/main/LICENSE",
   "packages": {
     "cli": "@lumen-seo/cli",

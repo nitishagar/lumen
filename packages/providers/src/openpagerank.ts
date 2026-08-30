@@ -14,7 +14,7 @@ import type { AuthorityOpts, AuthorityProvider, AuthoritySignal } from '@lumen-s
 import type { ProviderSettings } from './config.js';
 import { resolveEnvVar } from './config.js';
 import type { ProviderDeps } from './deps.js';
-import { isoNow } from './deps.js';
+import { isoNow, normalizeEnvKey } from './deps.js';
 import { NotConfiguredError, ParseError, RateLimitedError, UpstreamError } from './errors.js';
 import { json, normalizeDomain, retryAfterMs } from './http.js';
 import { ATTRIBUTION, ESTIMATE_LABELS } from './provenance.js';
@@ -56,7 +56,7 @@ export class OpenPageRankProvider implements AuthorityProvider {
 
   async authority(domain: string, _o?: AuthorityOpts): Promise<AuthoritySignal[]> {
     return withProviderErrors(this.name, async () => {
-      const key = this.deps.env(this.envVarName);
+      const key = normalizeEnvKey(this.deps.env(this.envVarName));
       if (key === undefined) {
         throw new NotConfiguredError(this.name, this.envVarName, 'free key from openpagerank.com');
       }
@@ -82,6 +82,11 @@ export class OpenPageRankProvider implements AuthorityProvider {
       const statusCode = finiteNumber(entry.status_code);
       if (/quota/i.test(errText) || statusCode === 429) {
         throw new RateLimitedError(this.name, undefined, { reason: 'monthly-quota' }); // A2
+      }
+      // A rejected key must surface as a configuration error, not as an
+      // honestly-empty authority signal (red-team round 1).
+      if (/invalid api key|unauthorized|forbidden/i.test(errText) || statusCode === 401 || statusCode === 403) {
+        throw new NotConfiguredError(this.name, this.envVarName, 'key rejected by Open PageRank');
       }
       if (errText !== '' || (statusCode !== null && statusCode !== 200)) return []; // per-domain error → omitted (I3)
 

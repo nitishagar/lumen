@@ -147,6 +147,13 @@ export const ddgLite = `<!DOCTYPE html><html><body><table>
 <tr><td class="result-snippet">Everything about burr grinding.</td></tr>
 </table></body></html>`;
 
+export const ddgHtmlWithChallengeWords = `<!DOCTYPE html><html><body>
+<div class="result results_links results_links_deep web-result ">
+  <h2 class="result__title"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fsecurity.example%2Fcaptcha">How to solve every CAPTCHA</a></h2>
+  <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fsecurity.example%2Fcaptcha">Anomaly detection in challenge-response systems.</a>
+</div>
+</body></html>`;
+
 export const ddgChallenge = `<!DOCTYPE html><html><body><div class="content"><h1> anomaly detected </h1><p>If this persists, please complete the captcha below.</p></div></body></html>`;
 
 export const ddgNoResults = `<!DOCTYPE html><html><body><div class="no-results">No results</div></body></html>`;

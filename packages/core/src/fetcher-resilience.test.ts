@@ -274,3 +274,48 @@ describe('typed errors carry the provider label (SC-11, I17)', () => {
     expect((exhaustedErr as RetryExhaustedError).status).toBe(503);
   });
 });
+
+describe('cross-origin redirect header stripping (red-team round 1)', () => {
+  /** Records headers seen at each hop; redirects start.example → other.example.net. */
+  const hopRecorder = () => {
+    const seen: { origin: string; headers: Headers }[] = [];
+    const delegate: FetchTransport = async (url: URL, init?: RequestInit) => {
+      seen.push({ origin: url.origin, headers: new Headers(init?.headers) });
+      if (url.origin === 'https://start.example.com') {
+        return Response.redirect('https://other.example.net/final', 302);
+      }
+      return new Response('ok');
+    };
+    return { delegate, seen };
+  };
+
+  it('credential headers are stripped on a cross-origin hop; safelisted headers survive', async () => {
+    const { delegate, seen } = hopRecorder();
+    const fetcher = createFetcher({ delegate });
+    await fetcher.fetch(new URL('https://start.example.com/'), {
+      headers: { authorization: 'Bearer sekrit', 'x-goog-api-key': 'gak-value', accept: 'text/html' },
+    });
+    expect(seen).toHaveLength(2);
+    expect(seen[0]!.headers.get('authorization')).toBe('Bearer sekrit');
+    expect(seen[0]!.headers.get('x-goog-api-key')).toBe('gak-value');
+    expect(seen[1]!.headers.get('authorization')).toBeNull(); // credential — never crosses origins
+    expect(seen[1]!.headers.get('x-goog-api-key')).toBeNull(); // credential — never crosses origins
+    expect(seen[1]!.headers.get('accept')).toBe('text/html'); // CORS-safelisted — kept
+    expect(seen[1]!.headers.get('user-agent')).not.toBeNull();
+  });
+
+  it('same-origin redirects keep every header (only cross-origin hops strip)', async () => {
+    const seen: Headers[] = [];
+    const delegate: FetchTransport = async (url: URL, init?: RequestInit) => {
+      seen.push(new Headers(init?.headers));
+      if (url.pathname === '/') return Response.redirect('https://start.example.com/final', 302);
+      return new Response('ok');
+    };
+    const fetcher = createFetcher({ delegate });
+    await fetcher.fetch(new URL('https://start.example.com/'), {
+      headers: { authorization: 'Bearer sekrit' },
+    });
+    expect(seen).toHaveLength(2);
+    expect(seen[1]!.get('authorization')).toBe('Bearer sekrit');
+  });
+});

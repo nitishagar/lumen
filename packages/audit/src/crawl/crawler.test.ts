@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditRule } from '@lumen-seo/core';
+import { AbortedError } from '@lumen-seo/core';
+import type { CancellableDelay } from '../types.js';
 import { runSiteAudit } from '../run.js';
 import { FakeFetcher } from '../testing/fake-fetcher.js';
 import { makeTestDeps } from '../testing/deps.js';
@@ -94,6 +96,46 @@ describe('crawler (core loop)', () => {
     expect(report.pages).toHaveLength(1);
     expect(fetcher.countFor('https://example.com/a')).toBe(0);
   });
+
+  it('crawler: a politeness wait cannot overshoot maxDurationMs (red-team round 1)', async () => {
+    // Without a deadline-aware limiter the whole worker pool parks inside
+    // waitForTurn for `perHostMinDelayMs` (or a hostile robots crawl-delay)
+    // while nothing observes the time budget — the crawl "completes" late.
+    // REAL timers: the step-clock advances time synchronously and masks the
+    // parked-workers-observe-nothing window this test pins.
+    const fetcher = new FakeFetcher({
+      'https://example.com/': page('/', linkPage('/a')),
+      'https://example.com/a': page('/a', ''),
+    });
+    const deps = {
+      fetcher,
+      now: () => Date.now(),
+      delay: (ms: number, signal?: AbortSignal): CancellableDelay => {
+        const pending = new Promise<void>((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new AbortedError('audit'));
+            return;
+          }
+          const t = setTimeout(resolve, ms);
+          signal?.addEventListener('abort', () => { clearTimeout(t); reject(new AbortedError('audit')); }, { once: true });
+        });
+        return Object.assign(pending, { cancel: () => {} });
+      },
+      jitter: () => 0.5,
+      randomId: () => 'a1b2c3',
+    };
+    const report = await runSiteAudit(
+      new URL(ORIGIN),
+      { crawl: { perHostMinDelayMs: 1_500, maxDurationMs: 200 } },
+      deps,
+    );
+    expect(report.stopReason).toBe('time_budget');
+    expect(report.incomplete).toBe(true);
+    // Sensitive assertion: even the SEED (whose politeness wait was consumed
+    // by sitemap discovery) must not be fetched once the budget is spent.
+    expect(report.summary.pagesAudited).toBe(0);
+    expect(fetcher.countFor('https://example.com/a')).toBe(0);
+  }, 10_000);
 
   it('crawler: depth-capped URLs are not enqueued and run completes', async () => {
     const fetcher = new FakeFetcher({

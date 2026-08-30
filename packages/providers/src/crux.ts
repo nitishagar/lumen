@@ -12,7 +12,7 @@ import type { CruxOpts, CruxProvider, CruxRecord, CruxMetric, HistogramBin } fro
 import type { ProviderSettings } from './config.js';
 import { resolveEnvVar } from './config.js';
 import type { ProviderDeps } from './deps.js';
-import { isoNow } from './deps.js';
+import { isoNow, normalizeEnvKey } from './deps.js';
 import { NotConfiguredError, ParseError, RateLimitedError, UpstreamError } from './errors.js';
 import { json, retryAfterMs } from './http.js';
 import { ATTRIBUTION } from './provenance.js';
@@ -62,7 +62,7 @@ export class CruxProviderImpl implements CruxProvider {
   async record(url: URL, o: CruxOpts): Promise<CruxRecord | null> {
     return withProviderErrors(this.name, async () => {
       const opts = toCruxQueryOpts(o);
-      const key = this.deps.env(this.envVarName);
+      const key = normalizeEnvKey(this.deps.env(this.envVarName));
       if (key === undefined) {
         throw new NotConfiguredError(this.name, this.envVarName, 'CrUX API requires a Google Cloud API key (A1)');
       }

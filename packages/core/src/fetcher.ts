@@ -208,16 +208,33 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
 
   const computeBackoffMs = (attempt: number): number => rng() * baseBackoffMs * 2 ** attempt;
 
+  // Headers that may cross origins on a redirect hop (CORS-safelisted request
+  // headers; user-agent is re-stamped per attempt and not part of init).
+  // Anything else — credentials like `authorization`, provider keys like
+  // `x-goog-api-key`, cookies — is dropped when a redirect leaves the origin
+  // (red-team round 1): native fetch would strip them via CORS; this manual
+  // loop re-sent init verbatim, leaking BYOK keys to redirect targets.
+  const CROSS_ORIGIN_SAFE_HEADERS = new Set(['accept', 'accept-language', 'content-language', 'content-type', 'range']);
+
+  const stripToCrossOriginSafe = (src: RequestInit): RequestInit => {
+    const headers = new Headers(src.headers);
+    for (const name of [...headers.keys()]) {
+      if (!CROSS_ORIGIN_SAFE_HEADERS.has(name.toLowerCase())) headers.delete(name);
+    }
+    return { ...src, headers };
+  };
+
   const fetchWithRedirects = async (url: URL, init: RequestInit, signal: AbortSignal | undefined): Promise<Response> => {
     let current = url;
     let method = (init.method ?? 'GET').toUpperCase();
     let body = init.body;
+    let hopInit = init;
     const seen = new Set<string>([url.href]);
 
     for (let hop = 0; ; hop++) {
       await assertHopAllowed(current, hop > 0); // scheme + SSRF re-validated EVERY hop (I12)
 
-      const perHopInit: RequestInit = body === undefined ? { ...init, body: undefined } : { ...init, body };
+      const perHopInit: RequestInit = body === undefined ? { ...hopInit, body: undefined } : { ...hopInit, body };
       const res = await attemptWithRetries(current, method, perHopInit, signal);
 
       if (!isRedirectStatus(res.status)) return res;
@@ -244,6 +261,7 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
           body = undefined;
         }
       }
+      if (next.origin !== current.origin) hopInit = stripToCrossOriginSafe(hopInit);
       current = next;
     }
   };
