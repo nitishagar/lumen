@@ -11,9 +11,12 @@ name: Deploy Worker
 # credentials) the job ends green in seconds with a ::notice:: and wrangler is
 # never reached.
 #
-# Requires the surfaces-merge contract: packages/mcp/wrangler.jsonc with
-# committed account_id + main entry, and `npm run build -w @lumen-seo/mcp`
-# producing deployable output.
+# Requires the surfaces-merge contract: packages/mcp/worker/wrangler.jsonc
+# (config lives in worker/, so --config is passed explicitly — wrangler only
+# auto-discovers configs at the working-directory root) and `npm run
+# build:worker -w @lumen-seo/mcp` producing deployable output. The config
+# carries no account_id by design (none exists yet): supply it via the
+# CLOUDFLARE_ACCOUNT_ID secret when credentials arrive.
 
 on:
   push:
@@ -49,13 +52,13 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
         if: steps.guard.outputs.skip != 'true'
-      - run: npm run build -w @lumen-seo/mcp
+      - run: npm run build:worker -w @lumen-seo/mcp
         if: steps.guard.outputs.skip != 'true'
       - name: wrangler deploy
         if: steps.guard.outputs.skip != 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # optional override; account_id normally committed in packages/mcp/wrangler.jsonc
-          command: deploy
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # required at deploy time: wrangler.jsonc intentionally carries no account_id
+          command: deploy --config worker/wrangler.jsonc
           workingDirectory: packages/mcp
