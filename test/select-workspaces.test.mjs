@@ -111,6 +111,29 @@ describe('select-workspaces.mjs — closure from the fixture lockfile', () => {
   });
 });
 
+describe('select-workspaces.mjs — nested node_modules lockfile entries are not workspaces', () => {
+  // npm nests registry copies under a workspace dir whenever hoisting
+  // conflicts (e.g. site/node_modules/cookie). Those entries carry no
+  // `name` (or a registry name) and must never be treated as workspaces —
+  // an unnamed one previously made loadWorkspaces fail safe to ALL.
+  const NESTED = fileURLToPath(new URL('./fixtures/package-lock.nested.json', import.meta.url));
+
+  it('keeps the closure scoped when an unnamed nested entry exists (site/node_modules/cookie)', () => {
+    expectOneScopeLine(
+      run('packages/core/src/fetcher.ts\n', { lockfile: NESTED }),
+      '-w @lumen-seo/audit -w @lumen-seo/cli -w @lumen-seo/core -w @lumen-seo/mcp -w @lumen-seo/providers',
+    );
+  });
+
+  it('does not treat a named nested entry as a workspace (packages/mcp/node_modules/youch)', () => {
+    expectOneScopeLine(run('packages/mcp/node_modules/youch/lib/index.js\n', { lockfile: NESTED }), '-w @lumen-seo/cli -w @lumen-seo/mcp');
+  });
+
+  it('still scopes a real workspace path in the same lockfile', () => {
+    expectOneScopeLine(run('site/src/pages/index.astro\n', { lockfile: NESTED }), '-w @lumen-seo/site');
+  });
+});
+
 describe('select-workspaces.mjs — fail-safe ⇒ scope=ALL', () => {
   it('emits ALL for a docs-only diff (no package paths)', () => {
     expectOneScopeLine(run('README.md\n'), 'ALL');

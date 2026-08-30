@@ -1,0 +1,78 @@
+{
+  "name": "lumen",
+  "version": "0.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "lumen",
+      "version": "0.0.0",
+      "dependencies": {},
+      "devDependencies": {
+        "vitest": "^4.1.0"
+      }
+    },
+    "node_modules/vitest": {
+      "version": "4.1.0",
+      "dev": true
+    },
+    "node_modules/@lumen-seo/core": {
+      "resolved": "packages/core",
+      "link": true
+    },
+    "packages/core": {
+      "name": "@lumen-seo/core",
+      "version": "0.0.0",
+      "dependencies": {}
+    },
+    "packages/audit": {
+      "name": "@lumen-seo/audit",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lumen-seo/core": "*"
+      }
+    },
+    "packages/providers": {
+      "name": "@lumen-seo/providers",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lumen-seo/core": "*"
+      }
+    },
+    "packages/mcp": {
+      "name": "@lumen-seo/mcp",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lumen-seo/audit": "*",
+        "@lumen-seo/providers": "*"
+      }
+    },
+    "packages/cli": {
+      "name": "@lumen-seo/cli",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lumen-seo/audit": "*",
+        "@lumen-seo/mcp": "*",
+        "@lumen-seo/providers": "*"
+      }
+    },
+    "site": {
+      "name": "@lumen-seo/site",
+      "version": "0.0.0",
+      "dependencies": {
+        "cookie": "^2.0.1"
+      },
+      "devDependencies": {}
+    },
+    "site/node_modules/cookie": {
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/cookie/-/cookie-2.0.1.tgz",
+      "license": "MIT"
+    },
+    "packages/mcp/node_modules/youch": {
+      "name": "youch",
+      "version": "4.1.0-beta.10",
+      "license": "MIT"
+    }
+  }
+}

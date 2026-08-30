@@ -75,7 +75,11 @@ function loadWorkspaces(lockfilePath) {
   const dirByName = new Map();
   const nameByDir = new Map();
   for (const [dir, entry] of Object.entries(packages)) {
-    if (dir === '' || dir.startsWith('node_modules')) continue; // root + registry entries are not workspaces
+    // Root entry + registry entries are not workspaces. Registry copies can
+    // be nested under a workspace dir whenever hoisting conflicts (e.g.
+    // site/node_modules/cookie), so test any node_modules SEGMENT, not just
+    // a root-level prefix.
+    if (dir === '' || dir.split('/').includes('node_modules')) continue;
     const name = entry !== null && typeof entry === 'object' ? entry.name : undefined;
     if (typeof name !== 'string' || !NAME_CHARSET.test(name)) return null;
     if (dirByName.has(name)) return null; // duplicate workspace name ⇒ untrustworthy graph
