@@ -19,7 +19,7 @@
     "validate": "npm run typecheck && npm run lint && npm run build:worker --if-present -w @lumen-seo/mcp && npm run build -w @lumen-seo/site && npm test && node scripts/ci/cli-smoke.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
     "eslint": "^9.39.5",
     "typescript": "^5.9.3",
