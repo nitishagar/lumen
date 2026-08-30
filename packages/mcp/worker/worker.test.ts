@@ -341,8 +341,10 @@ describe('budget kill-switch (B10/E10)', () => {
     const res = await pageReportRoute(req, env, restComposition(new Headers(), env));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { lab: { status: string; reason: string } };
+    // Strict opt-in: with no var the pagespeed leg is never wired, so PSI is
+    // unavailable — reported via the generic not-configured reason.
     expect(body.lab.status).toBe('unavailable');
-    expect(body.lab.reason).toContain('psi disabled');
+    expect(body.lab.reason).toContain('not configured');
   });
 
   it('WORKER_ENABLE_PSI=false disables the PSI leg with an explicit reason', async () => {
