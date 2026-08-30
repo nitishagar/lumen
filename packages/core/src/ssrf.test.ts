@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBlockedTarget } from './ssrf.js';
+import { isBlockedHost, isBlockedTarget } from './ssrf.js';
 import { createFetcher } from './fetcher.js';
 import type { FetchTransport } from './fetcher.js';
 import { LumenError, RedirectError, SsrfBlockedError } from './errors.js';
@@ -176,5 +176,13 @@ describe('per-hop re-validation through the fetcher (SC-10 / SC-13)', () => {
     const res = await fetcher.fetch(new URL('https://example.com/start'));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('done');
+  });
+});
+
+describe('red-team round 1: FQDN trailing dot', () => {
+  it('localhost. and sub.localhost. are blocked like their unqualified forms', () => {
+    expect(isBlockedHost('localhost.')).toBe(true);
+    expect(isBlockedHost('sub.localhost.')).toBe(true);
+    expect(isBlockedHost('example.com.')).toBe(false); // root-qualified public name still allowed
   });
 });

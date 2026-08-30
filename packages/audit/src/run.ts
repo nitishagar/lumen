@@ -78,7 +78,7 @@ export const runSiteAudit = async (
   const ruleSet = createRuleSet(resolved); // validates severityOverrides (unknown id -> ConfigError)
   const crawlGate: CrawlGate = {
     isAllowed: (url) => (resolved.respectRobots ? policy.isAllowed(url) : true),
-    waitForTurn: (url, sig) => limiter.waitForTurn(url.host, sig),
+    waitForTurn: (url, sig, deadlineMs) => limiter.waitForTurn(url.host, sig, deadlineMs),
   };
   const result = await crawl({
     seed,

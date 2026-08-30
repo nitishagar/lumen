@@ -30,13 +30,21 @@ export class RateLimiter {
     return Math.max(this.minIntervalMs, this.crawlDelayMs);
   }
 
-  /** Resolve when a request to `host` may start. Rejects (abort) if `signal` fires while waiting. */
-  waitForTurn(host: string, signal?: AbortSignal): Promise<void> {
+  /**
+   * Resolve when a request to `host` may start. Rejects (abort) if `signal` fires while waiting.
+   *
+   * `deadlineMs` (absolute, `deps.now()` clock) caps the politeness wait
+   * (red-team round 1): without it, a hostile robots crawl-delay parks the
+   * whole worker pool past the audit's maxDurationMs. The caller re-checks
+   * the budget after the wait and stops without fetching.
+   */
+  waitForTurn(host: string, signal?: AbortSignal, deadlineMs?: number): Promise<void> {
     const grant = this.tail.then(async () => {
       const interval = this.effectiveIntervalMs();
       const now = this.deps.now();
       const next = this.nextAllowedAt.get(host) ?? Number.NEGATIVE_INFINITY;
-      const wait = next - now;
+      const dueWait = next - now;
+      const wait = deadlineMs === undefined ? dueWait : Math.min(dueWait, deadlineMs - now);
       if (wait > 0) await this.deps.delay(wait, signal);
       const grantedAt = this.deps.now();
       this.nextAllowedAt.set(host, Math.max(grantedAt, next) + interval);

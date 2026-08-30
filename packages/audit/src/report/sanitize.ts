@@ -17,13 +17,18 @@ export const sanitizeText = (s: string, max = 300): string =>
  * Sanitize every crawled-derived string of an issue: `message`,
  * `evidence.selector`, `evidence.snippet`, `fixHint`. `ruleId`, `severity`,
  * and the attribution `url` are engine-controlled and preserved untouched.
+ * Built by explicit allowlist (NOT a `...issue` spread, red-team round 1):
+ * a plugin rule emitting page-derived extra fields (e.g. `rawHtml`) must
+ * not have them forwarded verbatim into the stored report.
  */
 export const sanitizeIssue = (issue: Issue): Issue => ({
-  ...issue,
+  ruleId: issue.ruleId,
+  severity: issue.severity,
   message: sanitizeText(issue.message),
   evidence: {
     ...(issue.evidence.selector !== undefined ? { selector: sanitizeText(issue.evidence.selector) } : {}),
     ...(issue.evidence.snippet !== undefined ? { snippet: sanitizeText(issue.evidence.snippet) } : {}),
   },
+  ...(issue.url !== undefined ? { url: issue.url } : {}),
   ...(issue.fixHint !== undefined ? { fixHint: sanitizeText(issue.fixHint) } : {}),
 });

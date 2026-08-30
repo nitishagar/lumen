@@ -126,3 +126,17 @@ describe('args dispatch (B1/B12/E15/I15)', () => {
     });
   });
 });
+
+describe('red-team round 1: --config stops at the end-of-options separator', () => {
+  it('a --config after -- is left as a positional, not extracted', () => {
+    const { argv, config } = extractConfigFlag(['config', 'show', '--', '--config', '/tmp/other.json']);
+    expect(config).toBeUndefined();
+    expect(argv).toEqual(['config', 'show', '--', '--config', '/tmp/other.json']);
+  });
+
+  it('a --config before -- is still extracted', () => {
+    const { argv, config } = extractConfigFlag(['--config', 'lumen.config.json', 'config', 'show', '--']);
+    expect(config).toBe('lumen.config.json');
+    expect(argv).toEqual(['config', 'show', '--']);
+  });
+});

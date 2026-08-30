@@ -125,6 +125,18 @@ export const createRuleRegistry = (
     details.push({ path: `rules.${id}`, message: `duplicate rule id "${id}"` });
   }
 
+  // A rule whose own severity is not one of the three known values would
+  // poison the report downstream (NaN score, null count buckets) — reject it
+  // at registration with a typed ConfigError instead (red-team round 1).
+  for (const rule of byId.values()) {
+    if (!isSeverity(rule.severity)) {
+      details.push({
+        path: `rules.${rule.id}.severity`,
+        message: 'must be one of: error, warning, info',
+      });
+    }
+  }
+
   const known = [...byId.keys()].sort();
   for (const [id, severity] of Object.entries(severityOverrides)) {
     if (!byId.has(id)) {

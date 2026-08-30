@@ -75,21 +75,30 @@ export const interceptHelp = (argv: readonly string[], io: Io): boolean => {
   return false;
 };
 
-/** Extracts the global `--config <path>` / `--config=<path>` flag (B12). */
+/** Extracts the global `--config <path>` / `--config=<path>` flag (B12).
+ * Scanning STOPS at `--` (end of options): tokens after it are positionals,
+ * so a wrapper appending `-- --config <path>` cannot silently switch the
+ * config source (red-team round 1). */
 export const extractConfigFlag = (
   argv: readonly string[],
 ): { argv: string[]; config?: string } => {
   const out: string[] = [];
   let config: string | undefined;
+  let endOfOptions = false;
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === undefined) continue;
-    if (a === '--config') {
+    if (!endOfOptions && a === '--') {
+      endOfOptions = true;
+      out.push(a);
+      continue;
+    }
+    if (!endOfOptions && a === '--config') {
       const v = argv[i + 1];
       if (v === undefined) throw new UsageError('--config requires a path value');
       config = v;
       i += 1;
-    } else if (a.startsWith('--config=')) {
+    } else if (!endOfOptions && a.startsWith('--config=')) {
       const v = a.slice('--config='.length);
       if (v === '') throw new UsageError('--config requires a path value');
       config = v;

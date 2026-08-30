@@ -261,3 +261,15 @@ describe('TC-SHARED-10: type-based timeout classification (never message sniffin
     expect(isTimeoutLike('string')).toBe(false);
   });
 });
+
+describe('red-team round 1 hardening', () => {
+  it('InMemoryCache: expired-unread entries are evicted on set, not only on get', async () => {
+    const clock = { now: 1_000 };
+    const cache = new InMemoryCache(() => clock.now);
+    for (let i = 0; i < 100; i++) await cache.set(`k${i}`, i, 2_000);
+    clock.now = 3_000; // everything expired, nothing read back
+    await cache.set('fresh', 'v', 4_000);
+    expect(cache.size).toBe(1); // sweep happened — not 101
+    expect(await cache.get<string>('fresh')).toBe('v');
+  });
+});

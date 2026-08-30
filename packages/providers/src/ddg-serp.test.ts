@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DdgSerpProvider } from './ddg-serp.js';
 import { GcraPacer } from './throttle.js';
 import { FakeClock, fakeFetcher, htmlResponse, makeDeps } from './testing.js';
-import { ddgChallenge, ddgDrift, ddgHtml, ddgLite, ddgNoResults } from './fixtures/index.js';
+import { ddgChallenge, ddgDrift, ddgHtml, ddgHtmlWithChallengeWords, ddgLite, ddgNoResults } from './fixtures/index.js';
 
 const NOW = Date.UTC(2026, 7, 29);
 
@@ -178,5 +178,16 @@ describe('TC-DDG-5: the fallback trigger is defined exactly', () => {
     clock.advance(60 * 60 * 1000);
     await p.search('coffee grinder', {});
     expect(fetcher.calls).toHaveLength(2); // TTL elapsed
+  });
+});
+
+describe('red-team round 1: challenge marker must not fire on real results', () => {
+  it('a legitimate SERP whose titles/snippets quote captcha/challenge/anomaly parses to results (no fallback)', async () => {
+    const clock = new FakeClock(NOW);
+    const { p, fetcher } = ddg(clock, () => htmlResponse(ddgHtmlWithChallengeWords));
+    const results = await p.search('how to solve captcha', {});
+    expect(results).toHaveLength(1);
+    expect(results[0]!.title).toBe('How to solve every CAPTCHA');
+    expect(fetcher.calls).toHaveLength(1); // no lite fallback — the primary answered
   });
 });

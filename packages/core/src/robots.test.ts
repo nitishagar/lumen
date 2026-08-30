@@ -84,6 +84,23 @@ describe('robots.txt policy matrix (SC-14 / BA-9)', () => {
     expect(policy.sitemaps).toEqual([]);
   });
 
+  it('relative Sitemap: directives resolve against the robots URL; unconstructable ones are dropped, never thrown', async () => {
+    // Relative Sitemap: values are common in the wild; a throw here would
+    // reject the entire audit run (red-team round 1). Values that cannot
+    // form a URL even against the robots URL are dropped.
+    const { fetcher } = robotsFetcher(() =>
+      new Response(
+        ['User-agent: *', 'Disallow:', 'Sitemap: /sitemap.xml', 'Sitemap: http://exa mple.com/x', 'Sitemap: https://cdn.example.com/s.x.xml'].join('\n'),
+        { status: 200 },
+      ),
+    );
+    const policy = await loadRobots(fetcher, site);
+    expect(policy.sitemaps).toEqual([
+      new URL('https://example.com/sitemap.xml'),
+      new URL('https://cdn.example.com/s.x.xml'),
+    ]);
+  });
+
   it('a path with no matching group is allowed (undefined → true)', async () => {
     const { fetcher } = robotsFetcher(() =>
       new Response(['User-agent: otherbot', 'Disallow: /'].join('\n'), { status: 200 }),

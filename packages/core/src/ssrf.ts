@@ -93,13 +93,15 @@ const isBlockedIpv6 = (addr: bigint): boolean => {
   return false;
 };
 
-/** Strips brackets and a zone id from a URL hostname. */
+/** Strips brackets, a zone id, and trailing FQDN dots from a URL hostname. */
 const normalizeHost = (hostname: string): string => {
   let host = hostname;
   if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
   const zone = host.indexOf('%');
   if (zone !== -1) host = host.slice(0, zone);
-  return host.toLowerCase();
+  // `localhost.` is the DNS-root-qualified form of the same loopback name —
+  // without stripping it the host-only guard waves it through (red-team round 1).
+  return host.toLowerCase().replace(/\.+$/, '');
 };
 
 /** Host-only blocklist decision (scheme NOT considered — see isBlockedTarget). */

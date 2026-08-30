@@ -30,6 +30,15 @@ export class InMemoryCache implements CacheStore {
   }
 
   async set<T>(key: string, value: T, expiresAtMs: number): Promise<void> {
+    // Evict expired-unread entries on write (red-team round 1): expiry used
+    // to fire only in get(), so a long-lived CLI/MCP process accumulated
+    // every unique key forever. A sweep per write keeps size O(live keys).
+    const now = this.clock();
+    if (this.entries.size > 0) {
+      for (const [k, e] of this.entries) {
+        if (now >= e.expiresAtMs) this.entries.delete(k);
+      }
+    }
     this.entries.set(key, { value, expiresAtMs });
   }
 
