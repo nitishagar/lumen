@@ -46,6 +46,22 @@ export const LICENSE_MARKERS = [
 
 const TRAILER_PATTERNS = [/^co-authored-by:/im, /^generated[-_ ]?(by|with)/im];
 
+// GitHub's squash merge auto-appends `Co-authored-by: <PR author>` to the
+// commit message; for a dependabot PR that is the PINNED bot identity, which
+// the gate already accepts as author/committer. The trailer ban targets
+// unauthorized attribution, so exactly this trailer is exempt (any other
+// co-authored-by — human, AI, or a mispinned bot email — stays forbidden).
+const DEPENDABOT_COAUTHOR_TRAILER = /^co-authored-by: dependabot\[bot\] <49699333\+dependabot\[bot\]@users\.noreply\.github\.com>\s*$/im;
+
+export function findForbiddenTrailer(body) {
+  const lines = typeof body === 'string' ? body.split('\n') : [];
+  for (const pattern of TRAILER_PATTERNS) {
+    const offending = lines.find((line) => pattern.test(line) && !DEPENDABOT_COAUTHOR_TRAILER.test(line));
+    if (offending !== undefined) return offending;
+  }
+  return undefined;
+}
+
 // One NUL-separated field per identity, %B = raw message. `-z` terminates
 // each log entry with NUL instead of a newline so the parser can split the
 // stream unambiguously (commit messages cannot contain NUL bytes).
@@ -110,16 +126,14 @@ export function validateRecord(record) {
     });
   }
 
-  for (const pattern of TRAILER_PATTERNS) {
-    const offending = body.split('\n').find((line) => pattern.test(line));
-    if (offending !== undefined) {
-      problems.push({
-        kind: 'trailer',
-        message:
-          `forbidden trailer: ${JSON.stringify(offending)} — no AI co-author/generated ` +
-          `trailers are allowed in this repo (matches /${pattern.source}/)`,
-      });
-    }
+  const offending = findForbiddenTrailer(body);
+  if (offending !== undefined) {
+    problems.push({
+      kind: 'trailer',
+      message:
+        `forbidden trailer: ${JSON.stringify(offending)} — no AI co-author/generated ` +
+        `trailers are allowed in this repo (the pinned dependabot[bot] co-author is the only exception)`,
+    });
   }
 
   return problems;
