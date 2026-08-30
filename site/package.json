@@ -17,10 +17,13 @@
   },
   "devDependencies": {
     "astro": "7.2.9",
-    "pagefind": "1.5.2",
     "cheerio": "^1.2.0",
     "jest-axe": "^11.0.0",
     "jsdom": "^30.0.1",
+    "pagefind": "1.5.2",
     "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "cookie": "^2.0.1"
   }
 }

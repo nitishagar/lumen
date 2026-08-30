@@ -9,3 +9,10 @@ export default defineConfig({
   output: 'static',
   build: { assets: 'assets' },
 });
+// The prerender entry in site/dist imports `cookie` at runtime; Node's
+// walk-up resolution from site/dist must find astro's ESM cookie@2.x, not
+// the CJS cookie@0.7.2 that @lumen-seo/mcp's express chain hoists to the
+// repo root ("Named export 'parseCookie' not found"). vite.ssr.noExternal
+// does not reach the prerender entry, so the fix is a direct `cookie`
+// dependency in site/package.json: npm installs the ESM copy at
+// site/node_modules/cookie — the first directory walk-up hits.
