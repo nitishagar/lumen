@@ -1,0 +1,21 @@
+lumen — see your site clearly.
+
+Usage:
+  lumen <command> [flags]
+
+Commands:
+  audit <url>          Bounded site audit (exit 1 on issues at/above failThreshold)
+  report <url>         Page report: PSI lab + CrUX field + local page meta
+  keywords <seed>      Keyword ideas from configured providers
+  rank <keyword>       SERP position check for --domain (appends history)
+  authority <domain>   Authority signals from configured providers
+  mcp                  MCP server over stdio (or --print onboarding payloads)
+  config show          Resolved config (BYOK env NAMES + set-flag only)
+
+Global flags:
+  --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
+  --help, -h           Usage for lumen or a command (also on bare invocation)
+
+Run "lumen <command> --help" for command flags. Every command accepts --json
+(exactly one JSON document on stdout). Exit codes: 0 ok, 1 audit gate failed,
+2 usage/config/provider error.
