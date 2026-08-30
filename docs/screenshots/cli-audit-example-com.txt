@@ -1,0 +1,9 @@
+audit: https://example.com/
+  pages: 1 audited
+  score: 87
+  issues: 1 error / 1 warning / 2 info
+  failThreshold: error
+    [warning] title-length: title length 14 is outside the recommended 15-65 characters
+    [error] description-missing: page has no meta description (or it is empty)
+    [info] canonical-present: page declares no <link rel="canonical">
+    [info] og-tags-missing: missing Open Graph tag(s): og:title, og:description, og:image
