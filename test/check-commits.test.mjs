@@ -501,3 +501,49 @@ describe('red-team round 1: dependabot identity is email-pinned', () => {
     expect(res).toHaveLength(0);
   });
 });
+
+describe('red-team round 1b: GitHub squash adds the PR-author co-author trailer', () => {
+  const BOT_COAUTHOR = 'Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>';
+
+  it('the pinned dependabot co-author trailer on a webflow squash commit is accepted', () => {
+    const res = validateRecord({
+      sha: 'c'.repeat(40),
+      authorName: 'Nitish Agarwal',
+      authorEmail: '1592163+nitishagar@users.noreply.github.com',
+      committerName: 'GitHub',
+      committerEmail: 'noreply@github.com',
+      body: `chore(deps): bump @types/node\n\n${BOT_COAUTHOR}`,
+    });
+    expect(res).toHaveLength(0);
+  });
+
+  it('any other co-authored-by trailer (human or mispinned bot) is still forbidden', () => {
+    for (const trailer of [
+      'Co-authored-by: Someone Else <someone@example.com>',
+      'Co-authored-by: dependabot[bot] <attacker@evil.example>',
+      'Co-authored-by: Claude <noreply@anthropic.com>',
+    ]) {
+      const res = validateRecord({
+        sha: 'd'.repeat(40),
+        authorName: 'Nitish Agarwal',
+        authorEmail: '1592163+nitishagar@users.noreply.github.com',
+        committerName: 'GitHub',
+        committerEmail: 'noreply@github.com',
+        body: `chore: x\n\n${trailer}`,
+      });
+      expect(res.some((p) => p.kind === 'trailer'), trailer).toBe(true);
+    }
+  });
+
+  it('Generated-by trailers remain forbidden', () => {
+    const res = validateRecord({
+      sha: 'e'.repeat(40),
+      authorName: 'Nitish Agarwal',
+      authorEmail: '1592163+nitishagar@users.noreply.github.com',
+      committerName: 'Nitish Agarwal',
+      committerEmail: '1592163+nitishagar@users.noreply.github.com',
+      body: 'chore: x\n\nGenerated-by: tool',
+    });
+    expect(res.some((p) => p.kind === 'trailer')).toBe(true);
+  });
+});
