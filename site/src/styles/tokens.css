@@ -57,6 +57,9 @@
   /* layout */
   --max-landing: 72rem;
   --max-prose: 48rem;
+  /* figures render at their own scale so in-SVG type stays close to
+     body-text size instead of ballooning with the landing width */
+  --max-figure: 46rem;
 }
 
 [data-theme="light"] {

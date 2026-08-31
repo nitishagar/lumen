@@ -35,7 +35,7 @@ const ciExample = [
 
   <h2 id="install">Install</h2>
   <p>
-    Install globally, or skip installation entirely with npx —
+    Install globally, or skip installation entirely with npx —{' '}
     <code>{locked.packages.cli}</code> is the only package you need:
   </p>
   <Code
@@ -74,8 +74,8 @@ const ciExample = [
     </tbody>
   </table>
   <p>
-    The threshold is <code>failThreshold</code> in
-    <code>{locked.configFile}</code> (<code>error</code> by default; see
+    The threshold is <code>failThreshold</code> in{' '}
+    <code>{locked.configFile}</code> (<code>error</code> by default; see{' '}
     <a href={u('/docs/configuration/')}>configuration</a>).
   </p>
 
@@ -88,10 +88,10 @@ const ciExample = [
 
   <h2 id="history">Local history</h2>
   <p>
-    <code>lumen rank</code> appends each check to a JSONL history file under
+    <code>lumen rank</code> appends each check to a JSONL history file under{' '}
     <code>{locked.historyDir}/</code> in the current directory — rank movement
     over time without any server. It stays on your machine unless a provider
-    needs the query (each provider’s
+    needs the query (each provider’s{' '}
     <a href={u('/docs/providers-byok/')}>what-leaves-your-machine line</a> says
     exactly when that is).
   </p>

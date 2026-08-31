@@ -68,35 +68,35 @@ const tabs = [
         is the answer you get.
       </p>
       <figure>
-        <svg viewBox="0 0 640 252" role="img" aria-labelledby="fig01-title">
+        <svg viewBox="0 0 640 236" role="img" aria-labelledby="fig01-title">
           <title id="fig01-title">Two lists: what lumen can tell you from free sources, and what it refuses to invent.</title>
-          <text x="0" y="14" fill="var(--accent)" font-size="11" letter-spacing="2">SHIPS</text>
-          <text x="360" y="14" fill="var(--dim)" font-size="11" letter-spacing="2">NOT FAKING</text>
+          <text x="0" y="12" fill="var(--accent)" font-size="11" letter-spacing="2">SHIPS</text>
+          <text x="368" y="12" fill="var(--dim)" font-size="11" letter-spacing="2">NOT FAKING</text>
           <g fill="var(--surface)" stroke="var(--border)">
-            <rect x="0" y="26" width="330" height="34" rx="8"></rect>
-            <rect x="0" y="68" width="330" height="34" rx="8"></rect>
-            <rect x="0" y="110" width="330" height="34" rx="8"></rect>
-            <rect x="0" y="152" width="330" height="34" rx="8"></rect>
-            <rect x="0" y="194" width="330" height="34" rx="8"></rect>
+            <rect x="0" y="24" width="344" height="34" rx="8"></rect>
+            <rect x="0" y="66" width="344" height="34" rx="8"></rect>
+            <rect x="0" y="108" width="344" height="34" rx="8"></rect>
+            <rect x="0" y="150" width="344" height="34" rx="8"></rect>
+            <rect x="0" y="192" width="344" height="34" rx="8"></rect>
           </g>
-          <g fill="var(--text)" font-size="13">
-            <text x="16" y="47">local site audit — 18 rules, robots-safe</text>
-            <text x="16" y="89">page reports — PSI + CrUX (BYOK)</text>
-            <text x="16" y="131">keyword ideas — suggest + demand proxies</text>
-            <text x="16" y="173">rank checks — best-effort, labeled</text>
-            <text x="16" y="215">authority — Open PageRank + Tranco</text>
+          <g fill="var(--text)" font-size="12">
+            <text x="14" y="45">local site audit — 18 rules, robots-safe</text>
+            <text x="14" y="87">page reports — PSI + CrUX (BYOK)</text>
+            <text x="14" y="129">keyword ideas — suggest + demand proxies</text>
+            <text x="14" y="171">rank checks — best-effort, labeled</text>
+            <text x="14" y="213">authority — Open PageRank + Tranco</text>
           </g>
           <g fill="none" stroke="var(--border)" stroke-dasharray="4 4">
-            <rect x="360" y="26" width="280" height="34" rx="8"></rect>
-            <rect x="360" y="68" width="280" height="34" rx="8"></rect>
-            <rect x="360" y="110" width="280" height="34" rx="8"></rect>
+            <rect x="368" y="24" width="272" height="34" rx="8"></rect>
+            <rect x="368" y="66" width="272" height="34" rx="8"></rect>
+            <rect x="368" y="108" width="272" height="34" rx="8"></rect>
           </g>
-          <g fill="var(--dim)" font-size="13">
-            <text x="376" y="47">search-volume database</text>
-            <text x="376" y="89">backlink index</text>
-            <text x="376" y="131">traffic / clickstream estimates</text>
+          <g fill="var(--dim)" font-size="12">
+            <text x="382" y="45">search-volume database</text>
+            <text x="382" y="87">backlink index</text>
+            <text x="382" y="129">traffic / clickstream estimates</text>
           </g>
-          <text x="376" y="170" fill="var(--dim)" font-size="12">no free source → no number.</text>
+          <text x="382" y="166" fill="var(--dim)" font-size="11">no free source → no number.</text>
         </svg>
         <figcaption>Fig. 01 | Everything lumen can tell you without a paid index — and the things it declines to invent.</figcaption>
       </figure>
@@ -108,11 +108,11 @@ const tabs = [
       <p>
         All external data flows through one provider interface with five
         boundaries — keywords, serp, pagespeed, crux, authority. The built-ins
-        cover seven sources; you select and swap them in
+        cover seven sources; you select and swap them in{' '}
         <code>{locked.configFile}</code>, and bring-your-own-key providers stay
         dormant until their environment variable
         ({locked.envVars.map((name, i) => (<Fragment>{i > 0 && ', '}<code>{name}</code></Fragment>))})
-        shows up. No key, no call, no crash — the capability is reported as
+        shows up. No key, no call, no crash — the capability is reported as{' '}
         <em>not configured</em> and everything else keeps working.
       </p>
       <p>
@@ -121,40 +121,42 @@ const tabs = [
         names, never values — keys are read at call time and never written down.
       </p>
       <figure>
-        <svg viewBox="0 0 640 240" role="img" aria-labelledby="fig02-title">
+        <svg viewBox="0 0 640 244" role="img" aria-labelledby="fig02-title">
           <title id="fig02-title">Seven provider chips feeding one registry, which feeds one engine surface.</title>
           <g fill="var(--surface)" stroke="var(--border)">
-            <rect x="0" y="18" width="190" height="26" rx="13"></rect>
-            <rect x="0" y="56" width="190" height="26" rx="13"></rect>
-            <rect x="0" y="94" width="190" height="26" rx="13"></rect>
-            <rect x="0" y="132" width="190" height="26" rx="13"></rect>
-            <rect x="0" y="170" width="190" height="26" rx="13"></rect>
-            <rect x="0" y="208" width="190" height="26" rx="13"></rect>
+            <rect x="0" y="18" width="196" height="26" rx="13"></rect>
+            <rect x="0" y="56" width="196" height="26" rx="13"></rect>
+            <rect x="0" y="94" width="196" height="26" rx="13"></rect>
+            <rect x="0" y="132" width="196" height="26" rx="13"></rect>
+            <rect x="0" y="170" width="196" height="26" rx="13"></rect>
+            <rect x="0" y="208" width="196" height="26" rx="13"></rect>
           </g>
-          <g font-size="12">
-            <text x="14" y="35" fill="var(--text)">google-suggest</text>
-            <text x="14" y="73" fill="var(--text)">wikipedia-demand</text>
-            <text x="14" y="111" fill="var(--text)">pagespeed · BYOK</text>
-            <text x="14" y="149" fill="var(--text)">crux · BYOK</text>
-            <text x="14" y="187" fill="var(--text)">openpagerank · BYOK</text>
-            <text x="14" y="225" fill="var(--text)">tranco · ddg-serp</text>
+          <g font-size="12" fill="var(--text)">
+            <text x="16" y="35">google-suggest</text>
+            <text x="16" y="73">wikipedia-demand</text>
+            <text x="16" y="111">pagespeed · BYOK</text>
+            <text x="16" y="149">crux · BYOK</text>
+            <text x="16" y="187">openpagerank · BYOK</text>
+            <text x="16" y="225">tranco · ddg-serp</text>
           </g>
           <g stroke="var(--hover)" stroke-dasharray="3 3">
-            <line x1="190" y1="31" x2="272" y2="112"></line>
-            <line x1="190" y1="69" x2="272" y2="116"></line>
-            <line x1="190" y1="107" x2="272" y2="120"></line>
-            <line x1="190" y1="145" x2="272" y2="124"></line>
-            <line x1="190" y1="183" x2="272" y2="128"></line>
-            <line x1="190" y1="221" x2="272" y2="132"></line>
+            <line x1="196" y1="31" x2="272" y2="112"></line>
+            <line x1="196" y1="69" x2="272" y2="116"></line>
+            <line x1="196" y1="107" x2="272" y2="120"></line>
+            <line x1="196" y1="145" x2="272" y2="124"></line>
+            <line x1="196" y1="183" x2="272" y2="128"></line>
+            <line x1="196" y1="221" x2="272" y2="132"></line>
           </g>
           <rect x="276" y="88" width="130" height="68" rx="8" fill="var(--surface)" stroke="var(--accent)"></rect>
-          <text x="292" y="115" fill="var(--accent)" font-size="12">provider</text>
-          <text x="292" y="131" fill="var(--accent)" font-size="12">registry</text>
+          <g fill="var(--accent)" font-size="12" text-anchor="middle">
+            <text x="341" y="116">provider</text>
+            <text x="341" y="134">registry</text>
+          </g>
           <line x1="406" y1="122" x2="452" y2="122" stroke="var(--hover)"></line>
-          <rect x="456" y="88" width="184" height="68" rx="8" fill="var(--surface)" stroke="var(--border)"></rect>
-          <text x="472" y="109" fill="var(--text)" font-size="12">one engine,</text>
-          <text x="472" y="125" fill="var(--text)" font-size="12">one surface:</text>
-          <text x="472" y="145" fill="var(--dim)" font-size="11">cli · mcp · thin worker</text>
+          <rect x="452" y="88" width="188" height="68" rx="8" fill="var(--surface)" stroke="var(--border)"></rect>
+          <text x="466" y="110" fill="var(--text)" font-size="12">one engine,</text>
+          <text x="466" y="128" fill="var(--text)" font-size="12">one surface:</text>
+          <text x="466" y="146" fill="var(--dim)" font-size="10">cli · mcp · thin worker</text>
         </svg>
         <figcaption>Fig. 02 | Every external number enters through the provider interface. Swap a source, keep the commands.</figcaption>
       </figure>
@@ -164,8 +166,8 @@ const tabs = [
       <p class="mono-label">03 · agents first</p>
       <h2>Built for agents, usable by humans</h2>
       <p>
-        Every capability is an MCP tool first — <code>{locked.mcpTools[0]}</code>,
-        <code>{locked.mcpTools[1]}</code>, <code>{locked.mcpTools[2]}</code>,
+        Every capability is an MCP tool first — <code>{locked.mcpTools[0]}</code>,{' '}
+        <code>{locked.mcpTools[1]}</code>, <code>{locked.mcpTools[2]}</code>,{' '}
         <code>{locked.mcpTools[3]}</code>, <code>{locked.mcpTools[4]}</code> — and
         each is also a CLI command, because terminals are still a UI. Tools take an
         optional <code>{locked.responseFormatNote}</code> (<code>concise</code> by
@@ -180,44 +182,46 @@ const tabs = [
       <figure>
         <svg viewBox="0 0 640 240" role="img" aria-labelledby="fig03-title">
           <title id="fig03-title">One engine with three doors: CLI terminal, local stdio MCP for agents, and a thin remote gateway.</title>
-          <rect x="230" y="88" width="180" height="64" rx="8" fill="var(--surface)" stroke="var(--accent)"></rect>
-          <text x="264" y="114" fill="var(--text)" font-size="13">one engine</text>
-          <text x="258" y="134" fill="var(--dim)" font-size="11">crawl · judge · label</text>
-          <g fill="var(--surface)" stroke="var(--border)">
-            <rect x="8" y="16" width="180" height="56" rx="8"></rect>
-            <rect x="8" y="92" width="180" height="56" rx="8"></rect>
-            <rect x="8" y="168" width="180" height="56" rx="8"></rect>
-          </g>
-          <g font-size="12" fill="var(--text)">
-            <text x="22" y="38">cli — human</text>
-            <text x="22" y="56" fill="var(--dim)" font-size="11">lumen audit · keywords · rank</text>
-            <text x="22" y="114">stdio mcp — agent</text>
-            <text x="22" y="132" fill="var(--dim)" font-size="11">lumen_audit_site + 4 more</text>
-            <text x="22" y="190">worker gateway</text>
-            <text x="22" y="208" fill="var(--dim)" font-size="11">thin subset; crawl stays local</text>
-          </g>
-          <g stroke="var(--hover)">
-            <line x1="188" y1="44" x2="230" y2="100"></line>
-            <line x1="188" y1="120" x2="230" y2="120"></line>
-            <line x1="188" y1="196" x2="230" y2="140"></line>
+          <rect x="240" y="88" width="160" height="64" rx="8" fill="var(--surface)" stroke="var(--accent)"></rect>
+          <g text-anchor="middle">
+            <text x="320" y="114" fill="var(--text)" font-size="12">one engine</text>
+            <text x="320" y="134" fill="var(--dim)" font-size="10">crawl · judge · label</text>
           </g>
           <g fill="var(--surface)" stroke="var(--border)">
-            <rect x="452" y="16" width="180" height="56" rx="8"></rect>
-            <rect x="452" y="92" width="180" height="56" rx="8"></rect>
-            <rect x="452" y="168" width="180" height="56" rx="8"></rect>
+            <rect x="0" y="16" width="210" height="56" rx="8"></rect>
+            <rect x="0" y="92" width="210" height="56" rx="8"></rect>
+            <rect x="0" y="168" width="210" height="56" rx="8"></rect>
           </g>
-          <g font-size="12">
-            <text x="466" y="38" fill="var(--text)">exit codes for CI</text>
-            <text x="466" y="56" fill="var(--dim)" font-size="11">0 ok · 1 threshold · 2 config</text>
-            <text x="466" y="114" fill="var(--text)">provenance labels</text>
-            <text x="466" y="132" fill="var(--dim)" font-size="11">source on every value</text>
-            <text x="466" y="190" fill="var(--text)">--json everywhere</text>
-            <text x="466" y="208" fill="var(--dim)" font-size="11">pipe straight into anything</text>
+          <g fill="var(--text)" font-size="12">
+            <text x="14" y="39">cli — human</text>
+            <text x="14" y="58" fill="var(--dim)" font-size="10">lumen audit · keywords · rank</text>
+            <text x="14" y="115">stdio mcp — agent</text>
+            <text x="14" y="134" fill="var(--dim)" font-size="10">lumen_audit_site + 4 more</text>
+            <text x="14" y="191">worker gateway</text>
+            <text x="14" y="210" fill="var(--dim)" font-size="10">thin subset; crawl stays local</text>
           </g>
           <g stroke="var(--hover)">
-            <line x1="410" y1="100" x2="452" y2="44"></line>
-            <line x1="410" y1="120" x2="452" y2="120"></line>
-            <line x1="410" y1="140" x2="452" y2="196"></line>
+            <line x1="210" y1="44" x2="240" y2="100"></line>
+            <line x1="210" y1="120" x2="240" y2="120"></line>
+            <line x1="210" y1="196" x2="240" y2="140"></line>
+          </g>
+          <g fill="var(--surface)" stroke="var(--border)">
+            <rect x="430" y="16" width="208" height="56" rx="8"></rect>
+            <rect x="430" y="92" width="208" height="56" rx="8"></rect>
+            <rect x="430" y="168" width="208" height="56" rx="8"></rect>
+          </g>
+          <g fill="var(--text)" font-size="12">
+            <text x="444" y="39">exit codes for CI</text>
+            <text x="444" y="58" fill="var(--dim)" font-size="10">0 ok · 1 threshold · 2 config</text>
+            <text x="444" y="115">provenance labels</text>
+            <text x="444" y="134" fill="var(--dim)" font-size="10">source on every value</text>
+            <text x="444" y="191">--json everywhere</text>
+            <text x="444" y="210" fill="var(--dim)" font-size="10">pipe straight into anything</text>
+          </g>
+          <g stroke="var(--hover)">
+            <line x1="400" y1="100" x2="430" y2="44"></line>
+            <line x1="400" y1="120" x2="430" y2="120"></line>
+            <line x1="400" y1="140" x2="430" y2="196"></line>
           </g>
         </svg>
         <figcaption>Fig. 03 | One engine, three doors: the CLI, a stdio MCP server for agents, and a thin remote gateway that never pretends to crawl.</figcaption>
@@ -241,23 +245,23 @@ const tabs = [
         numbers in a doc without an asterisk the size of your conscience.
       </p>
       <figure>
-        <svg viewBox="0 0 640 196" role="img" aria-labelledby="fig04-title">
+        <svg viewBox="0 0 640 192" role="img" aria-labelledby="fig04-title">
           <title id="fig04-title">Three example metric cards: one field source, one gray source, and one honest no-source gap.</title>
           <g fill="var(--surface)" stroke="var(--border)">
-            <rect x="0" y="16" width="196" height="120" rx="8"></rect>
-            <rect x="222" y="16" width="196" height="120" rx="8"></rect>
-            <rect x="444" y="16" width="196" height="120" rx="8"></rect>
+            <rect x="0" y="16" width="204" height="120" rx="8"></rect>
+            <rect x="218" y="16" width="204" height="120" rx="8"></rect>
+            <rect x="436" y="16" width="204" height="120" rx="8"></rect>
           </g>
-          <text x="16" y="48" fill="var(--text)" font-size="22">2.4 s</text>
-          <text x="16" y="74" fill="var(--dim)" font-size="12">LCP p75</text>
-          <text x="16" y="118" fill="var(--badge-green)" font-size="11">source: crux · field</text>
-          <text x="238" y="48" fill="var(--text)" font-size="22">12</text>
-          <text x="238" y="74" fill="var(--dim)" font-size="12">keyword ideas</text>
-          <text x="238" y="118" fill="var(--badge-amber)" font-size="11">source: google-suggest · gray</text>
-          <text x="460" y="48" fill="var(--dim)" font-size="22">—</text>
-          <text x="460" y="74" fill="var(--dim)" font-size="12">search volume</text>
-          <text x="460" y="118" fill="var(--dim)" font-size="11">no free source → not shown</text>
-          <text x="0" y="178" fill="var(--dim)" font-size="12">every value carries {`{ value, source: { provider, kind }, retrievedAt }`}</text>
+          <text x="14" y="54" fill="var(--text)" font-size="20">2.4 s</text>
+          <text x="14" y="78" fill="var(--dim)" font-size="12">LCP p75</text>
+          <text x="14" y="118" fill="var(--badge-green)" font-size="10">source: crux · field</text>
+          <text x="232" y="54" fill="var(--text)" font-size="20">12</text>
+          <text x="232" y="78" fill="var(--dim)" font-size="12">keyword ideas</text>
+          <text x="232" y="118" fill="var(--badge-amber)" font-size="10">source: google-suggest · gray</text>
+          <text x="450" y="54" fill="var(--dim)" font-size="20">—</text>
+          <text x="450" y="78" fill="var(--dim)" font-size="12">search volume</text>
+          <text x="450" y="118" fill="var(--dim)" font-size="10">no free source → not shown</text>
+          <text x="0" y="176" fill="var(--dim)" font-size="12">every value carries {`{ value, source: { provider, kind }, retrievedAt }`}</text>
         </svg>
         <figcaption>Fig. 04 | Every number carries its source. No source, no number — that’s the whole policy.</figcaption>
       </figure>

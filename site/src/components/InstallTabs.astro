@@ -32,9 +32,7 @@ const { tabs } = Astro.props as { tabs: readonly Tab[] };
       hidden={i === 0 ? undefined : true}
     >
       <pre><code>{tab.lines.map((line) => (
-        <span class="terminal-line">
-          {line.kind === 'cmd' && <span class="prompt">$ </span>}{line.text}{'\n'}
-        </span>
+        <span class={line.kind === 'cmd' ? 'terminal-line' : 'terminal-line output'}>{line.kind === 'cmd' ? <span class="prompt">$ </span> : null}{line.text}</span>
       ))}</code></pre>
     </div>
   ))}
