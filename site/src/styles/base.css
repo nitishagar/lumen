@@ -257,17 +257,19 @@ a:hover {
 }
 
 .hero h1 {
-  font-size: 1.875rem;
+  font-size: clamp(2rem, 1.35rem + 2.6vw, 3rem);
+  line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 1rem;
-  max-width: 34ch;
+  margin: 0 0 1.25rem;
+  max-width: 22ch;
 }
 
 .hero .lede {
   color: var(--dim);
-  font-size: 1.1rem;
-  max-width: 52ch;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 62ch;
   margin: 0 0 2.5rem;
 }
 
@@ -312,12 +314,18 @@ a:hover {
 
 .install-box [role="tabpanel"] {
   margin: 0;
-  padding: 1rem 1.25rem;
+  padding: 1.15rem 1.35rem;
   overflow-x: auto;
 }
 
 .install-box pre {
   margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-size: 0.95rem;
+  line-height: 1.9;
 }
 
 .install-box [role="tabpanel"][hidden] {
@@ -347,7 +355,7 @@ pre {
   padding: 1rem 1.25rem;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   line-height: 1.6;
 }
 
@@ -375,16 +383,18 @@ code {
 }
 
 .section h2 {
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 1.3rem + 0.8vw, 1.875rem);
+  line-height: 1.25;
   font-weight: 800;
   letter-spacing: -0.01em;
   margin: 0 0 1rem;
-  max-width: 36ch;
+  max-width: 26ch;
 }
 
 .section p {
   color: var(--dim);
-  max-width: 60ch;
+  max-width: 68ch;
+  line-height: 1.6;
   margin: 0 0 1rem;
 }
 
@@ -400,6 +410,7 @@ figure {
 figure svg {
   display: block;
   width: 100%;
+  max-width: var(--max-figure);
   height: auto;
 }
 
@@ -409,6 +420,8 @@ figure svg text {
 
 figcaption {
   font-family: var(--font-mono);
+  max-width: var(--max-figure);
+  line-height: 1.5;
   font-size: 0.75rem;
   color: var(--dim);
   border-left: 2px solid var(--accent);
@@ -510,14 +523,16 @@ figcaption {
 }
 
 .docs-prose h1 {
-  font-size: 1.875rem;
+  font-size: clamp(1.875rem, 1.6rem + 1.2vw, 2.375rem);
+  line-height: 1.2;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0 0 0.75rem;
 }
 
 .docs-prose h2 {
-  font-size: 1.5rem;
+  font-size: clamp(1.375rem, 1.25rem + 0.6vw, 1.625rem);
+  line-height: 1.3;
   font-weight: 800;
   margin: 2.5rem 0 0.75rem;
   scroll-margin-top: 5rem;
@@ -730,7 +745,30 @@ figcaption {
 
 /* ---------- narrow screens ---------- */
 
+/* Diagrams shrink with the column; below this width their in-SVG type would
+   drop under ~10px, so they hold a readable size and scroll instead. */
+@media (max-width: 44rem) {
+  figure {
+    overflow-x: auto;
+  }
+
+  figure svg {
+    min-width: 34rem;
+  }
+}
+
 @media (max-width: 50rem) {
+  .docs-prose table {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .hero {
+    padding-block: 3rem 2.5rem;
+  }
+
   .docs-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;

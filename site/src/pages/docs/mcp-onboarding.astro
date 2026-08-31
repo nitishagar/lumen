@@ -52,13 +52,13 @@ const toolTable = [
   <h2 id="claude-code">Claude Code</h2>
   <Code lines={claudeLines} label="one-liner" />
   <p>
-    Verify with <code>/mcp</code> inside Claude Code; the five
+    Verify with <code>/mcp</code> inside Claude Code; the five{' '}
     <code>lumen_*</code> tools should be listed.
   </p>
 
   <h2 id="cursor">Cursor</h2>
   <p>
-    Add the server to <code>.cursor/mcp.json</code> in your project (or
+    Add the server to <code>.cursor/mcp.json</code> in your project (or{' '}
     <code>~/.cursor/mcp.json</code> globally):
   </p>
   <pre><code>{cursorJson}</code></pre>
@@ -95,7 +95,7 @@ const toolTable = [
     </tbody>
   </table>
   <p>
-    Every tool accepts an optional <code>{locked.responseFormatNote}</code> of
+    Every tool accepts an optional <code>{locked.responseFormatNote}</code> of{' '}
     <code>concise</code> (default) or <code>detailed</code>. Concise is built
     for agents — the high-signal summary first — while detailed returns the
     full payload. Both carry provenance labels on every value.
@@ -104,8 +104,8 @@ const toolTable = [
   <h2 id="remote-gateway">Remote gateway (optional)</h2>
   <p>
     The repo ships a thin Cloudflare Worker that exposes the same tools over
-    Streamable HTTP plus the REST subset (<code>POST /mcp</code>,
-    <code>GET /api/v1/page-report?url=</code>,
+    Streamable HTTP plus the REST subset (<code>POST /mcp</code>,{' '}
+    <code>GET /api/v1/page-report?url=</code>,{' '}
     <code>GET /api/v1/keyword-ideas?q=</code>, <code>GET /healthz</code>). It
     is deployable from the free Workers tier, but nothing in lumen requires
     it: stdio is the primary path and the Worker is not deployed by default.
@@ -116,15 +116,15 @@ const toolTable = [
   <p>
     <code>lumen_audit_site</code> is a local-only capability by design — a
     crawl needs CPU and politeness budgets that a shared free tier can’t
-    offer. Over the remote gateway the tool returns a typed
-    <em>local-only capability</em> error pointing at
+    offer. Over the remote gateway the tool returns a typed{' '}
+    <em>local-only capability</em> error pointing at{' '}
     <code>npx {locked.packages.cli}</code> instead of silently doing less. The
     other tools work the same everywhere.
   </p>
 
   <p>
     Keys for BYOK providers are read from the environment
-    ({locked.envVars.map((name, i) => (<Fragment>{i > 0 && ', '}<code>{name}</code></Fragment>))}) — see
+    ({locked.envVars.map((name, i) => (<Fragment>{i > 0 && ', '}<code>{name}</code></Fragment>))}) — see{' '}
     <a href={u('/docs/providers-byok/')}>providers &amp; BYOK</a>.
   </p>
 </DocsLayout>

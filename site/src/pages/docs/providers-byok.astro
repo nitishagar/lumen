@@ -149,8 +149,8 @@ const kindBadge: Record<ProviderRow['kind'], string> = {
   <p>
     Export the ones you have; leave the rest unset. Nothing about the
     unconfigured providers appears as an error — their sections of any report
-    are marked unavailable, and everything else works. See
-    <a href={u('/docs/configuration/')}>configuration</a> for the
+    are marked unavailable, and everything else works. See{' '}
+    <a href={u('/docs/configuration/')}>configuration</a> for the{' '}
     <code>byok</code> block if you prefer non-default variable names.
   </p>
 
@@ -158,7 +158,7 @@ const kindBadge: Record<ProviderRow['kind'], string> = {
   <p>
     lumen treats shared free endpoints the way you’d want a stranger to treat
     yours: identifying User-Agent with a contact URL, per-host rate limiting
-    on crawls, bounded retries with exponential backoff and jitter,
+    on crawls, bounded retries with exponential backoff and jitter,{' '}
     <code>Retry-After</code> honored on 429s, and aggressive caching on gray
     sources. Provider failures surface as typed errors with the provider name
     attached — never as silent zeros.
