@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "author": "Nitish Agarwal <1592163+nitishagar@users.noreply.github.com>",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.7"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -20,5 +20,8 @@
     "@lumen-seo/core": "*",
     "cheerio": "^1.2.0"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "files": [
+    "src"
+  ]
 }
