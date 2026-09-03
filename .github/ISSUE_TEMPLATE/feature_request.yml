@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose an audit rule, provider, MCP capability, or CLI improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        lumen's scope: free services only, BYOK, provenance on every number.
+        The strongest proposals fit that frame — see the
+        [providers & BYOK doc](https://nitishagar.github.io/lumen/docs/providers-byok/).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The user-facing pain, not the solution. "As a ___ I need ___ because ___."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should exist instead?
+      description: The behavior you want. For rules: which page signal + failure condition + severity. For providers: the free service, its limits, and its key policy.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - audit rule
+        - data provider
+        - CLI
+        - MCP tools
+        - Worker gateway
+        - docs / site
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Existing rules/providers that almost cover it, tools that do it today, or a manual workaround.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Preflight
+      options:
+        - label: It works with free-tier services and BYOK (no paid-API dependencies)
+          required: true
+        - label: I searched existing issues and Discussions first
+          required: true

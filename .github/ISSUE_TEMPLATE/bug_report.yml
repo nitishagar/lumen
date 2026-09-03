@@ -1,0 +1,61 @@
+name: Bug report
+description: Something behaves incorrectly or crashes.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Check the [docs](https://nitishagar.github.io/lumen/) first —
+        and please don't file security issues here ([private reporting instead](https://github.com/nitishagar/lumen/security/advisories/new)).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Include the exact command or MCP tool call.
+      placeholder: |
+        $ npx -y @lumen-seo/cli audit https://example.com --max-pages 5
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal reproduction — commands, `lumen.config.json` if any, env var names (never values).
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Terminal output or `--json` payload. Redact anything sensitive.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: lumen version
+      description: Output of `lumen --version` or the npm version you installed.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS + Node version (`node --version`). lumen requires Node >= 22.7.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues and Discussions first
+          required: true
+        - label: This is not a security vulnerability (those go to private reporting)
+          required: true

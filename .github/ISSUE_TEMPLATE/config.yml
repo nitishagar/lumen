@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & usage help
+    url: https://github.com/nitishagar/lumen/discussions
+    about: Ask questions and share workflows in Discussions before filing an issue.
+  - name: Security reports
+    url: https://github.com/nitishagar/lumen/security/advisories/new
+    about: Never open a public issue for a security problem — use private vulnerability reporting.
+  - name: Documentation
+    url: https://nitishagar.github.io/lumen/
+    about: Docs — quickstart, CLI reference, rules, providers & BYOK, MCP onboarding.

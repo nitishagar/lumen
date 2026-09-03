@@ -10,7 +10,6 @@ vision-model review pass against the design reference https://pi.dev/.
 | `lumen-landing-dark.png` | Landing page, dark theme (hero, install tabs npm/npx/claude, live audit excerpt) |
 | `lumen-landing-light.png` | Landing page, light theme (theme toggle working, accent preserved) |
 | `lumen-docs-quickstart-light.png` | Docs — Quickstart, light (sidebar groups, ON THIS PAGE card, code blocks) |
-| `lumen-docs-quickstart-dark.png` | Docs — Quickstart, dark |
 | `pi-dev-reference-splash.png` | Design reference: pi.dev intro splash |
 | `pi-dev-reference-docs.png` | Design reference: pi.dev documentation page |
 | `cli-help.txt` | `lumen --help` (commands, global flags, exit envelope) |
