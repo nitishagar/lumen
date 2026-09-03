@@ -4,7 +4,9 @@ All notable changes to lumen are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] — 2026-09-03
+
+First public, on-npm release.
 
 ### Fixed
 
@@ -12,7 +14,7 @@ All notable changes to lumen are documented here. The format follows
   ([#23](https://github.com/nitishagar/lumen/pull/23)); site terminal
   rendering, figure scale, and inline spacing corrections
   ([#24](https://github.com/nitishagar/lumen/pull/24)).
-- **Packaging & launch readiness** (PR pending): canonical Apache-2.0 LICENSE
+- **Packaging & launch readiness**: canonical Apache-2.0 LICENSE
   layout (fixes GitHub license detection), `SECURITY.md` now points at the
   `lumen` advisory URL and `@lumen-seo/*` package names (was the pre-rename
   `seolite` slug), root workspace renamed `seolite` → `lumen`.
@@ -64,5 +66,6 @@ First tagged cut. Monorepo scaffold through working end-to-end system.
 - **Visual e2e screenshots** — live site vs design reference
   ([#22](https://github.com/nitishagar/lumen/pull/22)).
 
-[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/nitishagar/lumen/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nitishagar/lumen/releases/tag/v0.1.0
