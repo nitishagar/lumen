@@ -12,4 +12,4 @@ MCP tool definitions and transports for lumen. Five tools, strict-arg validation
 
 Run locally over stdio (`npx -y @lumen-seo/cli mcp`) or deploy the Cloudflare Worker gateway (`worker/`) — a thin, HTML-free proxy for PSI/CrUX-derived data with per-request BYOK headers. Missing capability? Tools answer with a typed `LOCAL_ONLY_CAPABILITY` instead of guessing.
 
-Ships TypeScript sources — import under `tsx` or `node --experimental-transform-types`. Onboarding: <https://nitishagar.github.io/lumen/docs/mcp-onboarding/>
+Ships compiled JavaScript + `.d.ts` — plain `node` import, no flags. Onboarding: <https://nitishagar.github.io/lumen/docs/mcp-onboarding/>

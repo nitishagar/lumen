@@ -15,8 +15,18 @@
  *     on success paths, so stdout always flushes (E2).
  */
 const lane = process.features.typescript; // undefined | true | 'strip' | 'transform'
+const { existsSync } = await import('node:fs');
 
-if (lane === 'transform' || lane === true) {
+// Published installs ship compiled dist/ — plain ESM, no flags, no loader.
+// Node >= 22.18 refuses type-stripped .ts under node_modules in every lane,
+// so the compiled entry is used ONLY in real installs (bin path under
+// node_modules). Inside the repo workspace the sibling packages still export
+// TypeScript sources, so those runs stay on the dev lanes below.
+const distEntry = new URL('../dist/run.js', import.meta.url);
+if (import.meta.url.includes('/node_modules/') && existsSync(distEntry)) {
+  const { run } = await import(distEntry.href);
+  process.exitCode = await run(process.argv.slice(2));
+} else if (lane === 'transform' || lane === true) {
   const { register } = await import('node:module');
   register('./ts-remap-loader.mjs', import.meta.url);
   const { run } = await import('../src/run.ts');

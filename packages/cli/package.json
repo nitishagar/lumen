@@ -16,11 +16,12 @@
   },
   "files": [
     "bin",
-    "src"
+    "dist"
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@lumen-seo/audit": "*",

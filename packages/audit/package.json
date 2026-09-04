@@ -13,7 +13,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@lumen-seo/core": "*",
@@ -22,6 +23,6 @@
   "devDependencies": {},
   "description": "lumen site-audit engine — bounded polite crawler, 18 built-in rules, scorer, report assembly",
   "files": [
-    "src"
+    "dist"
   ]
 }
