@@ -4,6 +4,24 @@ All notable changes to lumen are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Published packages now ship compiled JavaScript** (`tsc` → `dist/` JS +
+  `.d.ts`) instead of TypeScript sources. Node ≥ 22.18 refuses type-stripped
+  `.ts` files under `node_modules` in every lane, which made the 0.2.0
+  registry artifacts crash on install (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`)
+  even though workspace/CI runs were green — they never cross the
+  `node_modules` boundary. The release pipeline now compiles each workspace
+  before publishing and repoints `exports` at `dist/`; the `lumen` bin runs
+  the compiled entry with plain `node` (no flags), keeping the TypeScript
+  lane for workspace/dev runs. 0.2.0 on npm is deprecated — use 0.2.1.
+- **Publish script failure classification**: a bare 403 from `npm publish` is
+  now a hard error instead of an "idempotent duplicate" — npm also answers
+  403 for auth-policy failures (e.g. the 2FA/granular-token requirement),
+  which previously masqueraded as success and masked the real publish blocker.
+
 ## [0.2.0] — 2026-09-03
 
 First public, on-npm release.
@@ -66,6 +84,7 @@ First tagged cut. Monorepo scaffold through working end-to-end system.
 - **Visual e2e screenshots** — live site vs design reference
   ([#22](https://github.com/nitishagar/lumen/pull/22)).
 
-[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/nitishagar/lumen/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/nitishagar/lumen/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nitishagar/lumen/releases/tag/v0.1.0

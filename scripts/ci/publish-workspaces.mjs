@@ -18,13 +18,15 @@
  *    (dependencies first, deterministic alphabetical tie-break): for the
  *    architecture graph this is core → audit → providers → mcp → cli. A
  *    dependency cycle is a typed error — publishing would be impossible.
- *  - Every workspace manifest is rewritten to the tag version: `version` set,
- *    internal dep ranges pinned to the exact tag version in all four dep
- *    sections, `private` cleared (npm refuses to publish private packages).
- *    In real mode the rewritten manifests are written to the runner-local
- *    checkout so `npm publish` reads them, and the ORIGINAL bytes are
- *    restored when the run ends (success or failure). Nothing is ever
- *    committed — workflows never push (E5).
+ *  - Every workspace is first compiled (`npm run build -w <pkg> --if-present`,
+ *    tsc → dist/ JS + .d.ts) and its manifest rewritten to the tag version:
+ *    `version` set, internal dep ranges pinned to the exact tag version in all
+ *    four dep sections, `private` cleared (npm refuses to publish private
+ *    packages), `exports` repointed at dist/ (Node >= 22.18 refuses
+ *    type-stripped .ts under node_modules). In real mode the rewritten
+ *    manifests are written to the runner-local checkout so `npm publish` reads
+ *    them, and the ORIGINAL bytes are restored when the run ends (success or
+ *    failure). Nothing is ever committed — workflows never push (E5).
  *  - Each package is published with exactly
  *    `npm publish -w <pkg> --access public --tag latest`.
  *  - Duplicate publish at the same version is IDEMPOTENT SUCCESS: npm signals
@@ -144,14 +146,38 @@ export function topoOrder(names, edges) {
 }
 
 /**
+ * Rewrites one exports-map leaf string for the compiled artifact:
+ * `./src/foo.ts` → `{ types: "./dist/foo.d.ts", default: "./dist/foo.js" }`.
+ * Non-src strings and nested condition objects pass through (recursively).
+ * Node >= 22.18 refuses type-stripped .ts under node_modules in every lane,
+ * so published packages must point at the tsc-emitted dist/ output.
+ */
+function rewriteExportsEntry(value) {
+  if (typeof value === 'string' && value.startsWith('./src/') && value.endsWith('.ts')) {
+    const base = value.replace(/^\.\/src\//, './dist/').replace(/\.ts$/, '');
+    return { types: `${base}.d.ts`, default: `${base}.js` };
+  }
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    const out = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = rewriteExportsEntry(inner);
+    return out;
+  }
+  return value;
+}
+
+/**
  * The runner-local publish manifest: tag version, internal dep ranges pinned
- * to the exact tag version in every dep section, `private` cleared. Returns a
- * new object; the input is never mutated.
+ * to the exact tag version in every dep section, `private` cleared, exports
+ * repointed at the compiled dist/ artifact. Returns a new object; the input
+ * is never mutated.
  */
 export function rewriteManifest(manifest, version, internalNames) {
   const next = structuredClone(manifest);
   next.version = version;
   delete next.private; // npm refuses to publish "private": true — the flag is runner-local only (never committed)
+  if (next.exports !== undefined && next.exports !== null && typeof next.exports === 'object') {
+    next.exports = rewriteExportsEntry(next.exports);
+  }
   for (const section of DEP_SECTIONS) {
     const map = next[section];
     if (map === null || typeof map !== 'object') continue;
@@ -176,9 +202,14 @@ const defaultSleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSle
 
 /**
  * Classify a failed npm publish result (PLAN Phase 6):
- *  - duplicate   → status ∈ {403, 409} OR message matches /cannot publish over/i
+ *  - duplicate   → message matches /cannot publish over/i (npm's EPUBLISHCONFLICT
+ *                  text) OR status 409 (legacy conflict). A BARE 403 is NOT a
+ *                  duplicate — npm also answers 403 for auth-policy failures
+ *                  (e.g. "two-factor authentication or granular access token
+ *                  with bypass 2fa enabled is required"), which must surface
+ *                  as a real error instead of a silent idempotent "success".
  *  - e404        → registry lag, retryable (I17)
- *  - publish-failed → anything else
+ *  - publish-failed → anything else (including bare 403)
  */
 export function classifyFailure(res) {
   const out = `${res.stdout ?? ''}\n${res.stderr ?? ''}`;
@@ -188,7 +219,7 @@ export function classifyFailure(res) {
   }
   const m = out.match(/\bcode E(\d{3})\b/) ?? out.match(/\bnpm error E?(\d{3})\b/) ?? out.match(/\bE(\d{3})\b/);
   if (m !== null && m[1] === '404') return { kind: 'e404', status: '404' };
-  if (m !== null && (m[1] === '403' || m[1] === '409')) return { kind: 'duplicate', status: m[1] };
+  if (m !== null && m[1] === '409') return { kind: 'duplicate', status: '409' };
   return { kind: 'publish-failed', status: m !== null ? m[1] : res.status };
 }
 
@@ -237,7 +268,7 @@ function logPlan(version, tag, planned, log) {
  * restores the original bytes in a finally block — the checkout is never left
  * modified (E5).
  */
-export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun = false, publishFn, sleep = defaultSleep, log = (msg) => process.stdout.write(`${msg}\n`) }) {
+export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun = false, publishFn, buildFn, sleep = defaultSleep, log = (msg) => process.stdout.write(`${msg}\n`) }) {
   const version = parseTag(tag);
   const workspaces = loadPublishableWorkspaces(lock);
 
@@ -280,6 +311,18 @@ export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun
   const mutated = [];
   const results = [];
   try {
+    // Compile each workspace (tsc → dist/) before any manifest is rewritten:
+    // builds must resolve sibling packages via the committed src/ exports,
+    // and the publish manifests point at dist/ only on the runner, never in
+    // the checkout. `--if-present` keeps future workspace additions build-free.
+    // `buildFn` is injectable for unit tests exactly like `publishFn`.
+    const build = buildFn ?? ((name) => spawnSync('npm', ['run', 'build', '-w', name, '--if-present'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: PUBLISH_TIMEOUT_MS }));
+    for (const entry of planned) {
+      const res = await build(entry.name);
+      if (res === null || res.status !== 0) {
+        throw new PublishScriptError(`build failed for ${entry.name}: ${String(res?.stderr ?? res?.stdout ?? '').trim().split('\n')[0] || 'no output'}`, { kind: 'build-failed', pkg: entry.name });
+      }
+    }
     for (const entry of planned) {
       const original = readFileSync(entry.manifestPath, 'utf8');
       writeFileSync(entry.manifestPath, `${JSON.stringify(entry.rewritten, null, 2)}\n`);

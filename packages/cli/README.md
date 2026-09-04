@@ -19,4 +19,4 @@ Expose the five MCP tools to your agent:
 claude mcp add --transport stdio lumen -- npx -y @lumen-seo/cli mcp
 ```
 
-Requires Node >= 22.7 (the bin re-execs with `--experimental-transform-types`; no build step). Full docs: <https://nitishagar.github.io/lumen/docs/cli-reference/>
+The npm package ships compiled JavaScript — plain `node`, no flags. Full docs: <https://nitishagar.github.io/lumen/docs/cli-reference/>

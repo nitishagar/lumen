@@ -10,4 +10,4 @@ The lumen site-audit engine: a bounded, robots-respecting crawler, 18 built-in a
 import { runSiteAudit } from "@lumen-seo/audit";
 ```
 
-Usually consumed through the CLI (`npx -y @lumen-seo/cli audit <url>`). Ships TypeScript sources — import under `tsx` or `node --experimental-transform-types`. Rules reference: <https://nitishagar.github.io/lumen/docs/rules-reference/>
+Usually consumed through the CLI (`npx -y @lumen-seo/cli audit <url>`). Ships compiled JavaScript + `.d.ts` — plain `node` import, no flags. Rules reference: <https://nitishagar.github.io/lumen/docs/rules-reference/>

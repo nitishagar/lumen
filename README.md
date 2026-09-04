@@ -50,7 +50,7 @@ Then just ask: *"audit my site and tell me what to fix first."*
 | [`@lumen-seo/mcp`](./packages/mcp) | MCP tool definitions + transport adapters (Cloudflare Worker) |
 | `@lumen-seo/site` | docs site ([live](https://nitishagar.github.io/lumen/)) |
 
-> **Note on packaging:** the packages ship TypeScript sources directly (no build step). The `lumen` bin re-execs Node with `--experimental-transform-types`, so CLI and MCP usage work out of the box. To import them as libraries, run under `tsx` or the same flag. Compiled JS output is on the roadmap.
+> **Note on packaging:** npm packages ship compiled JavaScript + type declarations (`dist/`) — plain `node` import, no flags, no `tsx`. The TypeScript sources stay the source of truth in the repo; the release pipeline compiles per package at publish time.
 
 ## Documentation
 

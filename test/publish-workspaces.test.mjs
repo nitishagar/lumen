@@ -199,6 +199,18 @@ describe('rewriteManifest — runner-local version + internal dep pinning', () =
     expect('private' in out).toBe(false);
   });
 
+  it('repoints exports at the compiled dist/ artifact with types + default conditions (Node >= 22.18 refuses .ts under node_modules)', () => {
+    const manifest = {
+      name: '@lumen-seo/core',
+      version: '0.0.0',
+      exports: { '.': './src/index.ts', './node': './src/node.ts', './keep': './static.txt' },
+    };
+    const out = rewriteManifest(manifest, '0.1.0', internalNames);
+    expect(out.exports['.']).toEqual({ types: './dist/index.d.ts', default: './dist/index.js' });
+    expect(out.exports['./node']).toEqual({ types: './dist/node.d.ts', default: './dist/node.js' });
+    expect(out.exports['./keep']).toBe('./static.txt');
+  });
+
   it('does not mutate the input manifest', () => {
     const manifest = { name: '@lumen-seo/core', version: '0.0.0', private: true, dependencies: { '@lumen-seo/audit': '*' } };
     rewriteManifest(manifest, '0.1.0', internalNames);
@@ -231,9 +243,9 @@ describe('classifyFailure — registry response semantics (I14)', () => {
     expect(classifyFailure(res)).toEqual({ kind: 'duplicate', status: '409' });
   });
 
-  it('classifies a bare 403 status line as a duplicate even without the message', () => {
-    const res = { status: 1, stdout: '', stderr: 'npm error code E403\nnpm error 403 Forbidden - PUT https://registry.npmjs.org/@lumen-seo%2fcore' };
-    expect(classifyFailure(res)).toEqual({ kind: 'duplicate', status: '403' });
+  it('classifies a bare 403 as a REAL failure — npm also 403s auth-policy errors (2FA / granular-token requirements), which must not masquerade as idempotent duplicates', () => {
+    const res = { status: 1, stdout: '', stderr: 'npm error code E403\nnpm error 403 Forbidden - PUT https://registry.npmjs.org/@lumen-seo%2fcore - Two-factor authentication or granular access token with bypass 2fa enabled is required to publish packages.' };
+    expect(classifyFailure(res)).toEqual({ kind: 'publish-failed', status: '403' });
   });
 
   it('classifies the message-only duplicate form even without a numeric status', () => {
@@ -268,6 +280,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
   };
 
   const RESULT_OK = { status: 0, stdout: '', stderr: '' };
+const BUILD_OK = async () => ({ status: 0 });
   const DUP_403 = { status: 1, stdout: '', stderr: 'npm error 403 You cannot publish over the previously published versions: 0.1.0.' };
   const NOT_FOUND = { status: 1, stdout: '', stderr: 'npm error code E404\nnpm error 404 Not Found - PUT https://registry.npmjs.org/nope' };
 
@@ -293,7 +306,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
       diskDuringPublish[name] = JSON.parse(readFileSync(join(root, dir, 'package.json'), 'utf8'));
       return RESULT_OK;
     };
-    const result = await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, publishFn });
+    const result = await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, publishFn, buildFn: BUILD_OK });
     expect(calls).toEqual(['@lumen-seo/core', '@lumen-seo/audit', '@lumen-seo/providers', '@lumen-seo/mcp', '@lumen-seo/cli']);
     expect(result.version).toBe('0.1.0');
     expect(result.results.map((r) => [r.name, r.outcome])).toEqual([
@@ -314,7 +327,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
     const root = makeRoot(t, ARCH_GRAPH, ARCH_MANIFESTS);
     const before = new Map();
     for (const dir of Object.keys(ARCH_MANIFESTS)) before.set(dir, readFileSync(join(root, dir, 'package.json'), 'utf8'));
-    await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, publishFn: async () => RESULT_OK });
+    await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, publishFn: async () => RESULT_OK, buildFn: BUILD_OK });
     for (const dir of Object.keys(ARCH_MANIFESTS)) {
       expect(readFileSync(join(root, dir, 'package.json'), 'utf8')).toBe(before.get(dir));
     }
@@ -327,6 +340,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
       tag: 'v0.1.0',
       lock: ARCH_GRAPH,
       root,
+      buildFn: BUILD_OK,
       publishFn: async (name) => {
         calls.push(name);
         return name === '@lumen-seo/audit' ? DUP_403 : RESULT_OK;
@@ -344,6 +358,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
       tag: 'v0.1.0',
       lock: ARCH_GRAPH,
       root,
+      buildFn: BUILD_OK,
       publishFn: async (name) => {
         attempts.push(name);
         return name === '@lumen-seo/audit' && attempts.filter((n) => n === '@lumen-seo/audit').length < 3 ? NOT_FOUND : RESULT_OK;
@@ -364,7 +379,8 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
         tag: 'v0.1.0',
         lock: ARCH_GRAPH,
         root,
-        publishFn: async (name) => {
+        buildFn: BUILD_OK,
+      publishFn: async (name) => {
           calls.push(name);
           return name === '@lumen-seo/audit' ? NOT_FOUND : RESULT_OK;
         },
@@ -390,7 +406,8 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
         tag: 'v0.1.0',
         lock: ARCH_GRAPH,
         root,
-        publishFn: async (name) => {
+        buildFn: BUILD_OK,
+      publishFn: async (name) => {
           calls.push(name);
           return name === '@lumen-seo/audit'
             ? { status: 1, stdout: '', stderr: 'npm error code ENEEDAUTH\nnpm error auth required' }
@@ -425,7 +442,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
     const before = new Map();
     for (const dir of Object.keys(ARCH_MANIFESTS)) before.set(dir, readFileSync(join(root, dir, 'package.json'), 'utf8'));
     let publishCalls = 0;
-    const result = await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, dryRun: true, publishFn: async () => { publishCalls++; return RESULT_OK; } });
+    const result = await publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, dryRun: true, buildFn: BUILD_OK, publishFn: async () => { publishCalls++; return RESULT_OK; } });
     expect(publishCalls).toBe(0);
     expect(result.version).toBe('0.1.0');
     expect(result.results).toBeUndefined(); // nothing was published
@@ -448,7 +465,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
     });
     let publishCalls = 0;
     try {
-      await publishWorkspaces({ tag: 'v0.1.0', lock, root, publishFn: async () => { publishCalls++; return RESULT_OK; } });
+      await publishWorkspaces({ tag: 'v0.1.0', lock, root, buildFn: BUILD_OK, publishFn: async () => { publishCalls++; return RESULT_OK; } });
       expect.unreachable('dep on a private workspace should have been rejected');
     } catch (err) {
       expect(err).toBeInstanceOf(PublishScriptError);
@@ -462,7 +479,7 @@ describe('publishWorkspaces — ordered publish with injected runner (no registr
     const lock = { packages: { 'packages/core': { name: '@lumen-seo/core' } } };
     const root = makeRoot(t, lock, {});
     try {
-      await publishWorkspaces({ tag: 'v0.1.0', lock, root, publishFn: async () => RESULT_OK });
+      await publishWorkspaces({ tag: 'v0.1.0', lock, root, publishFn: async () => RESULT_OK, buildFn: BUILD_OK });
       expect.unreachable('missing manifest should have thrown');
     } catch (err) {
       expect(err).toBeInstanceOf(PublishScriptError);

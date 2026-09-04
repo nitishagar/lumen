@@ -14,7 +14,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
     "cheerio": "^1.2.0"
@@ -23,6 +24,6 @@
     "robots-parser": "^3.0.1"
   },
   "files": [
-    "src"
+    "dist"
   ]
 }

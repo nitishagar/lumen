@@ -62,9 +62,8 @@ Optional: `CLOUDFLARE_API_TOKEN` enables the Worker gateway deploy
 
 ## Publishing model
 
-The packages ship TypeScript sources directly; the `lumen` bin re-execs Node
-with `--experimental-transform-types`, so CLI and MCP consumers need nothing
-special. Library consumers run under `tsx` or the same flag (see README).
-Compiled JS output is a future milestone; when it lands, the rewrite step in
-`scripts/ci/publish-workspaces.mjs` is the single place to point `exports` at
-`dist/`.
+The publish pipeline compiles each workspace (`npm run build -w <pkg>`,
+tsc → `dist/` JS + `.d.ts`) and repoints `exports` at `dist/` in the
+runner-local manifest rewrite — Node >= 22.18 refuses type-stripped `.ts`
+under `node_modules`, so registry artifacts must be compiled. The TypeScript
+sources remain the repo's source of truth; nothing build-related is committed.

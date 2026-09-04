@@ -19,7 +19,8 @@
     "test:worker": "npm run build:worker && vitest run --config vitest.worker.config.ts",
     "build:worker": "wrangler deploy --dry-run --config worker/wrangler.jsonc && esbuild worker/index.ts --bundle --format=esm --platform=neutral --target=es2023 --minify --outfile=dist/index.js --metafile=dist/metafile.json --external:node:* --external:cloudflare:* --main-fields=module,main --conditions=import,worker",
     "check:size": "npm run build:worker && node scripts/check-size.mjs",
-    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@lumen-seo/core": "*",
@@ -35,6 +36,6 @@
     "wrangler": "^4.127.1"
   },
   "files": [
-    "src"
+    "dist"
   ]
 }

@@ -11,4 +11,4 @@ Core primitives for [lumen](https://github.com/nitishagar/lumen) — types, payl
 import { loadConfig, createFetcher } from "@lumen-seo/core";
 ```
 
-Ships TypeScript sources — import under `tsx` or `node --experimental-transform-types`. Full docs: <https://nitishagar.github.io/lumen/>
+Ships compiled JavaScript + `.d.ts` — plain `node` import, no flags. Full docs: <https://nitishagar.github.io/lumen/>
