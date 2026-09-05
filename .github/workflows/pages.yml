@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
       - run: npm run build -w @lumen-seo/site     # site contract: emits site/dist, base path /lumen/
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: site/dist }
 
   deploy:
