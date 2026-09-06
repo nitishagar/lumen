@@ -14,3 +14,6 @@ coverage/
 
 # astro generated types (site workspace)
 .astro/
+
+# evalite local storage
+.evalite/

@@ -1,0 +1,24 @@
+name: evals
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  evals:
+    name: AI eval gate (evalite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Run offline eval suite (in-process tool contract)
+        run: npm run test:evals
+      # A failing eval fails this job via evalite's --threshold exit code.
+      # The live judge case (packages/mcp/src/evals/judge.live.eval.ts) is
+      # evalite.skip'd and never runs here — enabling it needs a key and is
+      # documented in docs/evals.md.
