@@ -8,13 +8,15 @@ Trials on branches `evals/trial-promptfoo` (promptfoo 0.122.2) and `evals/trial-
 |---|---|---|
 | Setup minutes (install → first green) | ~35 | ~40 |
 | Config lines | ~95 (YAML + runner + CI) | ~10 (scripts + gitignore) |
-| Eval code/data lines | ~130 | ~710 (incl. 430-line wire-generated snapshot) |
+| Eval code/data lines | ~130 (measured: config 74 + runner 74 + live config 24; spikes excluded) | 563 (measured: evals 341 + snapshot 179 + golden 43) |
 | Suite runtime (wall) | ~10 s | ~2–3 s (0.15 s suite) |
 | Offline by default | yes (netns-proven) | yes (netns-proven) |
 | Failure message quality | good | good |
 | Rubric (observed) total | **128 / 159** | **131 / 159** |
 
-Rubric per-dimension scores with reasons are in `promptfoo-notes.md` / `evalite-notes.md`. Key observed deltas: evalite runs **inside vitest** (weight-5 dimension promptfoo scores 0 by design — separate CLI); evalite provides the tool-list + input-schema **snapshots** the case contract requires (promptfoo's MCP provider has no list surface — its `tools:` key only filters, never verifies); promptfoo drives the **real stdio binary** (wire truth) where evalite is in-process only; promptfoo has richer no-model assertion families but `metadata.toolCalls` is unavailable on its standalone MCP provider.
+Weights (from the design note's Task 3 rubric, repo-external source: `~/Documents/personal-development/thoughts/shared/research/2026-09-06-ai-eval-design-note.md`; scale 0–3, max 159): setup 4, runner 5, offline 5, deterministic 5, judge 4, trajectory 4, mcp 3, providers 3, dataset 4, baseline 4, ci 5, cost 3, health 2, language 2.
+
+Per-dimension observed scores with reasons are in `promptfoo-notes.md` / `evalite-notes.md`. Key observed deltas: evalite runs **inside vitest** (weight-5 dimension promptfoo scores 0 by design — separate CLI); evalite provides the tool-list + input-schema **snapshots** the case contract requires (promptfoo's MCP provider has no list surface — its `tools:` key only filters, never verifies); promptfoo drives the **real stdio binary** (wire truth) where evalite is in-process only; promptfoo has richer no-model assertion families but `metadata.toolCalls` is unavailable on its standalone MCP provider.
 
 ## Pick
 

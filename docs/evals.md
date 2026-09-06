@@ -20,13 +20,12 @@ The gate exits non-zero if any eval scores below 1 (`evalite run --threshold 100
 
 ## How to run against a live model
 
-The suite has one judge-scored case (`judge-quality`), committed **skipped** (`evalite.skip`) because it needs a judge credential. To enable it:
+The judge-scored case exists in `packages/mcp/src/evals/judge.live.eval.ts` and is committed **skipped** (`evalite.skip`) — the environment has no judge credential, and the scorer body is a stub (`() => 0`), so there is nothing live to run yet. Enabling it is a two-step, deliberate act:
 
-```bash
-EVAL_LIVE=1 OPENAI_API_KEY=<key> npx evalite run judge.live   # from packages/mcp
-```
+1. Replace `evalite.skip` with `evalite` and implement the scorer against a pinned judge (model id + `temperature: 0` + fixed rubric text, e.g. via the AI SDK provider of your choice); the case's `task` already produces the tool output to score.
+2. Run it from `packages/mcp`: `EVAL_LIVE=1 OPENAI_API_KEY=<key> npx evalite run judge.live`.
 
-Before enabling: pin the judge provider in `packages/mcp/src/evals/judge.live.eval.ts` (model + `temperature: 0` + fixed rubric — see the file's comments). The offline gate never needs a key and never calls a model.
+The offline gate never needs a key and never calls a model; nothing reads `EVAL_LIVE` in the committed suite today (the variable is the recommended gate for the live scorer once written).
 
 ## How to add a case
 

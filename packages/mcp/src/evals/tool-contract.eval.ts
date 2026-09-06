@@ -299,3 +299,97 @@ evalite('denied-tool-not-called', {
     },
   ],
 });
+
+evalite('strict-args-unknown-rejected', {
+  data: [
+    {
+      input: { tool: 'lumen_page_report', args: { url: 'https://example.com', bogus_arg: 1 } },
+      expected: { mentionsKey: 'bogus_arg' },
+    },
+  ],
+  task: async (input) => {
+    const { tool, args } = input as { tool: string; args: Record<string, unknown> };
+    const client = await connectClient(fixtureDeps());
+    try {
+      const res = (await client.callTool({ name: tool, arguments: args })) as {
+        content: { type: string; text?: string }[];
+        isError?: boolean;
+      };
+      const text = res.content.map((c) => (c.type === 'text' ? (c.text ?? '') : '')).join('');
+      return { isError: res.isError === true, text };
+    } finally {
+      await close(client);
+    }
+  },
+  scorers: [
+    {
+      name: 'unknown-key-rejected-by-name',
+      scorer: ({ output, expected }) => {
+        if (expected === undefined) return 0;
+        const o = output as { isError: boolean; text: string };
+        return o.isError && o.text.includes('-32602') && o.text.includes('Unrecognized key') && o.text.includes(expected.mentionsKey) ? 1 : 0;
+      },
+    },
+  ],
+});
+
+evalite('url-guard-blocks-private', {
+  data: [
+    {
+      input: { tool: 'lumen_page_report', args: { url: 'http://127.0.0.1:1/' } },
+      expected: { code: 'INVALID_URL', mentions: 'loopback' },
+    },
+  ],
+  task: async (input) => {
+    const { tool, args } = input as { tool: string; args: Record<string, unknown> };
+    const client = await connectClient(fixtureDeps());
+    try {
+      return (await callToolJson(client, tool, args)) as Record<string, unknown>;
+    } finally {
+      await close(client);
+    }
+  },
+  scorers: [
+    {
+      name: 'private-target-refused',
+      scorer: ({ output, expected }) => {
+        if (expected === undefined) return 0;
+        const o = output as { code?: string; message?: string };
+        return o.code === expected.code && String(o.message).includes(expected.mentions) ? 1 : 0;
+      },
+    },
+  ],
+});
+
+evalite('unknown-tool-not-executed', {
+  data: [
+    {
+      input: { tool: 'lumen_drop_tables', args: {} },
+      expected: { mentions: 'lumen_drop_tables' },
+    },
+  ],
+  task: async (input) => {
+    const { tool, args } = input as { tool: string; args: Record<string, unknown> };
+    const client = await connectClient(fixtureDeps());
+    try {
+      const res = (await client.callTool({ name: tool, arguments: args })) as {
+        content: { type: string; text?: string }[];
+        isError?: boolean;
+      };
+      const text = res.content.map((c) => (c.type === 'text' ? (c.text ?? '') : '')).join('');
+      return { isError: res.isError === true, text };
+    } finally {
+      await close(client);
+    }
+  },
+  scorers: [
+    {
+      name: 'tool-name-never-executed',
+      scorer: ({ output, expected }) => {
+        if (expected === undefined) return 0;
+        const o = output as { isError: boolean; text: string };
+        return o.isError && o.text.includes(expected.mentions) ? 1 : 0;
+      },
+    },
+  ],
+});

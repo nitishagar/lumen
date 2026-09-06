@@ -13,6 +13,7 @@
   ],
   "exclude": [
     "src/**/*.test.ts",
-    "src/**/__snapshots__"
+    "src/**/__snapshots__",
+    "src/evals"
   ]
 }

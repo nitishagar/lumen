@@ -3,7 +3,7 @@
 ## Measured
 - **Wall-clock setup time (install → first green run): ~40 min** (install was clean; time went to API discovery from installed types, TS-strict scorer narrowing, and the key-order snapshot trap).
 - **Configuration lines added:** ~10 (two package.json scripts + .gitignore entry). No config file needed — evalite discovers `**/*.eval.ts` itself and overrides vitest's include, so the package's existing vitest.config.ts is untouched.
-- **Eval code/data lines added:** ~280 (tool-contract.eval.ts ~250 incl. 7 evals; judge.live.eval.ts ~40; snapshot JSON ~430 lines generated from the wire, golden.json 34).
+- **Eval code/data lines added:** 563 total, measured (tool-contract.eval.ts 301, 10 evals; judge.live.eval.ts 40, skipped; snapshots/tool-list.snapshot.json 179, generated from the wire; data/golden.json 43).
 - **Suite runtime:** ~0.15 s (11 data cases, in-process). Wall-clock with node startup ~2–3 s.
 - **Offline by default: YES** — green under `unshare -rn`; the suite only uses testkit fixtures (no network seams exist in-process).
 - **Failure message quality: good** — eval name + scorer name + score; expected/actual in the export/viewer with a real JSON diff.
