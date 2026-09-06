@@ -38,7 +38,7 @@ The offline gate never needs a key and never calls a model; nothing reads `EVAL_
 ## How the judge model is pinned and cached
 
 - **Pinning**: the judge is a per-scorer provider declaration (model id + `temperature: 0` + fixed rubric text) — never a floating default.
-- **Caching**: evalite stores run history and scores in its local storage (`.evalite/`, gitignored); promptfoo-style verdict caching (keyed on input/output/rubric) applies to the judge's provider calls so unchanged cases do not re-call the judge. Both are offline-safe: no cache entry ever triggers a network call by itself.
+- **Caching**: evalite stores run history and scores in its local storage (`.evalite/`, gitignored). A judge-verdict cache does NOT exist yet — it is part of the live scorer implementation (cache keyed on input/output/rubric so unchanged cases never re-call the judge); until that scorer is written there is no judge call to cache. Nothing in the offline gate makes a network call.
 
 ## What CI does on failure
 

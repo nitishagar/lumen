@@ -3,7 +3,7 @@
 ## Measured
 - **Wall-clock setup time (install → first green run): ~40 min** (install was clean; time went to API discovery from installed types, TS-strict scorer narrowing, and the key-order snapshot trap).
 - **Configuration lines added:** ~10 (two package.json scripts + .gitignore entry). No config file needed — evalite discovers `**/*.eval.ts` itself and overrides vitest's include, so the package's existing vitest.config.ts is untouched.
-- **Eval code/data lines added:** 563 total, measured (tool-contract.eval.ts 301, 10 evals; judge.live.eval.ts 40, skipped; snapshots/tool-list.snapshot.json 179, generated from the wire; data/golden.json 43).
+- **Eval code/data lines added:** 657 total, measured (tool-contract.eval.ts 395, 10 evals; judge.live.eval.ts 40, skipped; snapshots/tool-list.snapshot.json 179, generated from the wire; data/golden.json 43).
 - **Suite runtime:** ~0.15 s (11 data cases, in-process). Wall-clock with node startup ~2–3 s.
 - **Offline by default: YES** — green under `unshare -rn`; the suite only uses testkit fixtures (no network seams exist in-process).
 - **Failure message quality: good** — eval name + scorer name + score; expected/actual in the export/viewer with a real JSON diff.
@@ -30,7 +30,7 @@
 13. Health 2 (0.19.0, last publish ~5 months ago at survey time — low cadence risk noted)
 14. Language 3 (TypeScript-first)
 
-**Weighted total (observed): 131 / 159** (docs-claimed 108 — the vitest-4 concern and runner integration turned out better than the survey feared, but judge/trajectory remain unverified-without-key).
+**Weighted total (observed): 135 / 159** = Σ(score × weight) over the 14 dimensions above (weights 4,5,5,5,4,4,3,3,4,4,5,3,2,2; scale 0–3, max 159). Docs-claimed 108 — the vitest-4 concern and runner integration turned out better than the survey feared, but judge/trajectory remain unverified-without-key.
 
 ## Biggest risk of picking it
 Health/cadence (single-maintainer-ish project, months between releases) and zero MCP-wire coverage — it tests the contract in-process, never the actual stdio binary a real client spawns.

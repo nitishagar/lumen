@@ -12,7 +12,7 @@ Trials on branches `evals/trial-promptfoo` (promptfoo 0.122.2) and `evals/trial-
 | Suite runtime (wall) | ~10 s | ~2–3 s (0.15 s suite) |
 | Offline by default | yes (netns-proven) | yes (netns-proven) |
 | Failure message quality | good | good |
-| Rubric (observed) total | **128 / 159** | **131 / 159** |
+| Rubric (observed) total | **124 / 159** | **135 / 159** |
 
 Weights (from the design note's Task 3 rubric, repo-external source: `~/Documents/personal-development/thoughts/shared/research/2026-09-06-ai-eval-design-note.md`; scale 0–3, max 159): setup 4, runner 5, offline 5, deterministic 5, judge 4, trajectory 4, mcp 3, providers 3, dataset 4, baseline 4, ci 5, cost 3, health 2, language 2.
 
@@ -20,7 +20,7 @@ Per-dimension observed scores with reasons are in `promptfoo-notes.md` / `evalit
 
 ## Pick
 
-**evalite.** It behaves like the unit-test suite the design note specifies: cases are ordinary TypeScript inside the existing vitest workspace (watch/filter/threshold for free, no sibling runner to maintain), the offline story is structural rather than configured (testkit fixtures — nothing to gate), and it covers the two snapshot cases that lock lumen's tool contract, all at the best observed runtime (~0.2 s). Its suite caught the deliberately introduced schema drift (`max(253)` → `max(200)`) that no other case family would see.
+**evalite** (135 vs 124 observed). It behaves like the unit-test suite the design note specifies: cases are ordinary TypeScript inside the existing vitest workspace (watch/filter/threshold for free, no sibling runner to maintain), the offline story is structural rather than configured (testkit fixtures — nothing to gate), and it covers the two snapshot cases that lock lumen's tool contract, all at the best observed runtime (~0.2 s). Its suite caught the deliberately introduced schema drift (`max(253)` → `max(200)`) that no other case family would see.
 
 **Runner-up:** promptfoo — switch to it (or run it alongside) the day the eval goal shifts to black-box verification of the shipped stdio binary itself (spawn smoke, wire error messages, cross-SDK wire behavior), which is exactly the surface its `mcp` provider drives and evalite cannot reach.
 
