@@ -24,6 +24,7 @@ import type {
 } from './index.js';
 import type { CrawlBudgets } from './index.js';
 import type {
+  HistoryEntry,
   HistoryListQuery,
   HistoryStore,
   Metric,
@@ -31,6 +32,7 @@ import type {
   ProvenanceKind,
   RankHistoryEntry,
 } from './index.js';
+import { isRankEntry } from './index.js';
 import type { AuditRule, RuleOpts } from './index.js';
 import type { Severity } from './index.js';
 import {
@@ -339,14 +341,14 @@ describe('AuditRule SPI (SC-7)', () => {
 describe('HistoryStore interface (SC-15)', () => {
   it('an in-memory fixture satisfies the interface and preserves position: null', async () => {
     const store: HistoryStore = new (class implements HistoryStore {
-      #rows: RankHistoryEntry[] = [];
-      async append(e: RankHistoryEntry): Promise<void> {
+      #rows: HistoryEntry[] = [];
+      async append(e: HistoryEntry): Promise<void> {
         this.#rows.push(e);
       }
-      async list(q?: HistoryListQuery): Promise<RankHistoryEntry[]> {
+      async list(q?: HistoryListQuery): Promise<HistoryEntry[]> {
         let rows = [...this.#rows];
-        if (q?.keyword !== undefined) rows = rows.filter((r) => r.keyword === q.keyword);
-        if (q?.domain !== undefined) rows = rows.filter((r) => r.domain === q.domain);
+        if (q?.keyword !== undefined) rows = rows.filter((r) => isRankEntry(r) && r.keyword === q.keyword);
+        if (q?.domain !== undefined) rows = rows.filter((r) => isRankEntry(r) && r.domain === q.domain);
         if (q?.limit !== undefined) rows = rows.slice(0, q.limit);
         return rows;
       }
@@ -371,7 +373,8 @@ describe('HistoryStore interface (SC-15)', () => {
     await store.append(found);
 
     const all = await store.list();
-    expect(all.map((r) => r.position)).toEqual([null, 3]); // null preserved, not 0
+    expect(all.every(isRankEntry)).toBe(true);
+    expect(all.filter(isRankEntry).map((r) => r.position)).toEqual([null, 3]); // null preserved, not 0
     expect(await store.list({ keyword: 'seo toolkit', domain: 'example.com', limit: 1 })).toHaveLength(1);
     hasExactly(notFound, ['keyword', 'domain', 'position', 'provider', 'retrievedAt']);
   });

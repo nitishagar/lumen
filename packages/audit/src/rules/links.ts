@@ -82,3 +82,43 @@ export const redirectChain = (severity: Severity): CrawlRule => ({
     return issues;
   },
 });
+
+/**
+ * Duplicate-content rule 20 (Stage 4): exact byte-identical bodies within one
+ * crawl. Honesty rules (I3): only pages hashed during THIS crawl are compared
+ * (unhashed = skipped/oversize/non-html = unknown, never judged); fewer than
+ * two hashed pages means vacuously no findings. Raw-bytes sha256 — no
+ * similarity threshold, no knob. Evidence capped per page like rule 11.
+ */
+export const duplicateContent = (severity: Severity): CrawlRule => ({
+  id: 'duplicate-content',
+  severity,
+  categories: ['content'],
+  checkCrawl(index: CrawlIndex): Issue[] {
+    const byHash = new Map<string, string[]>();
+    for (const page of index.pages) {
+      const observed = index.bodyHashOf(page.url);
+      if (observed === undefined) continue; // unhashed → unknown, never judged
+      const group = byHash.get(observed.bodyHash) ?? [];
+      group.push(page.url);
+      byHash.set(observed.bodyHash, group);
+    }
+    const issues: Issue[] = [];
+    for (const [, urls] of byHash) {
+      if (urls.length < 2) continue;
+      for (const pageUrl of urls) {
+        const others = urls.filter((u) => u !== pageUrl).slice(0, EVIDENCE_CAP);
+        const overflow = urls.length - 1 - others.length;
+        issues.push({
+          ruleId: 'duplicate-content',
+          severity,
+          message: `page body is byte-identical to ${urls.length - 1} other crawled page(s): ${others.join(', ')}${overflow > 0 ? ` (+${overflow} more)` : ''}`,
+          evidence: { selector: 'body', snippet: `sha256 match across: ${urls.slice(0, EVIDENCE_CAP + 1).join(', ')}` },
+          fixHint: 'canonicalize duplicates to one URL or differentiate the content',
+          url: pageUrl,
+        });
+      }
+    }
+    return issues;
+  },
+});

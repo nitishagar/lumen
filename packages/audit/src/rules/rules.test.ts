@@ -3,10 +3,10 @@ import type { AuditRule, Issue } from '@lumen-seo/core';
 import { DEFAULT_THRESHOLDS } from '../types.js';
 import type { RuleContext } from '../types.js';
 import { makePage } from '../testing/page.js';
-import { canonicalPresent, descriptionLength, descriptionMissing, robotsNoindex, titleLength, titleMissing } from './meta.js';
+import { canonicalPresent, descriptionLength, descriptionMissing, hreflangPresent, robotsNoindex, titleLength, titleMissing } from './meta.js';
 import { h1Missing, h1Multiple, imageAltCoverage, langAttr } from './content.js';
 import { insecureHttp, mixedContent, responseLatency, statusError, viewportMeta } from './technical.js';
-import { brokenInternalLink, redirectChain } from './links.js';
+import { brokenInternalLink, duplicateContent, redirectChain } from './links.js';
 import { ogTagsMissing } from './social.js';
 
 const t = DEFAULT_THRESHOLDS;
@@ -157,10 +157,33 @@ describe('built-in rules (per-page, table-driven)', () => {
       '<html><head><meta property="og:title" content="T"><meta property="og:description" content="D"><meta property="og:image" content="I"></head></html>';
     expect(await run(rule, complete)).toEqual([]);
   });
+
+  it('rule hreflang-present: fires on absent, silent on one or many (info)', async () => {
+    const rule = hreflangPresent('info');
+    expect((await run(rule, '<html><head></head></html>'))).toHaveLength(1);
+    const one =
+      '<html><head><link rel="alternate" hreflang="fr" href="https://example.com/fr"></head></html>';
+    expect(await run(rule, one)).toEqual([]);
+    const many =
+      '<html><head><link rel="alternate" hreflang="en" href="https://example.com/en">' +
+      '<link rel="alternate" hreflang="fr" href="https://example.com/fr"></head></html>';
+    expect(await run(rule, many)).toEqual([]); // multiple locales are normal
+    // rel=alternate without hreflang does not count.
+    expect(
+      (await run(rule, '<html><head><link rel="alternate" type="application/rss+xml" href="/feed"></head></html>')),
+    ).toHaveLength(1);
+  });
 });
 
-const mkIndex = (pages: { url: string; status: number; finalUrl?: string; hops?: number }[], outLinks: Record<string, { href: string; url: string; internal: boolean }[]> = {}) => {
-  const entries = pages.map((p) => ({ url: p.url, status: p.status, depth: 0, hops: p.hops ?? 0, finalUrl: p.finalUrl ?? p.url }));
+const mkIndex = (pages: { url: string; status: number; finalUrl?: string; hops?: number; bodyHash?: string }[], outLinks: Record<string, { href: string; url: string; internal: boolean }[]> = {}) => {
+  const entries = pages.map((p) => ({
+    url: p.url,
+    status: p.status,
+    depth: 0,
+    hops: p.hops ?? 0,
+    finalUrl: p.finalUrl ?? p.url,
+    ...(p.bodyHash === undefined ? {} : { bodyHash: p.bodyHash }),
+  }));
   const map = new Map(entries.map((e) => [e.url, e]));
   return {
     pages: entries,
@@ -168,6 +191,11 @@ const mkIndex = (pages: { url: string; status: number; finalUrl?: string; hops?:
     statusOf: (url: string) => {
       const e = map.get(url);
       return e === undefined ? undefined : { status: e.status, finalUrl: e.finalUrl };
+    },
+    bodyHashOf: (url: string) => {
+      const e = map.get(url);
+      if (e === undefined || e.bodyHash === undefined) return undefined;
+      return { status: e.status, finalUrl: e.finalUrl, bodyHash: e.bodyHash };
     },
   };
 };
@@ -214,5 +242,35 @@ describe('built-in rules (crawl-level)', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.url).toBe('https://example.com/old');
     expect(issues[0]?.evidence.snippet).toContain('https://example.com/new');
+  });
+
+  it('rule duplicate-content: fires on byte-identical hashed pages, citing each other', () => {
+    const rule = duplicateContent('warning');
+    const index = mkIndex([
+      { url: 'https://example.com/a', status: 200, bodyHash: 'aaa' },
+      { url: 'https://example.com/b', status: 200, bodyHash: 'aaa' },
+      { url: 'https://example.com/c', status: 200, bodyHash: 'ccc' },
+    ]);
+    const issues = rule.checkCrawl(index, { depth: 0, isSeed: true });
+    expect(issues).toHaveLength(2);
+    expect(issues.map((i) => i.url).sort()).toEqual(['https://example.com/a', 'https://example.com/b']);
+    expect(issues[0]?.message).toContain('byte-identical');
+    expect(issues[0]?.severity).toBe('warning');
+  });
+
+  it('rule duplicate-content: silent on distinct hashes, single page, and unhashed pages (honesty)', () => {
+    const rule = duplicateContent('warning');
+    const distinct = mkIndex([
+      { url: 'https://example.com/a', status: 200, bodyHash: 'aaa' },
+      { url: 'https://example.com/b', status: 200, bodyHash: 'bbb' },
+    ]);
+    expect(rule.checkCrawl(distinct, { depth: 0, isSeed: true })).toEqual([]);
+    const single = mkIndex([{ url: 'https://example.com/a', status: 200, bodyHash: 'aaa' }]);
+    expect(rule.checkCrawl(single, { depth: 0, isSeed: true })).toEqual([]); // vacuous pass
+    const unhashed = mkIndex([
+      { url: 'https://example.com/a', status: 200 },
+      { url: 'https://example.com/b', status: 200 },
+    ]);
+    expect(rule.checkCrawl(unhashed, { depth: 0, isSeed: true })).toEqual([]); // unknown, never judged
   });
 });

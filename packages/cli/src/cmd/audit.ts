@@ -55,8 +55,20 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
 
   if (cancelled) {
     io.err('cancelled\n');
-    return EXIT.CONFIG_ERROR; // E14: SIGINT -> 2
+    return EXIT.CONFIG_ERROR; // E14: SIGINT -> 2 (no history write on cancel)
   }
+  // Stage 3: one audit-digest line per completed run (failures included —
+  // incomplete is labeled with its stop reason, never hidden).
+  await d.history.append({
+    url: url.href,
+    score: report.summary.score ?? 0,
+    pagesAudited: report.summary.pagesAudited ?? report.pages.length,
+    incomplete: report.incomplete,
+    ...(report.incomplete && report.stopReason !== undefined ? { stopReason: report.stopReason } : {}),
+    countsBySeverity: report.summary.countsBySeverity,
+    provider: 'lumen-audit',
+    retrievedAt: d.clock(),
+  });
   return gateFailed ? EXIT.ISSUES : EXIT.OK;
 };
 

@@ -29,6 +29,8 @@ const rules: readonly Rule[] = [
   { id: 'mixed-content', severity: 'error', categories: ['technical'], fires: 'http: subresources on an https: page' },
   { id: 'response-latency', severity: 'warning', categories: ['performance'], fires: 'measured response time above the threshold (default 1500 ms)' },
   { id: 'og-tags-missing', severity: 'info', categories: ['social'], fires: 'any of og:title / og:description / og:image absent' },
+  { id: 'hreflang-present', severity: 'info', categories: ['meta'], fires: 'no <link rel="alternate" hreflang> entry (multiple locales are normal)' },
+  { id: 'duplicate-content', severity: 'warning', categories: ['content'], fires: 'page body byte-identical to another crawled page (unhashed pages are unknown, never judged)' },
 ];
 
 const sevBadge: Record<Rule['severity'], string> = {
@@ -54,18 +56,18 @@ const incompleteExample = `{
 ---
 <DocsLayout
   title="Audit rules"
-  description="The 18 built-in lumen audit rules: severities, categories, what fires them, how scoring and failThreshold work."
+  description="The 20 built-in lumen audit rules: severities, categories, what fires them, how scoring and failThreshold work."
   activeHref="/docs/rules-reference/"
   toc={[
     { id: 'severity', label: 'Severity model' },
     { id: 'scoring', label: 'Scoring' },
-    { id: 'rules', label: 'The 18 rules' },
+    { id: 'rules', label: 'The 20 rules' },
     { id: 'overrides', label: 'Overrides' },
     { id: 'examples', label: 'Issue + incomplete reports' },
   ]}
 >
   <p>
-    lumen’s audit engine ships 18 built-in rules across meta, content, links,
+    lumen’s audit engine ships 20 built-in rules across meta, content, links,
     technical, performance, accessibility and social categories. Rules are
     small, evidence-first, and plugin-shaped — the audit engine accepts
     additional rules via the plugin registry.
@@ -97,7 +99,7 @@ const incompleteExample = `{
     was actually audited scores 0 — honest, not generous.
   </p>
 
-  <h2 id="rules">The 18 rules</h2>
+  <h2 id="rules">The 20 rules</h2>
   <table>
     <thead>
       <tr><th scope="col">Rule id</th><th scope="col">Default</th><th scope="col">Categories</th><th scope="col">Fires when</th></tr>

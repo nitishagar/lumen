@@ -21,7 +21,8 @@
     "check:size": "npm run build:worker && node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.build.json",
-    "test:evals": "evalite run --threshold 100"
+    "test:evals": "SWARM_SKIP=1 evalite run --threshold 100",
+    "test:swarm": "evalite run swarm"
   },
   "dependencies": {
     "@lumen-seo/core": "*",

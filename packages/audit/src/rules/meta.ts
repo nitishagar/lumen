@@ -1,6 +1,9 @@
 /**
  * Meta rules 1–4, 7, 13 (plan built-in table): title, meta description,
  * canonical, robots-noindex (meta + `X-Robots-Tag`).
+ * Stage 4 adds hreflang presence (rule 19): mirrors `canonicalPresent` —
+ * absence is an info finding; unlike canonicals, MULTIPLE hreflang links are
+ * normal (one per locale), so only the zero case fires.
  */
 import type { AuditRule, Issue, Severity } from '@lumen-seo/core';
 import type { CheerioAPI } from 'cheerio';
@@ -152,6 +155,29 @@ export const robotsNoindex = (severity: Severity): AuditRule => ({
           ? 'page is marked noindex via <meta name="robots">'
           : 'page is marked noindex via the X-Robots-Tag header',
         evidence: viaMeta ? { selector: 'meta[name="robots"]', snippet: metaContent } : { selector: 'X-Robots-Tag' },
+      },
+    ];
+  },
+});
+
+const hreflangLinks = (dom: CheerioAPI): number =>
+  dom('link[rel]').filter(
+    (_, el) => (dom(el).attr('rel') ?? '').split(/\s+/).includes('alternate') && dom(el).attr('hreflang') !== undefined,
+  ).length;
+
+export const hreflangPresent = (severity: Severity): AuditRule => ({
+  id: 'hreflang-present',
+  severity,
+  categories: ['meta'],
+  check(page): Issue[] {
+    if (hreflangLinks(page.dom) > 0) return [];
+    return [
+      {
+        ruleId: 'hreflang-present',
+        severity,
+        message: 'page declares no <link rel="alternate" hreflang> entry',
+        evidence: { selector: 'link[rel="alternate"][hreflang]' },
+        fixHint: 'add hreflang link entries for each locale the page serves (skip when single-locale)',
       },
     ];
   },

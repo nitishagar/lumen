@@ -7,8 +7,8 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { Fetcher, HistoryListQuery, RankHistoryEntry, SiteAuditReport } from '@lumen-seo/core';
-import { countIssuesBySeverity } from '@lumen-seo/core';
+import type { Fetcher, HistoryEntry, HistoryListQuery, SiteAuditReport } from '@lumen-seo/core';
+import { countIssuesBySeverity, isRankEntry } from '@lumen-seo/core';
 import type { AuditInput, AuditRunner, PageMeta, PageMetaFetcher } from '../ports.js';
 import type { McpDeps } from '../server.js';
 import {
@@ -82,19 +82,36 @@ export const fixtureAuditRunner = (o: AuditFixtureOptions = {}): AuditRunner => 
   },
 });
 
-/** In-memory HistoryStore recording appends (concurrency tests, E13). */
+/** In-memory HistoryStore recording appends (concurrency tests, E13). Mirrors the JSONL kind semantics: kind omitted means rank. */
 export class MemoryHistoryStore {
-  readonly entries: RankHistoryEntry[] = [];
-  readonly append = async (e: RankHistoryEntry): Promise<void> => {
+  readonly entries: HistoryEntry[] = [];
+  readonly append = async (e: HistoryEntry): Promise<void> => {
     this.entries.push(e);
   };
-  readonly list = async (q?: HistoryListQuery): Promise<RankHistoryEntry[]> => {
+  readonly list = async (q?: HistoryListQuery): Promise<HistoryEntry[]> => {
+    const kind = q?.kind ?? 'rank';
     let all = [...this.entries];
-    if (q?.domain !== undefined) all = all.filter((e) => e.domain === q.domain);
-    if (q?.keyword !== undefined) all = all.filter((e) => e.keyword === q.keyword);
-    return q?.limit === undefined ? all : all.slice(-q.limit);
+    if (kind !== 'all') all = all.filter((e) => (kind === 'rank' ? isRankEntry(e) : !isRankEntry(e)));
+    if (q?.domain !== undefined) {
+      const domain = q.domain;
+      all = all.filter((e) =>
+        isRankEntry(e) ? e.domain === domain : hostOf(e.url) === domain,
+      );
+    }
+    if (q?.keyword !== undefined) all = all.filter((e) => isRankEntry(e) && e.keyword === q.keyword);
+    if (q?.url !== undefined) all = all.filter((e) => e.url === q.url);
+    const sorted = kind === 'all' ? [...all].sort((a, b) => (a.retrievedAt < b.retrievedAt ? -1 : 1)) : all;
+    return q?.limit === undefined ? sorted : sorted.slice(-q.limit);
   };
 }
+
+const hostOf = (url: string): string | null => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
 
 /** Recording Fetcher (I16): records every outbound call; never delegates. */
 export const recordingFetcher = (): Fetcher & { calls: URL[] } => {

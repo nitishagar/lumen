@@ -6,6 +6,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { SiteAuditReport } from '@lumen-seo/core';
+import { isRankEntry } from '@lumen-seo/core';
 import type { AuditInput, AuditRunner } from './ports.js';
 import { connectClient, fixtureDeps, fixtureAuditRunner, MemoryHistoryStore } from './testkit/index.js';
 
@@ -30,6 +31,8 @@ describe('interleaved tool calls (E13)', () => {
     // 13 rank saves (even indices) — one recorded line each, in order.
     expect(history.entries.length).toBe(13);
     for (const entry of history.entries) {
+      expect(isRankEntry(entry)).toBe(true);
+      if (!isRankEntry(entry)) continue;
       expect(entry.keyword).toMatch(/^kw-\d+$/);
       expect(entry.domain).toBe('example.com');
       expect(typeof entry.retrievedAt).toBe('string');
