@@ -4,14 +4,15 @@ Append-only resume point. One line per entry with provenance (what/where/when). 
 
 ## Position
 
-- 2026-09-18T21:55 +05:30 — ALL GATES PASSED: impl reviewer resumed → **VERDICT: PASS** (8/8 CONFIRMED, round-2 section in IMPLEMENTATION_VALIDATION.md); security reviewer → **VERDICT: PASS** (0 CRITICAL/HIGH; 2 LOWs + 1 INFO hardened in place with tests); final battery: lint 0 / typecheck 0 / **84 files 941 tests** / gate Evals 14 threshold 100% / swarm 15/15 / size 290/1536. Next: commit on `evals/evalite` → flip repo private → push → PR (base main; branch is 3 evalite commits + this work) → ask user for judge key.
+- 2026-09-18T22:05 +05:30 — SHIPPED: commit `d2170bd` on `evals/evalite` (54 files, +3531/−122), repo flipped **private** (0 forks/stars), branch pushed (SSH — OAuth token lacked `workflow` scope for the CI yml), **PR #37** open (base `main`: the 3 evalite-adoption commits + this work). Push-run CI: eval gate PASS, swarm job PASS, lint PASS; PR-run checks pending at write time. Remaining: user-only items — live judge run (needs key) + PR merge decision + PLAN manual checkboxes.
 
 ## State changes
 
-- (prior session, uncommitted) 34 tracked files + 8 new paths at `48db265` on `evals/evalite` — inventory in HANDOFF.md §Change inventory. Nothing committed yet.
+- (prior session, uncommitted) 34 tracked files + 8 new paths at `48db265` on `evals/evalite` — inventory in HANDOFF.md §Change inventory.
 - 2026-09-18T21:10 — this file created.
 - 2026-09-18T21:15–21:35 — review fixes (8): `packages/mcp/package.json` (`test:evals` → `SWARM_SKIP=1 evalite run --threshold 100`); `src/evals/swarm.eval.ts` (load-time `evalite.skip` under SWARM_SKIP; no corpus load/scoreboard when gated out); `src/swarm/faults.ts` (+`validateFaultSpecs`, wrapper keeps deps-dependent checks only); `src/swarm/corpus.ts` (+load-time fault-spec validation); `src/evals/judge.ts` (−`judgeKeyName`, retry docs accurate, non-retryable 4xx → typed `UpstreamError`, −`Statusful`); `src/evals/judge.live.eval.ts` (header claim fixed); `packages/mcp/tsconfig.build.json` (+exclude `src/swarm`); `packages/core/src/history.ts` (+`AuditHistoryEntry.stopReason?`); `packages/cli/src/cmd/audit.ts` (populates stopReason when incomplete); `.github/workflows/evals.yml` + `docs/evals.md` (one consistent gate story); tests: `judge.test.ts`, `corpus.test.ts` (+1), `rank-history.test.ts` (+1); snapshot orphans pruned via green-tree `vitest run -u`.
-- 2026-09-18T21:45–21:55 — security hardenings (from security review PASS-with-LOWs): `cmd/rank.ts` csvCell (formula-neutralize `=`/`@`, quote `\r`), `swarm/scoreboard.ts` URL_TOKEN_RE case-insensitive, `evals/judge.ts` cache-key hex guard at store boundary (read=absent, write=loud); +3 tests (rank-history 13, scoreboard 5, judge 16).
+- 2026-09-18T21:45–21:55 — security hardenings (from security review PASS-with-LOWs): `cmd/rank.ts` csvCell (formula-neutralize `=`/`@`, quote `\r`), `swarm/scoreboard.ts` URL_TOKEN_RE case-insensitive, `evals/judge.ts` cache-key hex guard at store boundary (read=absent, write=loud); +3 tests.
+- 2026-09-18T22:00 — committed `d2170bd`; `git remote set-url origin git@github.com:nitishagar/lumen.git` (SSH); pushed; PR #37 opened.
 - Bundle docs: TEST_VALIDATION continuation section (corrections + 8 fixes + security section), PLAN automated boxes ticked, IMPLEMENTATION_VALIDATION.md (reviewer, 2 rounds, final PASS).
 
 ## Decisions
@@ -32,8 +33,8 @@ Append-only resume point. One line per entry with provenance (what/where/when). 
 
 ## Open
 
-- ~~Reviewer MINOR-fix confirmation~~ DONE (PASS).
-- ~~Security review~~ DONE (PASS, LOWs hardened).
-- Live judge run NOT verified (needs user key: `EVAL_LIVE=1 LUMEN_JUDGE_KEY=… LUMEN_JUDGE_BASE_URL=… LUMEN_JUDGE_MODEL=…`) — residual risk 1 in TEST_VALIDATION; will ask user at handoff.
+- Live judge run NOT verified (needs user key: `EVAL_LIVE=1 LUMEN_JUDGE_KEY=… LUMEN_JUDGE_BASE_URL=… LUMEN_JUDGE_MODEL=…` from `packages/mcp`) — residual risk 1 in TEST_VALIDATION; asked user at handoff.
 - PLAN manual checkboxes left unticked (human gate): P1 scoreboard-unscored/unknown-id/mid-run-cancel (agent observed unknown-id + cancel-cleanliness via tests; mid-run-cancel partial-line not directly observed), P2 live run (blocked on key), P3 real-bin renders (agent observed pre-fix), P4 fixture thresholds (agent observed via tests).
-- Commit/push/PR/private-flip: in flight (next).
+- PR #37 merge decision is the user's; PR-run CI was still completing at ship time (push-run already green: eval gate PASS, swarm PASS, lint PASS).
+- Untracked `evals/.last-run.json` (evalite scratch) deliberately left out of the commit — candidate for .gitignore.
+- Recorded follow-ups (out of scope): `redactUrl` secret-param depth (shared predicate, unreachable with offline fixtures); CI action SHA-pinning; corpus cap checked post-read.
