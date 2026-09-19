@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { HistoryStore, RankHistoryEntry } from '@lumen-seo/core';
-import { ConfigError } from '@lumen-seo/core';
+import type { HistoryEntry, HistoryStore, RankHistoryEntry } from '@lumen-seo/core';
+import { ConfigError, isRankEntry } from '@lumen-seo/core';
 import { domainDir, JsonlHistoryStore } from './history/jsonl-store.js';
 
 let root: string;
@@ -25,6 +25,12 @@ const entry = (i: number, domain = 'example.com'): RankHistoryEntry => ({
   url: `https://${domain}/page-${i}`,
   retrievedAt: `2026-08-29T10:00:${String(i).padStart(2, '0')}Z`,
 });
+
+/** Narrows union reads to rank entries, asserting no kind leaked in (Stage 3). */
+const rankOnly = (list: readonly HistoryEntry[]): RankHistoryEntry[] => {
+  expect(list.every(isRankEntry)).toBe(true);
+  return list.filter(isRankEntry);
+};
 
 describe('JsonlHistoryStore (E4/B4/B5/B6/R9)', () => {
   it('implements core HistoryStore exactly (compile-level conformance, SC-15)', () => {
@@ -94,9 +100,9 @@ describe('JsonlHistoryStore (E4/B4/B5/B6/R9)', () => {
     const store = new JsonlHistoryStore(root, lineLen(1) + lineLen(2));
     for (let i = 1; i <= 6; i += 1) await store.append(entry(i));
     const all = await store.list({ domain: 'example.com' });
-    expect(all.map((e) => e.keyword)).toEqual(['kw-3', 'kw-4', 'kw-5', 'kw-6']);
+    expect(rankOnly(all).map((e) => e.keyword)).toEqual(['kw-3', 'kw-4', 'kw-5', 'kw-6']);
     const tail = await store.list({ domain: 'example.com', limit: 1 });
-    expect(tail.map((e) => e.keyword)).toEqual(['kw-6']);
+    expect(rankOnly(tail).map((e) => e.keyword)).toEqual(['kw-6']);
   });
 
   it('filters by keyword and domain', async () => {
@@ -108,7 +114,7 @@ describe('JsonlHistoryStore (E4/B4/B5/B6/R9)', () => {
     expect(alpha).toHaveLength(2);
     const scoped = await store.list({ domain: 'other.example' });
     expect(scoped).toHaveLength(1);
-    expect(scoped[0]?.keyword).toBe('alpha');
+    expect(rankOnly(scoped)[0]?.keyword).toBe('alpha');
   });
 
   it('skips a truncated/malformed trailing line (crash tolerance)', async () => {
@@ -122,7 +128,7 @@ describe('JsonlHistoryStore (E4/B4/B5/B6/R9)', () => {
       'utf8',
     );
     const list = await store.list({ domain: 'example.com' });
-    expect(list.map((e) => e.keyword)).toEqual(['kw-9']); // truncated line gone
+    expect(rankOnly(list).map((e) => e.keyword)).toEqual(['kw-9']); // truncated line gone
   });
 
   it('serializes 25 concurrent appends into 25 intact well-formed lines', async () => {
@@ -141,7 +147,66 @@ describe('JsonlHistoryStore (E4/B4/B5/B6/R9)', () => {
     await store.append({ ...entry(5, 'b.example'), retrievedAt: '2026-08-29T10:00:05Z' });
     await store.append({ ...entry(1, 'a.example'), retrievedAt: '2026-08-29T10:00:01Z' });
     const all = await store.list();
-    expect(all.map((e) => e.domain)).toEqual(['a.example', 'b.example']);
+    expect(rankOnly(all).map((e) => e.domain)).toEqual(['a.example', 'b.example']);
+  });
+});
+
+describe('JsonlHistoryStore kinds (Stage 3)', () => {
+  const auditEntry = (url = 'https://example.com/', retrievedAt = '2026-08-29T10:00:03Z') => ({
+    url,
+    score: 88,
+    pagesAudited: 4,
+    incomplete: false,
+    countsBySeverity: { error: 1, warning: 0, info: 0 },
+    provider: 'lumen-audit' as const,
+    retrievedAt,
+  });
+
+  it('rank legacy paths are byte-identical (no kind prefix for rank)', async () => {
+    const store = new JsonlHistoryStore(root);
+    await store.append({ keyword: 'k', domain: 'example.com', position: 1, provider: 'p', retrievedAt: '2026-08-29T10:00:01Z' });
+    const text = await readFile(join(domainDir(root, 'example.com'), 'history.jsonl'), 'utf8');
+    expect(JSON.parse(text.trim()) as object).toMatchObject({ keyword: 'k' });
+  });
+
+  it('audit digests group by URL hostname under <root>/audit', async () => {
+    const store = new JsonlHistoryStore(root);
+    await store.append(auditEntry('https://example.com/a'));
+    await store.append(auditEntry('https://example.com/b'));
+    const rows = await store.list({ kind: 'audit', domain: 'example.com' });
+    expect(rows).toHaveLength(2);
+    expect(rows.every((e) => !('keyword' in e))).toBe(true);
+  });
+
+  it('default kind is rank (audit rows invisible unless asked)', async () => {
+    const store = new JsonlHistoryStore(root);
+    await store.append({ keyword: 'k', domain: 'example.com', position: 1, provider: 'p', retrievedAt: '2026-08-29T10:00:01Z' });
+    await store.append(auditEntry());
+    expect(await store.list()).toHaveLength(1);
+    expect(await store.list({ kind: 'rank' })).toHaveLength(1);
+    expect(await store.list({ kind: 'audit' })).toHaveLength(1);
+  });
+
+  it("kind 'all' merges both kinds sorted by retrievedAt, honoring limit", async () => {
+    const store = new JsonlHistoryStore(root);
+    await store.append({ keyword: 'k', domain: 'example.com', position: 1, provider: 'p', retrievedAt: '2026-08-29T10:00:05Z' });
+    await store.append(auditEntry('https://example.com/', '2026-08-29T10:00:01Z'));
+    const all = await store.list({ kind: 'all' });
+    expect(all.map((e) => e.retrievedAt)).toEqual(['2026-08-29T10:00:01Z', '2026-08-29T10:00:05Z']);
+    expect(await store.list({ kind: 'all', limit: 1 })).toHaveLength(1);
+  });
+
+  it('rotation and truncation tolerance apply per kind', async () => {
+    const store = new JsonlHistoryStore(root, 10); // every append rotates
+    await store.append(auditEntry());
+    await store.append(auditEntry('https://example.com/b'));
+    // Rotated + current generations both read (single generation each).
+    expect(await store.list({ kind: 'audit' })).toHaveLength(2);
+    await store.append(auditEntry('https://example.com/c'));
+    await store.append(auditEntry('https://example.com/d'));
+    const urls = (await store.list({ kind: 'audit' })).map((e) => (e as { url: string }).url);
+    expect(urls).toEqual(['https://example.com/c', 'https://example.com/d']); // .1 overwritten
+    expect(await store.list({ kind: 'rank' })).toHaveLength(0); // kinds rotate independently
   });
 });
 

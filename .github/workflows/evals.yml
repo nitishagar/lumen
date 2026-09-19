@@ -1,0 +1,46 @@
+name: evals
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  evals:
+    name: AI eval gate (evalite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Run offline eval suite (in-process tool contract)
+        run: npm run test:evals
+      # A failing eval fails this job via evalite's --threshold exit code.
+      # The live judge case (packages/mcp/src/evals/judge.live.eval.ts) and the
+      # red-team swarm (swarm.eval.ts) are evalite.skip'd here — the gate sets
+      # SWARM_SKIP=1 so adversarial findings never gate (report-only); the
+      # swarm runs in the job below and the judge needs a key
+      # (docs/evals.md).
+
+  swarm:
+    name: Red-team swarm (report-only)
+    runs-on: ubuntu-latest
+    # Report-only by construction: findings record, they never gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Run swarm adversary suite (offline fixtures, no --threshold)
+        run: npm run test:swarm
+      - name: Upload swarm scoreboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: swarm-scoreboard
+          path: packages/mcp/.evalite/swarm-scoreboard.jsonl
+          if-no-files-found: warn

@@ -21,7 +21,7 @@
     "cheerio": "^1.2.0"
   },
   "devDependencies": {},
-  "description": "lumen site-audit engine — bounded polite crawler, 18 built-in rules, scorer, report assembly",
+  "description": "lumen site-audit engine — bounded polite crawler, 20 built-in rules, scorer, report assembly",
   "files": [
     "dist"
   ]

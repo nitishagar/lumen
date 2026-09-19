@@ -1,0 +1,43 @@
+[
+  {
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "best crm", "domain": "example.com" },
+    "expect": {
+      "found": true,
+      "position": 3,
+      "provider": "fixture-serp",
+      "matchedUrl": "https://example.com/hit"
+    }
+  },
+  {
+    "tool": "lumen_authority",
+    "args": { "domain": "example.com" },
+    "expect": {
+      "domain": "example.com",
+      "signals": [
+        {
+          "provider": "fixture-tranco",
+          "kind": "rank",
+          "value": 42,
+          "attribution": "fixture-tranco list, CC BY 4.0",
+          "retrievedAt": "2026-08-29T12:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "tool": "lumen_page_report",
+    "args": { "url": "https://example.com" },
+    "expect": {
+      "meta": { "title": "Fixture page title", "lang": "en", "retrievedAt": "2026-08-29T12:00:00Z" }
+    }
+  },
+  {
+    "tool": "lumen_audit_site",
+    "args": { "url": "https://example.com" },
+    "expect": {
+      "score": 88,
+      "passesThreshold": true
+    }
+  }
+]

@@ -50,7 +50,8 @@ export type { Metric, Provenance, ProvenanceKind } from './provenance.js';
 export { mkMetric, mkSource, PROVENANCE_KINDS } from './provenance.js';
 export type { AuditRule, RuleOpts } from './rules.js';
 export { looksLikeAuditRule } from './rules.js';
-export type { HistoryListQuery, HistoryStore, RankHistoryEntry } from './history.js';
+export type { AuditHistoryEntry, HistoryEntry, HistoryKind, HistoryListQuery, HistoryStore, RankHistoryEntry } from './history.js';
+export { isRankEntry } from './history.js';
 export type { ConfigErrorDetail } from './errors.js';
 export type {
   ConfigFileReader,

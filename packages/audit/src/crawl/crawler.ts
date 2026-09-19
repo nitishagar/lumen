@@ -14,6 +14,7 @@
  */
 import { AbortedError } from '@lumen-seo/core';
 import type { AuditRule, Issue, PageContext } from '@lumen-seo/core';
+import { createHash } from 'node:crypto';
 import { load as loadDom } from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
 import { EVIDENCE_CAP, SEEN_SET_FACTOR } from '../config.js';
@@ -48,6 +49,12 @@ export interface CrawledPage {
   depth: number;
   skipped?: { reason: SkipReason };
   title?: string;
+  /**
+   * sha256 hex over the UTF-8 bytes of the exact capped body text (Stage 4:
+   * feeds duplicate-content). Set only for fetched html pages inside the
+   * body cap — skipped/oversize/non-html pages carry none (unknown).
+   */
+  bodyHash?: string;
   issues: Issue[];
   outLinks: OutLink[];
   redirectChain?: string[];
@@ -215,6 +222,9 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       markSkip(entry, 'non_html', { timingMs, finalUrl: finalUrlHref, bytes: body.bytes });
       return;
     }
+    // Raw-bytes identity (Stage 4): hash the exact capped text — no
+    // whitespace/case/tag normalization (nothing hand-rolled to defend).
+    const bodyHash = createHash('sha256').update(body.text, 'utf8').digest('hex');
 
     let dom: CheerioAPI;
     try {
@@ -251,6 +261,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       robotsAllowed: pageContext.robotsAllowed,
       depth: entry.depth,
       title: dom('title').first().text() || undefined,
+      bodyHash,
       issues,
       outLinks,
       ...(redirected ? { redirectChain: [entry.key, finalUrlHref] } : {}),
@@ -302,6 +313,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       depth: page.depth,
       hops: page.hops,
       finalUrl: page.finalUrl,
+      ...(page.bodyHash === undefined ? {} : { bodyHash: page.bodyHash }),
     });
   }
   const statusMap = new Map(indexEntries.map((e) => [e.url, e]));
@@ -311,6 +323,11 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
     statusOf: (url: string) => {
       const e = statusMap.get(url);
       return e === undefined ? undefined : { status: e.status, finalUrl: e.finalUrl };
+    },
+    bodyHashOf: (url: string) => {
+      const e = statusMap.get(url);
+      if (e === undefined || e.bodyHash === undefined) return undefined;
+      return { status: e.status, finalUrl: e.finalUrl, bodyHash: e.bodyHash };
     },
   };
 

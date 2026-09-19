@@ -27,11 +27,13 @@ const site = (body: string, head?: string): Record<string, FakeRoute> => ({
 const ruleCtx: RuleContext = { depth: 0, isSeed: true };
 
 describe('rule-set configuration (I2)', () => {
-  it('exposes exactly the 18 built-in rule ids with metadata', () => {
-    expect(BUILT_IN_RULE_IDS).toHaveLength(18);
+  it('exposes exactly the 20 built-in rule ids with metadata', () => {
+    expect(BUILT_IN_RULE_IDS).toHaveLength(20);
     const meta = builtInRuleMetadata();
-    expect(new Set(meta.map((m) => m.id)).size).toBe(18);
+    expect(new Set(meta.map((m) => m.id)).size).toBe(20);
     expect(meta.find((m) => m.id === 'title-missing')).toEqual({ id: 'title-missing', defaultSeverity: 'error', categories: ['meta'] });
+    expect(meta.find((m) => m.id === 'hreflang-present')).toEqual({ id: 'hreflang-present', defaultSeverity: 'info', categories: ['meta'] });
+    expect(meta.find((m) => m.id === 'duplicate-content')).toEqual({ id: 'duplicate-content', defaultSeverity: 'warning', categories: ['content'] });
   });
 
   it('rules: severity override applied from config', async () => {

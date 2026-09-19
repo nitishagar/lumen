@@ -54,6 +54,12 @@ export interface CrawlIndexEntry {
   /** Known redirect hops: `0` when the final URL equals the requested URL. */
   hops: number;
   finalUrl: string;
+  /**
+   * sha256 hex over the UTF-8 bytes of the exact capped body text (Stage 4).
+   * Absent for skipped/oversize/non-html pages — unhashed pages are unknown
+   * to hash rules by construction, never compared.
+   */
+  bodyHash?: string;
 }
 
 /** A discovered out-link, kept for crawl-level rules (never judged unless fetched). */
@@ -72,6 +78,8 @@ export interface CrawlIndex {
   outLinks: ReadonlyMap<string, readonly OutLink[]>;
   /** Observed outcome for a normalized URL — `undefined` when never fetched (I3: never judged). */
   statusOf(url: string): { status: number; finalUrl: string } | undefined;
+  /** Observed body hash for a normalized URL — `undefined` when never fetched or unhashed. */
+  bodyHashOf(url: string): { status: number; finalUrl: string; bodyHash: string } | undefined;
 }
 
 /** Audit-local extension of core's per-page `AuditRule` SPI for crawl-level rules. */

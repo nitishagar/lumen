@@ -20,7 +20,9 @@
     "build:worker": "wrangler deploy --dry-run --config worker/wrangler.jsonc && esbuild worker/index.ts --bundle --format=esm --platform=neutral --target=es2023 --minify --outfile=dist/index.js --metafile=dist/metafile.json --external:node:* --external:cloudflare:* --main-fields=module,main --conditions=import,worker",
     "check:size": "npm run build:worker && node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "test:evals": "SWARM_SKIP=1 evalite run --threshold 100",
+    "test:swarm": "evalite run swarm"
   },
   "dependencies": {
     "@lumen-seo/core": "*",
@@ -33,6 +35,7 @@
     "@cloudflare/vitest-plugin": "^1.1.2",
     "@cloudflare/workers-types": "^5.20260829.1",
     "esbuild": "^0.28.1",
+    "evalite": "0.19.0",
     "wrangler": "^4.127.1"
   },
   "files": [

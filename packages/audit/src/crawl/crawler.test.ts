@@ -192,4 +192,25 @@ describe('crawler (core loop)', () => {
     expect(report.pages).toHaveLength(2);
     expect(fetcher.countFor('https://example.com/a')).toBe(1);
   });
+
+  it('pipeline (Stage 4): byte-identical bodies surface duplicate-content on both pages; oversize stays unknown', async () => {
+    const dup =
+      '<!doctype html><html lang="en"><head><title>Ample page title length here</title></head><body><p>same</p></body></html>';
+    const big = `<!doctype html><html><head><title>Big page title padding</title></head><body><p>${'z'.repeat(500)}</p></body></html>`;
+    expect(dup.length).toBeLessThan(200); // hashed fixture sanity
+    expect(big.length).toBeGreaterThan(200); // oversize fixture sanity
+    const fetcher = new FakeFetcher({
+      'https://example.com/': page('/', linkPage('/a', '/b', '/c')),
+      'https://example.com/a': page('/a', dup),
+      'https://example.com/b': page('/b', dup),
+      'https://example.com/c': page('/c', big),
+    });
+    const report = await runSiteAudit(new URL(ORIGIN), { maxBodyBytes: 200 }, makeTestDeps(fetcher));
+    const dupIssues = report.pages.flatMap((p) =>
+      p.issues.filter((i) => i.ruleId === 'duplicate-content').map((i) => ({ url: p.url, severity: i.severity })),
+    );
+    expect(dupIssues).toHaveLength(2);
+    expect(dupIssues.map((i) => i.url).sort()).toEqual(['https://example.com/a', 'https://example.com/b']);
+    expect(dupIssues.every((i) => i.severity === 'warning')).toBe(true);
+  });
 });

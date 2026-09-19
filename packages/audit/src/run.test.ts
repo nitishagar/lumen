@@ -21,6 +21,7 @@ const index = (): CrawlIndex => ({
   pages: [{ url: 'https://example.com/', status: 200, depth: 0, hops: 0, finalUrl: 'https://example.com/' }],
   outLinks: new Map(),
   statusOf: () => undefined,
+  bodyHashOf: () => undefined,
 });
 
 const rule = (id: string, behavior: () => Issue[]): CrawlRule => ({

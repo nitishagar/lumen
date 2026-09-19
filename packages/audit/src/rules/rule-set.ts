@@ -6,10 +6,10 @@
  */
 import { createRuleRegistry } from '@lumen-seo/core';
 import type { AuditRule, Severity } from '@lumen-seo/core';
-import { canonicalPresent, descriptionLength, descriptionMissing, robotsNoindex, titleLength, titleMissing } from './meta.js';
+import { canonicalPresent, descriptionLength, descriptionMissing, hreflangPresent, robotsNoindex, titleLength, titleMissing } from './meta.js';
 import { h1Missing, h1Multiple, imageAltCoverage, langAttr } from './content.js';
 import { insecureHttp, mixedContent, responseLatency, statusError, viewportMeta } from './technical.js';
-import { brokenInternalLink, redirectChain } from './links.js';
+import { brokenInternalLink, duplicateContent, redirectChain } from './links.js';
 import { ogTagsMissing } from './social.js';
 import type { CrawlRule, ResolvedAuditConfig, ResolvedThresholds } from '../types.js';
 
@@ -24,7 +24,7 @@ interface BuiltinSpec {
   kind: 'page' | 'crawl';
 }
 
-/** The 18 built-ins (plan table, order preserved). */
+/** The 20 built-ins (plan table, order preserved). */
 export const BUILT_IN_RULES: readonly BuiltinSpec[] = [
   { id: 'title-missing', defaultSeverity: 'error', categories: ['meta'], make: (s: Severity) => titleMissing(s), kind: 'page' },
   { id: 'title-length', defaultSeverity: 'warning', categories: ['meta'], make: (s: Severity, t: ResolvedThresholds) => titleLength(s, t), kind: 'page' },
@@ -44,6 +44,8 @@ export const BUILT_IN_RULES: readonly BuiltinSpec[] = [
   { id: 'mixed-content', defaultSeverity: 'error', categories: ['technical'], make: (s: Severity) => mixedContent(s), kind: 'page' },
   { id: 'response-latency', defaultSeverity: 'warning', categories: ['performance'], make: (s: Severity, t: ResolvedThresholds) => responseLatency(s, t), kind: 'page' },
   { id: 'og-tags-missing', defaultSeverity: 'info', categories: ['social'], make: (s: Severity) => ogTagsMissing(s), kind: 'page' },
+  { id: 'hreflang-present', defaultSeverity: 'info', categories: ['meta'], make: (s: Severity) => hreflangPresent(s), kind: 'page' },
+  { id: 'duplicate-content', defaultSeverity: 'warning', categories: ['content'], make: (s: Severity) => duplicateContent(s), kind: 'crawl' },
 ];
 
 export const BUILT_IN_RULE_IDS: readonly string[] = BUILT_IN_RULES.map((r) => r.id);

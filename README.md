@@ -13,7 +13,7 @@
 
 Most SEO tooling is a black box with a subscription. lumen is the opposite: a local-first, agent-first audit toolkit that runs on free data sources, never ships a number it can't attribute, and speaks MCP so your coding agent can run it for you.
 
-- **Local site audits** — bounded, robots-respecting crawler with 18 built-in rules, severity scoring, and CI-friendly exit codes (`0` pass, `1` findings, `2` usage/abort).
+- **Local site audits** — bounded, robots-respecting crawler with 20 built-in rules, severity scoring, and CI-friendly exit codes (`0` pass, `1` findings, `2` usage/abort).
 - **Free-tier data providers** — PageSpeed Insights, CrUX, Google Suggest, Wikipedia demand, OpenPageRank, Tranco, DuckDuckGo SERP. BYOK: keys are read from env vars by *name*, never stored or logged.
 - **MCP-first** — five tools (`lumen_audit_site`, `lumen_page_report`, `lumen_keyword_ideas`, `lumen_rank_check`, `lumen_authority`) over stdio or a thin Cloudflare Worker gateway.
 - **Provenance on every number** — each metric carries its source and fetch timestamp; no free source, no number.
@@ -44,7 +44,7 @@ Then just ask: *"audit my site and tell me what to fix first."*
 | Package | Purpose |
 | --- | --- |
 | [`@lumen-seo/core`](./packages/core) | types + payload models, config loader (`failThreshold`), Fetcher (SSRF/timeout/backoff), robots, provider/rule SPIs + registries |
-| [`@lumen-seo/audit`](./packages/audit) | bounded crawler, 18 built-in AuditRules, severity scorer, report assembly |
+| [`@lumen-seo/audit`](./packages/audit) | bounded crawler, 20 built-in AuditRules, severity scorer, report assembly |
 | [`@lumen-seo/providers`](./packages/providers) | built-in data providers (BYOK, free services only) |
 | [`@lumen-seo/cli`](./packages/cli) | `lumen` CLI, JSONL history, stdio MCP launcher |
 | [`@lumen-seo/mcp`](./packages/mcp) | MCP tool definitions + transport adapters (Cloudflare Worker) |
@@ -56,7 +56,7 @@ Then just ask: *"audit my site and tell me what to fix first."*
 
 - [Quickstart](https://nitishagar.github.io/lumen/docs/quickstart/) — first audit, JSON output, CI usage
 - [CLI reference](https://nitishagar.github.io/lumen/docs/cli-reference/) — all seven commands and flags
-- [Rules reference](https://nitishagar.github.io/lumen/docs/rules-reference/) — the 18 rules, severities, scoring
+- [Rules reference](https://nitishagar.github.io/lumen/docs/rules-reference/) — the 20 rules, severities, scoring
 - [Providers & BYOK](https://nitishagar.github.io/lumen/docs/providers-byok/) — data sources, keys, rate-limit etiquette
 - [MCP onboarding](https://nitishagar.github.io/lumen/docs/mcp-onboarding/) — Claude, Cursor, VS Code, remote gateway
 

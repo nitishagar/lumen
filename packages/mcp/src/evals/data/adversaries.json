@@ -1,0 +1,146 @@
+[
+  {
+    "id": "private-url-audit",
+    "tool": "lumen_audit_site",
+    "args": { "url": "http://127.0.0.1/" },
+    "deps": "full",
+    "providerFaults": [],
+    "expect": { "isError": true, "code": "INVALID_URL", "textContains": ["INVALID_URL"] }
+  },
+  {
+    "id": "unknown-arg-rank",
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "garden tools", "domain": "example.com", "bogus_arg": 1 },
+    "deps": "full",
+    "providerFaults": [],
+    "expect": { "isError": true, "textContains": ["-32602", "Unrecognized key", "bogus_arg"] }
+  },
+  {
+    "id": "bad-domain-rank",
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "garden tools", "domain": "not a domain!!" },
+    "deps": "full",
+    "providerFaults": [],
+    "expect": { "isError": true, "code": "INVALID_ARGUMENTS" }
+  },
+  {
+    "id": "local-only-audit-remote",
+    "tool": "lumen_audit_site",
+    "args": { "url": "https://example.com/" },
+    "deps": "remote",
+    "providerFaults": [],
+    "expect": { "isError": true, "code": "LOCAL_ONLY_CAPABILITY" }
+  },
+  {
+    "id": "local-only-rank-remote",
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "garden tools", "domain": "example.com" },
+    "deps": "remote",
+    "providerFaults": [],
+    "expect": { "isError": true, "code": "LOCAL_ONLY_CAPABILITY" }
+  },
+  {
+    "id": "oversized-seed-keywords",
+    "tool": "lumen_keyword_ideas",
+    "args": { "seed": "broadfork garden tool seed phrase padded to trip the one-hundred-twenty character schema ceiling abcdefghijklmnopqrs0123456789" },
+    "deps": "full",
+    "providerFaults": [],
+    "expect": { "isError": true, "textContains": ["-32602"] }
+  },
+  {
+    "id": "psi-timeout-degrades",
+    "tool": "lumen_page_report",
+    "args": { "url": "https://example.com/" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "pageSpeed", "fault": "timeout", "latencyMs": 50 }],
+    "expect": { "isError": false, "unavailableLegs": ["lab"] }
+  },
+  {
+    "id": "crux-429-degrades",
+    "tool": "lumen_page_report",
+    "args": { "url": "https://example.com/" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "crux", "fault": "rate-limited-429" }],
+    "expect": { "isError": false, "unavailableLegs": ["field"] }
+  },
+  {
+    "id": "all-keywords-5xx",
+    "tool": "lumen_keyword_ideas",
+    "args": { "seed": "broadfork" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "keyword", "fault": "upstream-5xx" }],
+    "expect": { "isError": true, "code": "UPSTREAM_FAILED" }
+  },
+  {
+    "id": "serp-crash-rank",
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "garden tools", "domain": "example.com" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "serp", "fault": "throw" }],
+    "expect": { "isError": true, "code": "Error" }
+  },
+  {
+    "id": "audit-upstream",
+    "tool": "lumen_audit_site",
+    "args": { "url": "https://example.com/" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "auditRunner", "fault": "upstream-5xx" }],
+    "expect": { "isError": true, "code": "UpstreamError" }
+  },
+  {
+    "id": "authority-parse-partial",
+    "tool": "lumen_authority",
+    "args": { "domain": "example.com" },
+    "deps": "full",
+    "providerFaults": [{ "capability": "authority", "fault": "parse-error" }],
+    "expect": { "isError": false, "jsonSubset": { "signals": [] } }
+  },
+  {
+    "id": "rank-history-read",
+    "tool": "lumen_rank_check",
+    "args": { "keyword": "garden tools", "domain": "example.com", "response_format": "detailed" },
+    "deps": "full",
+    "providerFaults": [],
+    "expect": {
+      "isError": false,
+      "jsonSubset": {
+        "found": true,
+        "position": 3,
+        "recentHistory": [
+          {
+            "keyword": "garden tools",
+            "domain": "example.com",
+            "position": 3,
+            "provider": "fixture-serp",
+            "url": "https://example.com/hit",
+            "retrievedAt": "2026-08-29T12:00:00Z"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "id": "dup-content-surfaces",
+    "tool": "lumen_audit_site",
+    "args": { "url": "https://example.com/" },
+    "deps": "full",
+    "providerFaults": [],
+    "auditIssues": [
+      { "ruleId": "duplicate-content", "severity": "warning", "message": "page body is byte-identical to 1 other crawled page(s)" },
+      { "ruleId": "hreflang-present", "severity": "info", "message": "page declares no hreflang entry" }
+    ],
+    "expect": { "isError": false, "textContains": ["duplicate-content", "hreflang-present"], "jsonSubset": { "passesThreshold": true, "incomplete": false } }
+  },
+  {
+    "id": "dup-content-gates",
+    "tool": "lumen_audit_site",
+    "args": { "url": "https://example.com/", "failThreshold": "warning" },
+    "deps": "full",
+    "providerFaults": [],
+    "auditIssues": [
+      { "ruleId": "duplicate-content", "severity": "warning", "message": "page body is byte-identical to 1 other crawled page(s)" },
+      { "ruleId": "hreflang-present", "severity": "info", "message": "page declares no hreflang entry" }
+    ],
+    "expect": { "isError": false, "jsonSubset": { "passesThreshold": false } }
+  }
+]

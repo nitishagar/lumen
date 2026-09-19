@@ -31,6 +31,9 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
     domain: { type: 'string' },
     limit: { type: 'string' },
     'no-save': { type: 'boolean' },
+    history: { type: 'boolean' },
+    kind: { type: 'string' },
+    format: { type: 'string' },
     json: { type: 'boolean' },
   },
   authority: { json: { type: 'boolean' } },
@@ -131,7 +134,13 @@ export const parseCommand = (rawArgv: readonly string[]): Invocation => {
   const values = parsed.values as Record<string, string | boolean>;
   const positionals = parsed.positionals;
   const want = POSITIONALS[name];
-  if (positionals.length !== want.length) {
+  // `lumen rank --history` reads history and takes no positional (E4/Stage 3);
+  // every other invocation keeps the exact positional count.
+  const historyMode = name === 'rank' && values.history === true;
+  if (historyMode && positionals.length !== 0) {
+    throw new UsageError('lumen rank --history takes no positional arguments — run "lumen rank --help" for usage');
+  }
+  if (!historyMode && positionals.length !== want.length) {
     throw new UsageError(
       `lumen ${name} expects ${want.length === 0 ? 'no positional arguments' : want.map((w) => `<${w}>`).join(' ')}` +
         ` — run "lumen ${name} --help" for usage`,

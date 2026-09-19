@@ -74,11 +74,14 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   ),
   rank: usage(
     'lumen rank — SERP position check',
-    'lumen rank <keyword> --domain <domain> [--limit N] [--no-save] [--json]',
+    'lumen rank <keyword> --domain <domain> [--limit N] [--no-save] [--json]\n    lumen rank --history [--kind rank|audit] [--format json|csv] [--domain <domain>] [--limit N]',
     [
-      '--domain <domain>  Required. Domain to find in the results',
+      '--domain <domain>  Required (unless --history). Domain to find in the results',
       '--limit N          1..50 results fetched (default 20)',
       '--no-save          Do not append to rank history',
+      '--history          Read stored history instead of searching (no keyword)',
+      '--kind K           History kind: rank (default) | audit',
+      '--format F         Output shape: json (default) | csv (provenance columns included)',
       '--json             One JSON document on stdout',
     ],
     ['Not found in top N is success (found:false, position:null). One history line per run.'],
