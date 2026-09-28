@@ -33,6 +33,15 @@ beforeEach(async () => {
   process.env.LUMEN_CONFIG = join(dir, 'lumen.config.json');
   process.env.LUMEN_HISTORY_DIR = join(dir, '.lumen', 'history');
   await writeFile(join(dir, 'lumen.config.json'), '{}', 'utf8');
+  // Two minimal saved reports for the diff no-telemetry case.
+  const minimalReport = (seed: string) => JSON.stringify({
+    id: 'test', startedAt: '2026-09-28T00:00:00Z', completedAt: '2026-09-28T00:00:01Z',
+    pages: [{ url: seed, status: 200, issues: [], score: 100, timingMs: 1, bytes: 1, robotsAllowed: true }],
+    summary: { countsBySeverity: { error: 0, warning: 0, info: 0 }, score: 100, pagesAudited: 1, pagesSkipped: 0 },
+    incomplete: false, configSnapshot: { seed }, stopReason: 'completed',
+  });
+  await writeFile(join(dir, 'a.json'), minimalReport('https://a.example/'), 'utf8');
+  await writeFile(join(dir, 'b.json'), minimalReport('https://b.example/'), 'utf8');
 });
 
 afterEach(async () => {
@@ -77,6 +86,7 @@ describe('outbound enumeration over every command (E12/I16)', () => {
       { args: ['mcp', '--print', 'json'] },
       { args: ['doctor'] },
       { args: ['init', '--yes', '--config', join(dir, 'init-target.json')] },
+      { args: ['diff', join(dir, 'a.json'), join(dir, 'b.json')] },
     ];
     for (const c of cases) {
       const io = new MemoryIo();

@@ -51,6 +51,11 @@ export const BUILT_IN_RULES: readonly BuiltinSpec[] = [
 export const BUILT_IN_RULE_IDS: readonly string[] = BUILT_IN_RULES.map((r) => r.id);
 
 /** Machine-readable built-in metadata for `lumen config show` (P4). */
+/** Stable docs anchor for a built-in rule (E1.2 FR-3); plugin rules have none. */
+export const RULES_REFERENCE_BASE = 'https://nitishagar.github.io/lumen/docs/rules-reference/';
+export const helpUrlFor = (ruleId: string): string | undefined =>
+  BUILT_IN_RULES.some((r) => r.id === ruleId) ? `${RULES_REFERENCE_BASE}#${ruleId}` : undefined;
+
 export const builtInRuleMetadata = (): { id: string; defaultSeverity: Severity; categories: readonly string[] }[] =>
   BUILT_IN_RULES.map(({ id, defaultSeverity, categories }) => ({ id, defaultSeverity, categories: [...categories] }));
 

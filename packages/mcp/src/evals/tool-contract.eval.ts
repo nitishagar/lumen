@@ -393,3 +393,40 @@ evalite('unknown-tool-not-executed', {
     },
   ],
 });
+
+evalite('concise-payload-budget', {
+  data: [
+    {
+      // E1.2 FR-6: the concise audit response for a 100-page site stays ≤4 KB.
+      input: { tool: 'lumen_audit_site', args: { url: 'https://example.com' }, pages: 100 },
+      expected: { maxBytes: 4096 },
+    },
+  ],
+  task: async (input) => {
+    const { tool, args, pages } = input as { tool: string; args: Record<string, unknown>; pages: number };
+    const client = await connectClient({
+      ...fixtureDeps(),
+      auditRunner: fixtureAuditRunner({
+        pages,
+        issues: [
+          { ruleId: 'title-length', severity: 'warning', message: 'title is 74 chars', evidence: { selector: 'head title' }, fixHint: 'keep titles between 15 and 65 characters', helpUrl: 'https://nitishagar.github.io/lumen/docs/rules-reference/#title-length' },
+          { ruleId: 'image-alt-coverage', severity: 'warning', message: '3 of 9 images lack alt text', evidence: { selector: 'img' }, fixHint: 'add descriptive alt text to every meaningful image', helpUrl: 'https://nitishagar.github.io/lumen/docs/rules-reference/#image-alt-coverage' },
+          { ruleId: 'canonical-present', severity: 'info', message: 'no canonical link', evidence: { selector: 'link[rel=canonical]' }, fixHint: 'add <link rel="canonical" href="…"> to declare the preferred URL', helpUrl: 'https://nitishagar.github.io/lumen/docs/rules-reference/#canonical-present' },
+        ],
+      }),
+    });
+    try {
+      const payload = (await callToolJson(client, tool, args)) as unknown;
+      return { bytes: JSON.stringify(payload).length };
+    } finally {
+      await close(client);
+    }
+  },
+  scorers: [
+    {
+      name: 'concise-under-4kb',
+      scorer: ({ output, expected }) =>
+        expected !== undefined && (output as { bytes: number }).bytes <= (expected as { maxBytes: number }).maxBytes ? 1 : 0,
+    },
+  ],
+});

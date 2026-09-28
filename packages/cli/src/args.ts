@@ -10,7 +10,7 @@ import type { Io } from './io.js';
 import { printCommandHelp, printRootHelp } from './help.js';
 import { UsageError } from './usage-error.js';
 
-export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor'] as const;
+export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor', 'diff'] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];
 
 export const isCommandName = (v: string): v is CommandName =>
@@ -26,7 +26,11 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
     json: { type: 'boolean' },
     'allow-private': { type: 'boolean' },
     'canonical-origin': { type: 'string' },
+    baseline: { type: 'string' },
+    'update-baseline': { type: 'string' },
+    verbose: { type: 'boolean' },
   },
+  diff: { json: { type: 'boolean' } },
   report: { strategy: { type: 'string' }, json: { type: 'boolean' }, 'allow-private': { type: 'boolean' } },
   keywords: { limit: { type: 'string' }, lang: { type: 'string' }, json: { type: 'boolean' } },
   rank: {
@@ -55,6 +59,7 @@ const POSITIONALS: Record<CommandName, readonly string[]> = {
   config: ['subcommand'],
   init: [],
   doctor: [],
+  diff: ['a', 'b'],
 };
 
 export interface Invocation {

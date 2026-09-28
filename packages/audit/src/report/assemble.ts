@@ -4,8 +4,10 @@
  * through I13 sanitization here; urls are serialized `URL` strings by the
  * crawler (normalized keys); the id is path-safe (I13).
  */
-import type { PageReport, Severity, SiteAuditReport } from '@lumen-seo/core';
+import type { Issue, PageReport, Severity, SiteAuditReport } from '@lumen-seo/core';
 import { isBlockedHost } from '@lumen-seo/core';
+import { groupIssues } from '../ranking.js';
+import { helpUrlFor } from '../rules/rule-set.js';
 import type { CrawledPage } from '../crawl/crawler.js';
 import type { CrawlerDeps, ResolvedAuditConfig, StopReason } from '../types.js';
 import { reportIdFor } from './id.js';
@@ -28,7 +30,18 @@ export const assembleReport = (
     url: p.url,
     status: p.status,
     ...(p.title !== undefined ? { title: sanitizeText(p.title) } : {}),
-    issues: p.issues.map(sanitizeIssue),
+    issues: p.issues.map((i) => {
+      const anchor = helpUrlFor(i.ruleId); // built-ins only — a plugin's own
+      // helpUrl is page/plugin-derived text and must NOT ride into reports.
+      const { helpUrl: _pluginHelpUrl, ...rest } = i;
+      return sanitizeIssue({
+        ...rest,
+        // E1.2 FR-3: every issue carries its owning page URL and the stable
+        // docs anchor (engine-controlled; plugin rules get no anchor).
+        url: i.url ?? p.url,
+        ...(anchor !== undefined ? { helpUrl: anchor } : {}),
+      });
+    }),
     score: p.skipped !== undefined ? null : scorePage(p.issues),
     timingMs: p.timingMs,
     bytes: p.bytes,
@@ -41,13 +54,16 @@ export const assembleReport = (
   const audited = pageReports.filter((p) => p.skipped === undefined);
 
   const countsBySeverity: Record<Severity, number> = { error: 0, warning: 0, info: 0 };
-  const byRule: Record<string, number> = {};
+  const allIssues: Issue[] = [];
   for (const page of pageReports) {
     for (const issue of page.issues) {
       countsBySeverity[issue.severity] += 1;
-      byRule[issue.ruleId] = (byRule[issue.ruleId] ?? 0) + 1;
+      allIssues.push(issue);
     }
   }
+  // E1.2 FR-2: `summary.byRule` is the ranked group array (0.x breaking per D2 —
+  // the counts map it replaces is derivable from the groups).
+  const byRule = groupIssues(allIssues);
 
   const startedAt = new Date(startedAtMs).toISOString();
   return {

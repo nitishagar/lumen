@@ -13,6 +13,7 @@ import { interceptHelp, parseCommand } from './args.js';
 import { execute as audit } from './cmd/audit.js';
 import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
+import { execute as diff } from './cmd/diff.js';
 import { execute as doctor } from './cmd/doctor.js';
 import { execute as init } from './cmd/init.js';
 import { execute as keywords } from './cmd/keywords.js';
@@ -110,6 +111,8 @@ const dispatch = (
       return init(ctx);
     case 'doctor':
       return doctor(ctx);
+    case 'diff':
+      return diff(ctx);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);

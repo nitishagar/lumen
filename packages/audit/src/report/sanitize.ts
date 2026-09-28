@@ -31,4 +31,7 @@ export const sanitizeIssue = (issue: Issue): Issue => ({
   },
   ...(issue.url !== undefined ? { url: issue.url } : {}),
   ...(issue.fixHint !== undefined ? { fixHint: sanitizeText(issue.fixHint) } : {}),
+  // helpUrl is ENGINE-controlled (rules-reference anchor, E1.2 FR-3) — preserved
+  // untouched like url, never sanitized page-derived text.
+  ...(issue.helpUrl !== undefined ? { helpUrl: issue.helpUrl } : {}),
 });

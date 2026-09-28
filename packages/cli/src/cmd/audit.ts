@@ -10,6 +10,9 @@
  */
 import { countIssuesAtOrAbove, createPrivateScopePolicy, EXIT, FAIL_THRESHOLDS, MAX_PAGES_CEILING } from '@lumen-seo/core';
 import type { FailThreshold, SiteAuditReport, SsrfPolicy } from '@lumen-seo/core';
+import type { BaselineDiff, BaselineFile } from '@lumen-seo/audit';
+import { buildBaseline, diffAgainstBaseline } from '@lumen-seo/audit';
+import { readBaseline, writeBaselineAtomic } from '../baseline.js';
 import { intFlag } from '../args.js';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
@@ -66,25 +69,68 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   const threshold: FailThreshold =
     thresholdFlag === undefined ? (d.failThreshold ?? 'error') : (thresholdFlag as FailThreshold); // R2
 
+  // E1.3: --baseline gates only on NEW findings; --update-baseline writes the
+  // current fingerprint set. Mutually exclusive by intent.
+  const baselinePath = typeof ctx.flags.baseline === 'string' ? ctx.flags.baseline : undefined;
+  const updatePath = typeof ctx.flags['update-baseline'] === 'string' ? ctx.flags['update-baseline'] : undefined;
+  if (baselinePath !== undefined && updatePath !== undefined) {
+    throw new UsageError('--baseline and --update-baseline are mutually exclusive');
+  }
+  let baseline: BaselineFile | undefined;
+  if (baselinePath !== undefined) baseline = await readBaseline(baselinePath);
+
   if (d.auditRunner === undefined) {
     throw new ProviderUnconfiguredError('audit', 'no audit engine wired in this build');
   }
 
   const report = await d.auditRunner.run({ url, maxPages: maxPagesFlag }, ctx.signal); // R8: undefined = core default
   const issues = report.pages.flatMap((p) => p.issues);
-  const gateFailed = report.incomplete || countIssuesAtOrAbove(issues, threshold) > 0; // 'off' never counts
+  const baselineDiff: BaselineDiff | undefined = baseline === undefined ? undefined : diffAgainstBaseline(report, baseline);
+  // E1.3 FR-1 + M4 decision: with a baseline, the threshold applies to NEW
+  // issues only (a new warning does NOT gate at the default error threshold —
+  // the exit-code contract is unchanged); incomplete still fails the gate.
+  const gateIssues = baselineDiff?.newIssues ?? issues;
+  const gateFailed = report.incomplete || countIssuesAtOrAbove(gateIssues, threshold) > 0; // 'off' never counts
   const cancelled = ctx.signal.aborted || report.stopReason === 'aborted';
 
   if (typeof ctx.flags.out === 'string') {
     await writeFileAtomic(ctx.flags.out, `${JSON.stringify(report, null, 2)}\n`);
   }
-  const { io } = ctx;
-  if (ctx.flags.json === true) io.out(jsonDocument(report));
-  else io.out(humanSummary(report, threshold));
 
+  // I2: cancellation/incomplete checks PRECEDE any baseline write — a SIGINT'd
+  // run exits 2 with no write; an incomplete run never bakes a partial set.
   if (cancelled) {
+    const { io } = ctx;
+    if (ctx.flags.json === true) io.out(jsonDocument(report));
+    else io.out(humanSummary(report, threshold, {}));
     io.err('cancelled\n');
-    return EXIT.CONFIG_ERROR; // E14: SIGINT -> 2 (no history write on cancel)
+    return EXIT.CONFIG_ERROR; // E14: SIGINT -> 2 (no history write, no baseline write)
+  }
+  if (updatePath !== undefined) {
+    if (report.incomplete) {
+      throw new UsageError(
+        `cannot --update-baseline from an incomplete report (stopReason: ${report.stopReason ?? 'unknown'}) — re-run to completion first`,
+      );
+    }
+    await writeBaselineAtomic(updatePath, buildBaseline(report, d.clock()));
+  }
+
+  const { io } = ctx;
+  if (ctx.flags.json === true) {
+    // M2: the baseline section is stdout-only; --out keeps the raw report.
+    io.out(
+      jsonDocument(
+        baselineDiff === undefined ? report : { ...report, baseline: baselineSection(baselinePath!, baselineDiff) },
+      ),
+    );
+  } else {
+    io.out(
+      humanSummary(report, threshold, {
+        baselinePath,
+        diff: baselineDiff,
+        verbose: ctx.flags.verbose === true,
+      }),
+    );
   }
   // Stage 3: one audit-digest line per completed run (failures included —
   // incomplete is labeled with its stop reason, never hidden).
@@ -98,10 +144,34 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     provider: 'lumen-audit',
     retrievedAt: d.clock(),
   });
+  // FR-2: an update run's job is the WRITE — the gate is skipped and the run
+  // exits 0 (the adopt flow's first command must not fail on existing findings).
+  if (updatePath !== undefined) return EXIT.OK;
   return gateFailed ? EXIT.ISSUES : EXIT.OK;
 };
 
-export const humanSummary = (report: SiteAuditReport, threshold: FailThreshold): string => {
+/** stdout-only baseline section (M2): --out keeps the raw report untouched. */
+const baselineSection = (path: string, diff: BaselineDiff): Record<string, unknown> => ({
+  path,
+  new: diff.newIssues.map((i) => ({ ruleId: i.ruleId, severity: i.severity, url: i.url })),
+  existingCount: diff.existingCount,
+  fixed: diff.fixed.map((e) => e.url),
+  unknownCount: diff.unknown.length,
+});
+
+interface HumanOptions {
+  baselinePath?: string;
+  diff?: BaselineDiff;
+  verbose?: boolean;
+}
+
+/**
+ * Human output (E1.2 FR-5): findings GROUPED by rule in ranked order, a
+ * `→ fix:` line under each group, up to 3 sample URLs (+N more; --verbose
+ * lists all). With a baseline: the new/existing/fixed sections and the
+ * partial-comparison hint (E1.3 FR-5).
+ */
+export const humanSummary = (report: SiteAuditReport, threshold: FailThreshold, o: HumanOptions = {}): string => {
   const c = report.summary.countsBySeverity;
   const lines = [
     `audit: ${clean(report.pages[0]?.url ?? '')}`,
@@ -110,11 +180,23 @@ export const humanSummary = (report: SiteAuditReport, threshold: FailThreshold):
     `  issues: ${c.error} error / ${c.warning} warning / ${c.info} info`,
     `  failThreshold: ${threshold}${report.incomplete ? '  (report incomplete — gate fails, E1)' : ''}`,
   ];
-  const top = report.pages
-    .flatMap((p) => p.issues)
-    .slice(0, 10);
-  for (const i of top) {
-    lines.push(`    [${i.severity}] ${clean(i.ruleId, 60)}: ${clean(i.message, 140)}`);
+  const groups = report.summary.byRule ?? [];
+  for (const g of groups) {
+    lines.push(`  [${g.severity}] ${g.ruleId} — ${g.affectedPages} page${g.affectedPages === 1 ? '' : 's'}`);
+    const fix = g.fixHint ?? `no fix hint provided (${g.ruleId})`;
+    lines.push(`    → fix: ${clean(fix, 160)}${g.helpUrl !== undefined ? ` (${g.helpUrl})` : ''}`);
+    const urls = o.verbose ? [...new Set(report.pages.flatMap((p) => p.issues.filter((i) => i.ruleId === g.ruleId).map((i) => i.url ?? p.url)))] : g.sampleUrls;
+    for (const u of urls.slice(0, o.verbose ? urls.length : 3)) lines.push(`    ${clean(u, 120)}`);
+    if (!o.verbose && g.affectedPages > 3) lines.push(`    +${g.affectedPages - 3} more (pass --verbose)`);
+  }
+  if (o.diff !== undefined) {
+    lines.push(`  baseline: ${clean(o.baselinePath ?? '', 120)}`);
+    lines.push(`    new: ${o.diff.newIssues.length} (gated) · existing: ${o.diff.existingCount} (reported, not gated) · fixed: ${o.diff.fixed.length} · unknown: ${o.diff.unknown.length}`);
+    for (const i of o.diff.newIssues.slice(0, 10)) {
+      lines.push(`    + [${i.severity}] ${clean(i.ruleId, 60)}: ${clean(i.message, 100)} — ${clean(i.url ?? '', 120)}`);
+    }
+    for (const e of o.diff.fixed.slice(0, 10)) lines.push(`    - fixed: ${clean(e.url, 120)}`);
+    if (report.incomplete) lines.push('    baseline comparison is partial (report incomplete)');
   }
   return `${lines.join('\n')}\n`;
 };

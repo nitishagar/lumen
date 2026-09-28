@@ -23,6 +23,7 @@ const ciExample = [
     { id: 'install', label: 'Install' },
     { id: 'first-run', label: 'First run' },
     { id: 'first-audit', label: 'First audit' },
+    { id: 'baseline', label: 'Baseline' },
     { id: 'exit-codes', label: 'Exit codes' },
     { id: 'json', label: 'JSON output' },
     { id: 'history', label: 'Local history' },
@@ -69,6 +70,20 @@ const ciExample = [
     Add <code>--out report.json</code> to keep the full report — every issue
     carries a rule id, evidence, and a fix hint. The 20 rules are documented in
     the <a href={u('/docs/rules-reference/')}>rules reference</a>.
+  </p>
+
+  <h2 id="baseline">Adopting on a noisy site</h2>
+  <p>
+    Got 400 existing warnings? Record them once and gate only on regressions:{' '}
+    <code>lumen audit $SITE --update-baseline baseline.json</code> (exits 0),
+    then in CI <code>lumen audit $SITE --baseline baseline.json</code>. A
+    finding is "new" only if its fingerprint (rule + normalized URL +
+    selector — message tweaks never count) is absent from the baseline. Note
+    the threshold still applies to <em>new</em> findings: a new warning does
+    not fail a run whose failThreshold is <code>error</code>. Pages not
+    audited in a run are <em>unknown</em>, never counted as fixed. Compare two
+    saved reports any time with{' '}
+    <code>lumen diff a.json b.json</code>.
   </p>
 
   <h2 id="exit-codes">Exit codes</h2>

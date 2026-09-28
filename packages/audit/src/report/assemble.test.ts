@@ -44,16 +44,31 @@ describe('report assembly (I3/I13/A6)', () => {
     const fetcher = new FakeFetcher(routes());
     const report = await runSiteAudit(new URL(ORIGIN), {}, makeTestDeps(fetcher));
     const counts = { error: 0, warning: 0, info: 0 };
-    const byRule: Record<string, number> = {};
+    const byRuleUrls = new Map<string, Set<string>>();
     for (const page of report.pages) {
       for (const issue of page.issues) {
         counts[issue.severity] += 1;
-        byRule[issue.ruleId] = (byRule[issue.ruleId] ?? 0) + 1;
+        const urls = byRuleUrls.get(issue.ruleId) ?? new Set<string>();
+        urls.add(issue.url ?? page.url);
+        byRuleUrls.set(issue.ruleId, urls);
       }
     }
     expect(report.summary.countsBySeverity).toEqual(counts);
-    expect(report.summary.byRule).toEqual(byRule);
-    expect(Object.keys(report.summary.byRule ?? {}).length).toBeGreaterThan(0);
+    // E1.2 FR-2: byRule is the ranked group array — one group per rule, with
+    // affectedPages = distinct audited page urls, and every issue url present.
+    const groups = report.summary.byRule ?? [];
+    expect(new Set(groups.map((g) => g.ruleId))).toEqual(new Set(byRuleUrls.keys())); // same membership
+    // ranked: severity buckets never go error→…→error (non-decreasing severity rank)
+    const rank = { error: 0, warning: 1, info: 2 } as const;
+    for (let i = 1; i < groups.length; i += 1) {
+      expect(rank[groups[i]!.severity]).toBeGreaterThanOrEqual(rank[groups[i - 1]!.severity]);
+    }
+    for (const g of groups) {
+      expect(g.affectedPages, g.ruleId).toBe(byRuleUrls.get(g.ruleId)?.size);
+      expect(g.sampleUrls.length).toBeLessThanOrEqual(3);
+      expect(g.helpUrl, g.ruleId).toContain('docs/rules-reference/#');
+    }
+    expect(groups.length).toBeGreaterThan(0);
     const audited = report.pages.filter((p) => p.skipped === undefined);
     expect(report.summary.pagesAudited).toBe(audited.length);
     expect(report.summary.pagesSkipped).toBe(report.pages.length - audited.length);

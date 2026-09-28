@@ -155,6 +155,7 @@ export const robotsNoindex = (severity: Severity): AuditRule => ({
           ? 'page is marked noindex via <meta name="robots">'
           : 'page is marked noindex via the X-Robots-Tag header',
         evidence: viaMeta ? { selector: 'meta[name="robots"]', snippet: metaContent } : { selector: 'X-Robots-Tag' },
+        fixHint: 'remove the noindex directive (meta or X-Robots-Tag) if the page should be indexed; otherwise link to it from nowhere internal',
       },
     ];
   },

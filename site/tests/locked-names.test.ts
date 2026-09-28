@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import locked from '../src/data/locked-names.json';
 import { builtHtmlFiles, readDist } from './helpers';
@@ -73,7 +74,7 @@ describe('G7 locked names', () => {
     expect(readDist('index.html')).toContain(locked.tagline);
   });
 
-  test('all seven locked CLI commands appear in the CLI reference', () => {
+  test('all locked CLI commands appear in the CLI reference', () => {
     const html = readDist('docs/cli-reference/index.html');
     for (const command of locked.cliCommands) {
       expect(html, `command "${command}" missing from CLI reference`).toContain(`lumen ${command}`);
@@ -138,6 +139,18 @@ describe('G7 locked names', () => {
     ].join('\n');
     for (const token of [locked.configFile, 'failThreshold', locked.historyDir, ...locked.cliFlags]) {
       expect(union, `token "${token}" missing from docs`).toContain(token);
+    }
+  });
+
+  test('every built-in rule id is an anchor on the rules-reference page (E1.2 FR-3 helpUrls)', () => {
+    // Same source-parse as test/contract-counts.test.mjs — the shipped
+    // helpUrl anchors (.../docs/rules-reference/#<ruleId>) must resolve.
+    const src = readFileSync('packages/audit/src/rules/rule-set.ts', 'utf8');
+    const ids = [...src.matchAll(/\{ id: '([a-z0-9-]+)', defaultSeverity/g)].map((m) => m[1]!);
+    expect(ids.length).toBe(20);
+    const html = readDist('docs/rules-reference/index.html');
+    for (const id of ids) {
+      expect(html, `anchor id="${id}" missing from rules-reference`).toContain(`id="${id}"`);
     }
   });
 });

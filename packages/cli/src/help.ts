@@ -21,6 +21,7 @@ Commands:
   config show          Resolved config (BYOK env NAMES + set-flag only)
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
+  diff                 Compare two saved audit reports (new/existing/fixed)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -52,6 +53,9 @@ const USAGE_BY_COMMAND: Record<string, string> = {
       '--allow-private    Audit a LOCAL target: loopback only, scoped to the seed origin;',
       '                   other private ranges need crawl.allowPrivateHosts in config',
       '--canonical-origin Production origin of a preview (--canonical-origin https://prod.example)',
+      '--baseline <file>  Gate only on findings NOT in the baseline (adopt lumen on a noisy site)',
+      "--update-baseline <file>  Write this run's fingerprints (sorted, versioned) and exit 0",
+      '--verbose          List every affected URL per rule group (default: 3 samples)',
       '--json             One JSON document on stdout',
     ],
     [
@@ -123,6 +127,15 @@ const USAGE_BY_COMMAND: Record<string, string> = {
     [
       'Writes defaults (failThreshold, crawl budgets, byok env-var NAMES) and adds',
       '.lumen/ to .gitignore in a git repo. Never writes or prints a key value.',
+    ],
+  ),
+  diff: usage(
+    'lumen diff — compare two saved audit reports',
+    'lumen diff <a.json> <b.json> [--json]',
+    ['--json              One JSON document on stdout'],
+    [
+      'New/existing/fixed breakdown plus the score delta. Exit 1 when b has',
+      'new findings; pages not audited in b are unknown, never "fixed".',
     ],
   ),
   doctor: usage(

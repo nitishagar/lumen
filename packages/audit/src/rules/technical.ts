@@ -37,6 +37,7 @@ export const statusError = (severity: Severity): AuditRule => ({
         severity,
         message: `page returned HTTP ${page.status}`,
         evidence: { selector: 'status' },
+        fixHint: 'fix or remove the broken URL, or return the correct status for the content that is there',
       },
     ];
   },

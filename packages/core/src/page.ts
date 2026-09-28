@@ -28,15 +28,30 @@ export interface IssueEvidence {
   snippet?: string;
 }
 
-/** `Issue{ruleId, severity, message, evidence{selector?,snippet?}, fixHint?}` + additive `url?` (A12). */
+/** `Issue{ruleId, severity, message, evidence{selector?,snippet?}, fixHint?}` + additive `url?`/`helpUrl?` (A12, E1.2). */
 export interface Issue {
   ruleId: string;
   severity: Severity;
   message: string;
   evidence: IssueEvidence;
   fixHint?: string;
-  /** Owning/source page URL for crawl-level issues attributed to a page (A12). */
+  /** Owning/source page URL for crawl-level issues attributed to a page (A12); set on EVERY issue since E1.2. */
   url?: string;
+  /** Engine-controlled stable docs anchor (`…/docs/rules-reference/#<ruleId>`) — built-ins only, never page-derived (E1.2 FR-3). */
+  helpUrl?: string;
+}
+
+/** One grouped-by-rule entry of `summary.byRule` (E1.2 FR-2 — replaces the counts map, 0.x breaking per D2). */
+export interface ByRuleGroup {
+  ruleId: string;
+  /** Highest severity present in the group. */
+  severity: Severity;
+  /** Distinct AUDITED page URLs affected (P-Honest: skipped pages never count). */
+  affectedPages: number;
+  /** Up to 3 sample URLs, sorted. */
+  sampleUrls: string[];
+  fixHint?: string;
+  helpUrl?: string;
 }
 
 /**
@@ -70,7 +85,8 @@ export interface SiteAuditReportSummary {
   score: number | null;
   pagesAudited?: number;
   pagesSkipped?: number;
-  byRule?: Record<string, number>;
+  /** Grouped-by-rule findings, ranked (severity → affectedPages desc → ruleId) — E1.2 FR-1/FR-2 (0.x breaking per D2). */
+  byRule?: readonly ByRuleGroup[];
   /** RuleId → count of per-rule/per-page execution failures (isolated, run continued). */
   ruleErrors?: Record<string, number>;
 }

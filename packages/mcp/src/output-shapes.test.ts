@@ -17,7 +17,7 @@ describe('concise vs detailed shapes (E8)', () => {
     expect(res.isError).toBeUndefined();
     const payload = parseToolJson<Record<string, unknown>>(res as never);
     expect(Object.keys(payload).sort()).toEqual(
-      ['countsBySeverity', 'failThreshold', 'incomplete', 'pages', 'passesThreshold', 'score', 'topIssues', 'url'].sort(),
+      ['countsBySeverity', 'failThreshold', 'incomplete', 'pages', 'passesThreshold', 'score', 'topRules', 'url'].sort(),
     );
     expect(payload.url).toBe('https://example.com/');
     expect(payload.passesThreshold).toBe(true); // fixture audit has zero issues
@@ -51,6 +51,7 @@ describe('concise vs detailed shapes (E8)', () => {
       severity: 'error' as const,
       message: 'duplicate title',
       evidence: {},
+      fixHint: 'deduplicate the titles',
     };
     const client = await connectClient({ ...fixtureDeps(), auditRunner: fixtureAuditRunner({ issues: [issue] }) });
     const res = await client.callTool({
@@ -59,12 +60,16 @@ describe('concise vs detailed shapes (E8)', () => {
     });
     const payload = parseToolJson<{
       countsBySeverity: Record<string, number>;
-      topIssues: { ruleId: string; severity: string; message: string }[];
+      topRules: { ruleId: string; severity: string; affectedPages: number; sampleUrls: string[]; fixHint?: string }[];
       passesThreshold: boolean;
     }>(res as never);
     expect(payload.countsBySeverity).toMatchObject({ error: 1, warning: 0, info: 0 });
-    expect(payload.topIssues[0]).toMatchObject({ ruleId: 'rule/dup-title', severity: 'error' });
-    expect(payload.topIssues.length).toBeLessThanOrEqual(10); // E8: topIssues[≤10]
+    // E1.2 FR-2 (D2): topRules — the ranked group — replaces topIssues.
+    expect(payload.topRules[0]).toMatchObject({ ruleId: 'rule/dup-title', severity: 'error', affectedPages: 1 });
+    expect(payload.topRules.length).toBeLessThanOrEqual(10); // ≤10 groups
+    // E1.2 AC: the first group carries the page URL (sampleUrls) and the fix.
+    expect(payload.topRules[0]?.sampleUrls).toEqual(['https://example.com/']);
+    expect(payload.topRules[0]?.fixHint).toBe('deduplicate the titles');
     expect(payload.passesThreshold).toBe(false);
     await client.close();
   });

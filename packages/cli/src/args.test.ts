@@ -50,8 +50,8 @@ describe('args dispatch (B1/B12/E15/I15)', () => {
     });
 
     it('unknown flag is rejected by strict parseArgs with a usage hint', () => {
-      expect(() => parseCommand(['audit', 'https://example.com', '--verbose'])).toThrow(UsageError);
-      expect(() => parseCommand(['audit', 'https://example.com', '--verbose'])).toThrow(
+      expect(() => parseCommand(['audit', 'https://example.com', '--nope'])).toThrow(UsageError);
+      expect(() => parseCommand(['audit', 'https://example.com', '--nope'])).toThrow(
         /lumen audit --help/,
       );
     });

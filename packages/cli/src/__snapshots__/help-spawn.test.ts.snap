@@ -16,6 +16,7 @@ Commands:
   config show          Resolved config (BYOK env NAMES + set-flag only)
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
+  diff                 Compare two saved audit reports (new/existing/fixed)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -40,6 +41,9 @@ Flags:
   --allow-private    Audit a LOCAL target: loopback only, scoped to the seed origin;
                      other private ranges need crawl.allowPrivateHosts in config
   --canonical-origin Production origin of a preview (--canonical-origin https://prod.example)
+  --baseline <file>  Gate only on findings NOT in the baseline (adopt lumen on a noisy site)
+  --update-baseline <file>  Write this run's fingerprints (sorted, versioned) and exit 0
+  --verbose          List every affected URL per rule group (default: 3 samples)
   --json             One JSON document on stdout
 
 Exit codes: 0 under threshold; 1 issues at/above failThreshold or incomplete; 2 error.
@@ -75,6 +79,7 @@ Commands:
   config show          Resolved config (BYOK env NAMES + set-flag only)
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
+  diff                 Compare two saved audit reports (new/existing/fixed)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -93,6 +98,19 @@ Usage: lumen config show [--json]
 
 Flags:
   --json              One JSON document on stdout
+"
+`;
+
+exports[`help contract via the real bin (E15) > diff --help prints command usage, exit 0 > help-diff 1`] = `
+"lumen diff — compare two saved audit reports
+
+Usage: lumen diff <a.json> <b.json> [--json]
+
+Flags:
+  --json              One JSON document on stdout
+
+New/existing/fixed breakdown plus the score delta. Exit 1 when b has
+new findings; pages not audited in b are unknown, never "fixed".
 "
 `;
 

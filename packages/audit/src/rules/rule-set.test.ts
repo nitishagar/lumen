@@ -195,6 +195,9 @@ describe('rule-set configuration (I2)', () => {
     expect(broken?.url).toBe('https://example.com/');
     const target = report.pages.find((p) => p.url === 'https://example.com/missing');
     expect(target?.issues.some((i) => i.ruleId === 'broken-internal-link')).toBe(false);
-    expect(report.summary.byRule?.['broken-internal-link']).toBe(1);
+    const group = report.summary.byRule?.find((g) => g.ruleId === 'broken-internal-link');
+    expect(group).toBeDefined();
+    expect(group?.affectedPages).toBe(1);
+    expect(group?.sampleUrls).toEqual(['https://example.com/']);
   });
 });

@@ -13,6 +13,7 @@ const commands = [
   { cmd: 'lumen config show', what: 'print the resolved config — budgets, providers, thresholds, defaults included' },
   { cmd: 'lumen init', what: 'write a defaults lumen.config.json (BYOK env-var names, never values) and print next steps; --force overwrites' },
   { cmd: 'lumen doctor', what: 'setup report: node vs engines, config validity, per-provider BYOK status; --online probes ready providers once each' },
+  { cmd: 'lumen diff <a.json> <b.json>', what: 'compare two saved audit reports — new/existing/fixed findings plus the score delta; exit 1 when the newer report has new findings' },
 ];
 const flags = [
   { flag: '--max-pages N', what: 'page budget for a crawl (default 100, hard ceiling 10,000)' },
@@ -21,6 +22,9 @@ const flags = [
   { flag: '--domain <domain>', what: 'target domain for lumen rank' },
   { flag: '--allow-private', what: 'audit/report on a LOCAL target: loopback only (localhost, 127.0.0.0/8, ::1), scoped to the seed origin — redirects or links to any other private host are still refused; non-loopback ranges must be listed in crawl.allowPrivateHosts' },
   { flag: '--canonical-origin <url>', what: 'with --allow-private: the production origin a preview represents — scheme-context rules (insecure-http) evaluate against it instead of flooding on the preview' },
+  { flag: '--baseline <file>', what: 'gate the audit only on findings NOT in the baseline (fingerprint = rule + normalized URL + selector; message tweaks never un-baseline); pages not audited this run are unknown, never "fixed"' },
+  { flag: '--update-baseline <file>', what: "write this run's fingerprints to a sorted, versioned baseline file and exit 0 — the adopt flow for a site with existing findings" },
+  { flag: '--verbose', what: 'list every affected URL per rule group instead of 3 samples' },
 ];
 const example = [
   { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },
@@ -32,7 +36,7 @@ const example = [
 ---
 <DocsLayout
   title="CLI reference"
-  description="All nine lumen commands, the four shared flags, and the exit-code contract used as a CI gate."
+  description="All ten lumen commands, the four shared flags, and the exit-code contract used as a CI gate."
   activeHref="/docs/cli-reference/"
   toc={[
     { id: 'commands', label: 'Commands' },
@@ -42,7 +46,7 @@ const example = [
   ]}
 >
   <p>
-    Nine commands, one binary. The data commands are the CLI face of the same
+    Ten commands, one binary. The data commands are the CLI face of the same
     MCP tools — same engine, same provenance rules, same exit codes; init and
     doctor are CLI-only setup helpers.
   </p>

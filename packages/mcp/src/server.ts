@@ -431,16 +431,21 @@ const auditPayload = (
 ): Record<string, unknown> => {
   const issues = report.pages.flatMap((p) => p.issues);
   const passes = !report.incomplete && countAtOrAbove(issues, failThreshold) === 0;
+  // E1.2 FR-2 (decision D2): topRules — the ranked by-rule groups — REPLACE
+  // topIssues in BOTH formats; the concise payload stays small by construction
+  // (≤10 groups × bounded fields, ≤4 KB observed by the concise-size eval).
   const base = {
     url,
     pages: report.summary.pagesAudited ?? report.pages.length,
     score: report.summary.score,
     countsBySeverity: report.summary.countsBySeverity,
-    topIssues: issues.slice(0, 10).map((i) => ({
-      ruleId: i.ruleId,
-      severity: i.severity,
-      message: i.message,
-      ...(i.url === undefined ? {} : { url: i.url }),
+    topRules: (report.summary.byRule ?? []).slice(0, 10).map((g) => ({
+      ruleId: g.ruleId,
+      severity: g.severity,
+      affectedPages: g.affectedPages,
+      sampleUrls: g.sampleUrls,
+      ...(g.fixHint !== undefined ? { fixHint: g.fixHint } : {}),
+      ...(g.helpUrl !== undefined ? { helpUrl: g.helpUrl } : {}),
     })),
     passesThreshold: passes,
     incomplete: report.incomplete,

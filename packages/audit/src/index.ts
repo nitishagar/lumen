@@ -14,7 +14,11 @@ export const packageName = '@lumen-seo/audit';
 export { runSiteAudit } from './run.js';
 
 /** Rule-set configuration (I2): built-ins + plugins, override validation. */
-export { BUILT_IN_RULE_IDS, builtInRuleMetadata, createRuleSet } from './rules/rule-set.js';
+export { BUILT_IN_RULE_IDS, builtInRuleMetadata, createRuleSet, helpUrlFor, RULES_REFERENCE_BASE } from './rules/rule-set.js';
+export { compareIssues, groupIssues, rankedIssues, SEVERITY_ORDER } from './ranking.js';
+export { fingerprintIssue } from './fingerprint.js';
+export { buildBaseline, diffAgainstBaseline, diffReports } from './baseline.js';
+export type { BaselineDiff, BaselineEntry, BaselineFile } from './baseline.js';
 
 /** Scorer (A7) and sanitizers (I13) — exported for P4 consumers and reuse. */
 export { WEIGHT, scorePage, scoreReport } from './report/score.js';

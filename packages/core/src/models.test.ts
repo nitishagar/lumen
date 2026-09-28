@@ -213,7 +213,7 @@ describe('payload model contracts (SC-9)', () => {
         score: null,
         pagesAudited: 3,
         pagesSkipped: 1,
-        byRule: { 'title-missing': 2 },
+        byRule: [{ ruleId: 'title-missing', severity: 'error', affectedPages: 2, sampleUrls: ['https://example.com/'] }],
         ruleErrors: { 'broken-internal-link': 1 },
       },
     };

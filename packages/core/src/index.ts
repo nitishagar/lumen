@@ -22,6 +22,7 @@ export type {
   SerpResult,
 } from './payloads.js';
 export type {
+  ByRuleGroup,
   Issue,
   IssueEvidence,
   PageContext,

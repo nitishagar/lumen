@@ -20,13 +20,33 @@
     "mcp",
     "config show",
     "init",
-    "doctor"
+    "doctor",
+    "diff"
   ],
-  "cliFlags": ["--max-pages", "--out", "--json", "--domain", "--allow-private", "--canonical-origin"],
+  "cliFlags": [
+    "--max-pages",
+    "--out",
+    "--json",
+    "--domain",
+    "--allow-private",
+    "--canonical-origin",
+    "--baseline",
+    "--update-baseline",
+    "--verbose"
+  ],
   "exitCodes": [
-    { "code": 0, "meaning": "ok — no issues at or above failThreshold" },
-    { "code": 1, "meaning": "issues at or above failThreshold" },
-    { "code": 2, "meaning": "config or provider error" }
+    {
+      "code": 0,
+      "meaning": "ok \u2014 no issues at or above failThreshold"
+    },
+    {
+      "code": 1,
+      "meaning": "audit gate failed (issues at/above failThreshold, or new findings with --baseline) or diff found new findings"
+    },
+    {
+      "code": 2,
+      "meaning": "config or provider error"
+    }
   ],
   "mcpTools": [
     "lumen_audit_site",
@@ -36,7 +56,11 @@
     "lumen_authority"
   ],
   "responseFormatNote": "response_format",
-  "envVars": ["LUMEN_PSI_KEY", "LUMEN_CRUX_KEY", "LUMEN_OPR_KEY"],
+  "envVars": [
+    "LUMEN_PSI_KEY",
+    "LUMEN_CRUX_KEY",
+    "LUMEN_OPR_KEY"
+  ],
   "configFile": "lumen.config.json",
   "configKeys": [
     "providers",

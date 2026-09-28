@@ -106,7 +106,7 @@ const incompleteExample = `{
     </thead>
     <tbody>
       {rules.map((rule) => (
-        <tr>
+        <tr id={rule.id}>
           <td><code>{rule.id}</code></td>
           <td><span class={sevBadge[rule.severity]}>{rule.severity}</span></td>
           <td>{rule.categories.join(', ')}</td>
