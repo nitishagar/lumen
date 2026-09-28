@@ -17,3 +17,6 @@ coverage/
 
 # evalite local storage
 .evalite/
+
+# stray eval trial outputs (PRD §8 hygiene: .last-run.json is a local artifact)
+evals/

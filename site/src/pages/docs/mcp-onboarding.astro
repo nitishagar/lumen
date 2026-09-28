@@ -39,6 +39,7 @@ const toolTable = [
     { id: 'cursor', label: 'Cursor' },
     { id: 'vscode', label: 'VS Code' },
     { id: 'universal', label: 'Universal JSON' },
+    { id: 'bundles-and-plugins', label: 'Bundles and plugins' },
     { id: 'tools', label: 'The five tools' },
     { id: 'remote-gateway', label: 'Remote gateway' },
     { id: 'local-only', label: 'Local-only audit' },
@@ -82,6 +83,22 @@ const toolTable = [
   <h2 id="universal">Universal JSON</h2>
   <p>For any client that speaks <code>mcpServers</code>:</p>
   <pre><code>{locked.snippets.mcpServersJson}</code></pre>
+
+  <h2 id="bundles-and-plugins">Bundles and plugins</h2>
+  <p>
+    Claude Desktop users can install without touching any config file — the{' '}
+    <code>.mcpb</code> desktop extension carries the server config and asks
+    for the three optional keys itself (they travel to lumen as environment
+    variables, names only, and are sent only to their own providers):
+  </p>
+  <pre><code>{locked.snippets.mcpbInstall}</code></pre>
+  <p>
+    Claude Code users can install lumen as a plugin, which adds the MCP
+    server plus the <code>seo-check</code> skill (audit → ranked fixes →
+    re-audit):
+  </p>
+  <pre><code>{locked.snippets.pluginMarketplaceAdd}
+{locked.snippets.pluginInstall}</code></pre>
 
   <h2 id="tools">The five tools</h2>
   <table>

@@ -25,7 +25,7 @@ export default tseslint.config(
   {
     // Plain-Node CI gate scripts and their tests are dependency-free .mjs
     // (ci-deploy PLAN Phase 1) — declare the Node runtime globals for them.
-    files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'packages/*/scripts/**/*.mjs', 'mcpb/*.js'],
     languageOptions: { globals: { ...globals.node } },
   },
   {
@@ -45,8 +45,12 @@ export default tseslint.config(
     },
   },
   {
-    // The Fetcher's default transport is the single sanctioned call site.
-    files: ['packages/core/src/fetcher.ts'],
+    // The Fetcher's default transport is the single sanctioned product call
+    // site; scripts/ci/link-check.mjs is the second — the link-integrity
+    // gate's entire purpose is outbound documentation checks, it runs
+    // scheduled in CI only (never in the per-PR offline gate), and its
+    // outbound set is pinned by test/link-check.test.mjs.
+    files: ['packages/core/src/fetcher.ts', 'scripts/ci/link-check.mjs'],
     rules: { 'no-restricted-globals': 'off' },
   },
   {

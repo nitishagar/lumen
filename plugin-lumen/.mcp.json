@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lumen": {
+      "command": "npx",
+      "args": ["-y", "@lumen-seo/cli", "mcp"]
+    }
+  }
+}

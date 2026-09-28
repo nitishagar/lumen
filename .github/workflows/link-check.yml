@@ -1,0 +1,24 @@
+name: Link Check
+
+# Link-integrity gate (PRD E0.1 FR-2): every absolute URL in the READMEs,
+# SECURITY.md, and locked-names.json must return 2xx. Scheduled weekly and on
+# release tags only — deliberately NOT in the per-PR offline gate (the PR gate
+# stays network-free). Red here means a published link is broken for users.
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 03:00 UTC
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions: { contents: read }
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - run: node scripts/ci/link-check.mjs

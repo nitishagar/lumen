@@ -103,7 +103,10 @@ export function loadPublishableWorkspaces(lock) {
   }
   const byName = new Map();
   for (const [dir, entry] of Object.entries(packages)) {
-    if (dir === '' || !dir.startsWith('packages/')) continue; // root + registry + root-level workspaces (site) are not publishable
+    // Nested deps (packages/<ws>/node_modules/...) also start with "packages/"
+    // but are lockfile leaf entries without names — excluded per the doc
+    // comment above (a committed nested workerd entry tripped this).
+    if (dir === '' || !dir.startsWith('packages/') || dir.includes('node_modules/')) continue;
     const name = entry !== null && typeof entry === 'object' ? entry.name : undefined;
     if (typeof name !== 'string' || name === '') {
       throw new PublishScriptError(`workspace at "${dir}" has no usable name in the lockfile`, { kind: 'lockfile' });

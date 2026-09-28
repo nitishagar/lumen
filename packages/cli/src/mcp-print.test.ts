@@ -1,8 +1,9 @@
 /**
- * `lumen mcp --print` contract (E11): all 8 payloads (4 targets × local /
- * remote `--url`) print deterministically to stdout, exit 0, WITHOUT starting
- * the server, and match the @lumen-seo/mcp builders byte-for-byte (the site
- * docs consume the same strings). Snapshot-tested for visible drift.
+ * `lumen mcp --print` contract (E11): all 14 payloads (4 connection targets ×
+ * local/remote `--url` + 3 distribution artifacts) print deterministically to
+ * stdout, exit 0, WITHOUT starting the server, and match the @lumen-seo/mcp
+ * builders byte-for-byte (the site docs consume the same strings).
+ * Snapshot-tested for visible drift.
  */
 import { describe, expect, it } from 'vitest';
 import { onboardPayload } from '@lumen-seo/mcp';
@@ -10,6 +11,7 @@ import { run } from './run.js';
 import { MemoryIo } from './io.js';
 
 const TARGETS = ['json', 'claude', 'cursor', 'vscode'] as const;
+const DISTRIBUTION_TARGETS = ['mcpb', 'registry', 'claude-plugin'] as const;
 const REMOTE = 'https://mcp.example.com/mcp';
 
 const printPayload = async (args: string[]): Promise<{ code: number; stdout: string; stderr: string }> => {
@@ -33,6 +35,16 @@ describe('mcp --print onboarding payloads (E11)', () => {
     expect(r.stdout).toBe(`${onboardPayload(target, REMOTE)}\n`);
     expect(r.stderr).toBe('');
     expect(r.stdout).toMatchSnapshot(`print-${target}-remote`);
+  });
+
+  it.each(DISTRIBUTION_TARGETS)('lumen mcp --print %s — distribution artifact, exit 0, --url is a no-op', async (target) => {
+    const r = await printPayload(['--print', target]);
+    const withUrl = await printPayload(['--print', target, '--url', REMOTE]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe(`${onboardPayload(target)}\n`);
+    expect(r.stderr).toBe('');
+    expect(r.stdout).toMatchSnapshot(`print-${target}`);
+    expect(withUrl.stdout).toBe(r.stdout);
   });
 
   it('invalid --print target exits 2 with the allowed values (I15)', async () => {

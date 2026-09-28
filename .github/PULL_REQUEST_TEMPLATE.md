@@ -5,6 +5,7 @@
 ## Checklist
 
 - [ ] `npm run validate` passes locally (typecheck + lint + test + site build + CLI smoke)
+- [ ] `CHANGELOG.md` `[Unreleased]` updated if the change is user-facing
 - [ ] Conventional Commit subject (`feat:`, `fix:`, `docs:`, `chore:`, …) — commits are squashed on merge
 - [ ] Commit author is the configured identity; no co-author/generated-by trailers (CI-enforced)
 - [ ] Tests cover the change (or explain why not)

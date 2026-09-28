@@ -1,0 +1,13 @@
+{
+  "name": "nitishagar-lumen",
+  "owner": {
+    "name": "Nitish Agarwal"
+  },
+  "plugins": [
+    {
+      "name": "lumen",
+      "source": "./plugin-lumen",
+      "description": "Deterministic, honest SEO audits as MCP tools + the seo-check skill. Free/BYOK providers, provenance on every number."
+    }
+  ]
+}

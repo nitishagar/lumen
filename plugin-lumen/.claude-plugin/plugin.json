@@ -1,0 +1,11 @@
+{
+  "name": "lumen",
+  "version": "0.3.0",
+  "description": "Honest, deterministic SEO audits — the lumen MCP server (5 tools) plus the seo-check skill that audits a site and fixes the top findings.",
+  "author": {
+    "name": "Nitish Agarwal"
+  },
+  "homepage": "https://github.com/nitishagar/lumen",
+  "license": "Apache-2.0",
+  "keywords": ["seo", "audit", "mcp"]
+}

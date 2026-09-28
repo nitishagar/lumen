@@ -64,6 +64,9 @@
     "installGlobal": "npm install -g @lumen-seo/cli",
     "npxAudit": "npx -y @lumen-seo/cli audit https://example.com",
     "claudeMcpAdd": "claude mcp add --transport stdio lumen -- npx -y @lumen-seo/cli mcp",
-    "mcpServersJson": "{\"mcpServers\":{\"lumen\":{\"command\":\"npx\",\"args\":[\"-y\",\"@lumen-seo/cli\",\"mcp\"]}}}"
+    "mcpServersJson": "{\"mcpServers\":{\"lumen\":{\"command\":\"npx\",\"args\":[\"-y\",\"@lumen-seo/cli\",\"mcp\"]}}}",
+    "mcpbInstall": "Download lumen.mcpb from https://github.com/nitishagar/lumen/releases and double-click it",
+    "pluginMarketplaceAdd": "/plugin marketplace add nitishagar/lumen",
+    "pluginInstall": "/plugin install lumen@nitishagar-lumen"
   }
 }

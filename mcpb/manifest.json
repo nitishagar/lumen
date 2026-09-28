@@ -1,0 +1,52 @@
+{
+  "manifest_version": "0.3",
+  "name": "lumen",
+  "display_name": "lumen — honest SEO for agents",
+  "version": "0.3.0",
+  "description": "Deterministic, honest SEO audits (20 built-in rules), keyword ideas, rank checks, and CWV page reports — free/BYOK providers only, provenance on every number.",
+  "author": {
+    "name": "Nitish Agarwal",
+    "url": "https://github.com/nitishagar"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.js"],
+      "env": {
+        "LUMEN_PSI_KEY": "${user_config.LUMEN_PSI_KEY}",
+        "LUMEN_CRUX_KEY": "${user_config.LUMEN_CRUX_KEY}",
+        "LUMEN_OPR_KEY": "${user_config.LUMEN_OPR_KEY}"
+      }
+    }
+  },
+  "user_config": {
+    "LUMEN_PSI_KEY": {
+      "type": "string",
+      "title": "PageSpeed Insights API key",
+      "description": "Optional — enables the CWV lab leg of page reports. lumen sends this key only to Google's Pagespeed API.",
+      "sensitive": true,
+      "required": false
+    },
+    "LUMEN_CRUX_KEY": {
+      "type": "string",
+      "title": "Chrome UX Report API key",
+      "description": "Optional — enables real-user field CWV data. lumen sends this key only to Google's CrUX API.",
+      "sensitive": true,
+      "required": false
+    },
+    "LUMEN_OPR_KEY": {
+      "type": "string",
+      "title": "Open PageRank API key",
+      "description": "Optional — enables the Open PageRank authority signal. lumen sends this key only to openpagerank.com.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "compatibility": {
+    "runtimes": {
+      "node": ">=22"
+    }
+  }
+}

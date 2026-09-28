@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nitishagar/lumen",
+  "description": "Deterministic, honest SEO audits as MCP tools: bounded polite site audit with 20 built-in rules, keyword ideas, rank checks, and CWV page reports — free/BYOK providers only, provenance on every number.",
+  "repository": {
+    "url": "https://github.com/nitishagar/lumen",
+    "source": "github"
+  },
+  "version": "0.3.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@lumen-seo/cli",
+      "version": "0.3.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "LUMEN_PSI_KEY",
+          "description": "Google PageSpeed Insights API key — enables the CWV lab leg of page reports. Optional; without it that leg reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "LUMEN_CRUX_KEY",
+          "description": "Chrome UX Report API key — enables field CWV data. Optional; without it that leg reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "LUMEN_OPR_KEY",
+          "description": "Open PageRank API key — enables the OPR authority signal. Optional; without it that signal reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

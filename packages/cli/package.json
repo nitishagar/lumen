@@ -1,6 +1,7 @@
 {
   "name": "@lumen-seo/cli",
   "version": "0.0.0",
+  "mcpName": "io.github.nitishagar/lumen",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",

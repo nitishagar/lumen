@@ -4,6 +4,13 @@ exports[`onboarding payloads (E11) > claude (local stdio) — snapshot > onboard
 
 exports[`onboarding payloads (E11) > claude (remote http via --url) — snapshot > onboard-claude-remote 1`] = `"claude mcp add --transport http lumen 'https://mcp.example.com/mcp'"`;
 
+exports[`onboarding payloads (E11) > claude-plugin (distribution artifact) — snapshot > onboard-claude-plugin 1`] = `
+"# lumen Claude Code plugin
+/plugin marketplace add nitishagar/lumen
+/plugin install lumen@nitishagar-lumen
+Ships the lumen MCP server (stdio, \`npx -y @lumen-seo/cli mcp\`) and the seo-check skill (audit → ranked fixes → re-audit)."
+`;
+
 exports[`onboarding payloads (E11) > cursor (local stdio) — snapshot > onboard-cursor-local 1`] = `"cursor://anysphere.cursor-deeplink/mcp/install?name=lumen&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBsdW1lbi1zZW8vY2xpIiwibWNwIl19"`;
 
 exports[`onboarding payloads (E11) > cursor (remote http via --url) — snapshot > onboard-cursor-remote 1`] = `"cursor://anysphere.cursor-deeplink/mcp/install?name=lumen&config=eyJ0eXBlIjoiaHR0cCIsInVybCI6Imh0dHBzOi8vbWNwLmV4YW1wbGUuY29tL21jcCJ9"`;
@@ -31,6 +38,59 @@ exports[`onboarding payloads (E11) > json (remote http via --url) — snapshot >
       "url": "https://mcp.example.com/mcp"
     }
   }
+}"
+`;
+
+exports[`onboarding payloads (E11) > mcpb (distribution artifact) — snapshot > onboard-mcpb 1`] = `
+"# lumen.mcpb — Claude Desktop bundle
+Install: download lumen.mcpb from https://github.com/nitishagar/lumen/releases and double-click it (Claude Desktop → Settings → Extensions also works).
+Requires Node >= 22 — the bundle is a thin launcher that runs the npm package (\`npx -y @lumen-seo/cli mcp\`).
+Optional keys, names only, prompted in Claude Desktop and delivered as env vars: LUMEN_PSI_KEY, LUMEN_CRUX_KEY, LUMEN_OPR_KEY."
+`;
+
+exports[`onboarding payloads (E11) > registry (distribution artifact) — snapshot > onboard-registry 1`] = `
+"{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nitishagar/lumen",
+  "description": "Deterministic, honest SEO audits as MCP tools: bounded polite site audit with 20 built-in rules, keyword ideas, rank checks, and CWV page reports — free/BYOK providers only, provenance on every number.",
+  "repository": {
+    "url": "https://github.com/nitishagar/lumen",
+    "source": "github"
+  },
+  "version": "0.3.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@lumen-seo/cli",
+      "version": "0.3.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "LUMEN_PSI_KEY",
+          "description": "Google PageSpeed Insights API key — enables the CWV lab leg of page reports. Optional; without it that leg reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "LUMEN_CRUX_KEY",
+          "description": "Chrome UX Report API key — enables field CWV data. Optional; without it that leg reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "LUMEN_OPR_KEY",
+          "description": "Open PageRank API key — enables the OPR authority signal. Optional; without it that signal reports not-configured.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
 }"
 `;
 

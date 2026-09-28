@@ -20,7 +20,7 @@ import { mcpDepsFromCommand } from '../composition/mcp.js';
 import { UsageError } from '../usage-error.js';
 import type { CliContext } from '../run.js';
 
-const PRINT_TARGETS = ['json', 'claude', 'cursor', 'vscode'] as const satisfies readonly OnboardTarget[];
+const PRINT_TARGETS = ['json', 'claude', 'cursor', 'vscode', 'mcpb', 'registry', 'claude-plugin'] as const satisfies readonly OnboardTarget[];
 
 export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<number> => {
   const { io, signal } = ctx;

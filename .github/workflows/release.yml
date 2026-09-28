@@ -41,6 +41,8 @@ jobs:
 
   publish:
     needs: [build-and-test, github-release]
+    outputs:
+      skip: ${{ steps.guard.outputs.skip }}   # consumed by the registry job
     runs-on: ubuntu-latest
     steps:
       - name: Guard — skip cleanly when NODE_AUTH_TOKEN is absent
@@ -65,3 +67,67 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: node scripts/ci/publish-workspaces.mjs --tag "$TAG"
+      - name: Assert the published npm version equals the tag (drift gate, PRD hygiene P0)
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          PUBLISHED="$(npm view @lumen-seo/cli version)"
+          if [ "$PUBLISHED" != "$VERSION" ]; then
+            echo "::error::npm latest (@lumen-seo/cli $PUBLISHED) != tag ($VERSION) — released artifacts disagree with the tagged release"
+            exit 1
+          fi
+
+  registry:
+    # MCP Registry publish (PRD E0.3 FR-1): metadata-only; validation requires
+    # the npm package at the same version, so this must never run before
+    # `publish` (dependency, not convention). GitHub OIDC authenticates the
+    # io.github.nitishagar/* namespace — no stored secret.
+    needs: publish
+    if: needs.publish.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+      - name: Substitute the tag version runner-local (nothing commits to the repo)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('fs');
+            const j = JSON.parse(fs.readFileSync('server.json', 'utf8'));
+            j.version = process.argv[1];
+            j.packages[0].version = process.argv[1];
+            fs.writeFileSync('server.json', JSON.stringify(j, null, 2) + '\n');
+          " "$VERSION"
+      - run: mcp-publisher login github-oidc
+      - run: mcp-publisher publish
+
+  mcpb:
+    # Desktop-extension bundle (PRD E0.3 FR-2): manifest + thin npx launcher
+    # (P-Thin — no vendored dependency tree), attached to the GitHub Release.
+    needs: github-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22 }
+      - name: Build lumen.mcpb (runner-local version substitution)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('fs');
+            const p = 'mcpb/manifest.json';
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.version = process.argv[1];
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          " "$VERSION"
+          npx -y @anthropic-ai/mcpb pack mcpb lumen.mcpb
+      - name: Attach the bundle to the release (idempotent via --clobber)
+        run: gh release upload "$GITHUB_REF_NAME" lumen.mcpb --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -4,6 +4,52 @@ All notable changes to lumen are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Nothing yet — add user-facing changes here as they land; the section is
+renamed at release time.
+
+## [0.3.0] — 2026-09-28
+
+Not yet released on npm: this section records what ships when the `v0.3.0`
+tag is pushed (see `docs/distribution.md` for the release runbook).
+
+### Added
+
+- **Two new audit rules (18 → 20 built-in rules)**: `hreflang-present`
+  (info) and `duplicate-content` (warning, sha256 body-hash grouping)
+  ([#37](https://github.com/nitishagar/lumen/pull/37)).
+- **Audit history**: kind-aware JSONL history store with
+  `AuditHistoryEntry` (score, pages audited, `incomplete` + `stopReason`,
+  severity counts) alongside the existing rank history
+  ([#37](https://github.com/nitishagar/lumen/pull/37)).
+- **`lumen rank --history` gains `--kind rank|audit` and
+  `--format json|csv`** — CSV cells are formula-neutralized so spreadsheets
+  never execute history rows ([#37](https://github.com/nitishagar/lumen/pull/37)).
+- **Offline eval gate + red-team swarm** (dev-only, not shipped in runtime):
+  14 evalite cases with a 100-score threshold, a 15-adversary swarm harness
+  (report-only in CI), and a live LLM-judge gate that stays skipped unless
+  deliberately enabled ([#37](https://github.com/nitishagar/lumen/pull/37)).
+- **Distribution artifacts**: `server.json` for the MCP Registry
+  (`io.github.nitishagar/lumen`), a `lumen.mcpb` desktop-extension bundle
+  (built and attached to GitHub Releases by the release workflow), and a
+  Claude Code plugin (`.claude-plugin/marketplace.json` + `plugin-lumen/`
+  with the `seo-check` skill) — env-var *names* only, never key values.
+- **`lumen mcp --print` gains three targets**: `mcpb`, `registry`, and
+  `claude-plugin`, kept anti-drift-tested against the shipped artifact files.
+- **Weekly link-integrity check** (`scripts/ci/link-check.mjs` +
+  scheduled workflow): every absolute URL in the READMEs, `SECURITY.md`, and
+  locked-names must resolve — scheduled/release-only, never in the per-PR
+  offline gate.
+- **Release-drift gate**: CI now fails when README/docs rule-count prose
+  disagrees with the shipped rule registry; the release workflow asserts the
+  published npm version equals the tag.
+
+### Changed
+
+- PR template gains a CHANGELOG `[Unreleased]` checkbox; this file keeps a
+  maintained `[Unreleased]` section from now on.
+
 ## [0.2.1] — 2026-09-04
 
 ### Fixed

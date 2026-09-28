@@ -9,7 +9,7 @@ const commands = [
   { cmd: 'lumen keywords <seed>', what: 'keyword ideas for a seed term, with source labels; no fake volumes' },
   { cmd: 'lumen rank <keyword> --domain <domain>', what: 'best-effort SERP position check; appends to local history in .lumen/' },
   { cmd: 'lumen authority <domain>', what: 'domain authority signals (Open PageRank, Tranco) as labeled signals' },
-  { cmd: 'lumen mcp', what: 'run the MCP server over stdio (for agents and IDEs)' },
+  { cmd: 'lumen mcp', what: 'run the MCP server over stdio (for agents and IDEs); --print <target> prints an onboarding snippet — json, claude, cursor, vscode, mcpb, registry, claude-plugin' },
   { cmd: 'lumen config show', what: 'print the resolved config — budgets, providers, thresholds, defaults included' },
 ];
 const flags = [
