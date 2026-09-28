@@ -27,6 +27,7 @@ const flags = [
   { flag: '--verbose', what: 'list every affected URL per rule group instead of 3 samples' },
   { flag: '--format F', what: 'audit output renderer: human (default) | json | sarif 2.1.0 | md job summary (--json is an alias for json); with --out, sarif/md write the rendered artifact and stdout stays silent' },
   { flag: '--source-map <glob>', what: 'with --format sarif: best-effort page-URL → source-file mapping for annotations; an ambiguous match stays URL-only, never guessed' },
+  { flag: '--only <list>', what: 'run only the comma-separated categories or rule ids (e.g. ai-search); an unknown token is a config error listing every valid one' }
 ];
 const example = [
   { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },

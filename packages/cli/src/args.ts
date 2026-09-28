@@ -31,6 +31,7 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
     verbose: { type: 'boolean' },
     format: { type: 'string' },
     'source-map': { type: 'string' },
+    only: { type: 'string' },
   },
   diff: { json: { type: 'boolean' } },
   report: { strategy: { type: 'string' }, json: { type: 'boolean' }, 'allow-private': { type: 'boolean' } },

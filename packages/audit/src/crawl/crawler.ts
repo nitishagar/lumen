@@ -47,6 +47,8 @@ export interface CrawledPage {
   bytes: number | null;
   robotsAllowed: boolean;
   depth: number;
+  /** E1.6 C2: retained meta signals (noindex/canonical) for integrity rules. */
+  meta?: { noindex?: boolean; canonicalHref?: string };
   skipped?: { reason: SkipReason };
   title?: string;
   /**
@@ -139,6 +141,29 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
     pages.push(page);
     if (page.status !== null && page.status !== undefined) statusByPage.set(entry.key, page);
     outLinksByKey.set(entry.key, page.outLinks);
+  };
+
+  /** E1.6 C2: the two meta signals integrity rules need (DOM is not retained). */
+  const metaOf = (dom: CheerioAPI): { noindex?: boolean; canonicalHref?: string; hreflang?: { lang: string; href: string }[] } | undefined => {
+    const metaContent = dom('meta[name="robots"]').attr('content');
+    const headerNoindex = [...dom('meta[http-equiv="X-Robots-Tag" i]')].some((el) =>
+      /(^|,)\s*noindex\s*(,|$)/i.test(dom(el).attr('content') ?? ''),
+    );
+    const noindex =
+      headerNoindex || (metaContent !== undefined && /(^|,)\s*noindex\s*(,|$)/i.test(metaContent));
+    const canonicalHref = dom('link[rel]').filter((_, el) => (dom(el).attr('rel') ?? '').split(/\s+/).includes('canonical')).first().attr('href');
+    const hreflang: { lang: string; href: string }[] = [];
+    dom('link[rel]').each((_, el) => {
+      if ((dom(el).attr('rel') ?? '').split(/\s+/).includes('alternate') && dom(el).attr('hreflang') !== undefined) {
+        hreflang.push({ lang: dom(el).attr('hreflang') ?? '', href: dom(el).attr('href') ?? '' });
+      }
+    });
+    if (!noindex && canonicalHref === undefined && hreflang.length === 0) return undefined;
+    return {
+      ...(noindex ? { noindex: true } : {}),
+      ...(canonicalHref !== undefined ? { canonicalHref } : {}),
+      ...(hreflang.length > 0 ? { hreflang } : {}),
+    };
   };
 
   const runRules = async (ctx: PageContext, ruleCtx: RuleContext): Promise<Issue[]> => {
@@ -262,6 +287,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       depth: entry.depth,
       title: dom('title').first().text() || undefined,
       bodyHash,
+      meta: metaOf(dom),
       issues,
       outLinks,
       ...(redirected ? { redirectChain: [entry.key, finalUrlHref] } : {}),
@@ -314,6 +340,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       hops: page.hops,
       finalUrl: page.finalUrl,
       ...(page.bodyHash === undefined ? {} : { bodyHash: page.bodyHash }),
+      ...(page.meta === undefined ? {} : { meta: page.meta }),
     });
   }
   const statusMap = new Map(indexEntries.map((e) => [e.url, e]));
@@ -329,6 +356,7 @@ export const crawl = async (o: CrawlOptions): Promise<CrawlResult> => {
       if (e === undefined || e.bodyHash === undefined) return undefined;
       return { status: e.status, finalUrl: e.finalUrl, bodyHash: e.bodyHash };
     },
+    metaOf: (url: string) => statusMap.get(url)?.meta,
   };
 
   return {

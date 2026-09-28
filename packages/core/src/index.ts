@@ -96,4 +96,6 @@ export { createPrivateScopePolicy, isLoopbackHostname, seedIsPrivate } from './p
 export { UA_VERSION, USER_AGENT } from './ua.js';
 export type { LoadRobotsOptions, RobotsPolicy } from './robots.js';
 export { loadRobots } from './robots.js';
+export { robotsMatrix } from './robots.js';
+export type { RobotsMatrixRow } from './robots.js';
 export const packageName = '@lumen-seo/core';

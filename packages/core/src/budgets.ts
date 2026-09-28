@@ -12,6 +12,10 @@ export interface CrawlBudgets {
   /** E1.1: exact hostnames / CIDRs the SSRF guard may allow AT THE SEED ORIGIN
    *  when the run opts in (`--allow-private`). Absent/empty = strict guard. */
   allowPrivateHosts?: readonly string[];
+  /** E1.6: opt-in external-link check (OFF by default for politeness). */
+  checkExternal?: boolean;
+  /** E1.6: the external-link check's per-run cap (default 200). */
+  externalLinkCap?: number;
 }
 
 /** R3 defaults; the config loader hard-clamps `maxPages` at 10 000. */

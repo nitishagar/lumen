@@ -40,9 +40,15 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
       throw new UsageError(`--canonical-origin must be an absolute http(s) URL (got "${raw}")`);
     }
   }
+  // E1.7 FR-4: --only is a comma-separated category/ruleId list.
+  const onlyFlag = ctx.flags.only === undefined ? undefined : String(ctx.flags.only).split(',').map((t) => t.trim()).filter((t) => t !== '');
   const scope: RunnerScope | undefined =
-    ctx.flags['allow-private'] === true || canonicalOrigin !== undefined
-      ? { ...(ctx.flags['allow-private'] === true ? { privateScope: { loopback: true } } : {}), ...(canonicalOrigin === undefined ? {} : { canonicalOrigin }) }
+    ctx.flags['allow-private'] === true || canonicalOrigin !== undefined || (onlyFlag !== undefined && onlyFlag.length > 0)
+      ? {
+          ...(ctx.flags['allow-private'] === true ? { privateScope: { loopback: true } } : {}),
+          ...(canonicalOrigin === undefined ? {} : { canonicalOrigin }),
+          ...(onlyFlag === undefined || onlyFlag.length === 0 ? {} : { only: onlyFlag }),
+        }
       : undefined;
   const d = deps ?? (await buildDeps(ctx.configPathFlag, scope));
   // E1.1 admission: with a launch-time scope, a private host is admitted ONLY

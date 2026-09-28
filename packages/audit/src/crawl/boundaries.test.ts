@@ -73,7 +73,10 @@ describe('body boundaries (I15)', () => {
     const report = await runSiteAudit(new URL(ORIGIN), {}, makeTestDeps(fetcher));
     expect(report.pages[0]?.skipped).toEqual({ reason: 'oversized' });
     expect(report.pages[0]?.bytes).toBe(3_000_000);
-    expect(report.pages[0]?.issues).toEqual([]);
+    // Site rules (E1.6) attribute to the seed row — no PAGE-rule issue is
+    // fabricated for the oversized page.
+    expect(report.pages[0]?.issues.every((i) => i.ruleId.endsWith('-invalid') || i.ruleId.startsWith('ai-') || i.ruleId === 'llms-txt' || i.ruleId === 'robots-invalid')).toBe(true);
+    expect(report.pages[0]?.issues.some((i) => i.ruleId === 'thin-content')).toBe(false);
     expect(report.summary.pagesSkipped).toBe(1);
   });
 

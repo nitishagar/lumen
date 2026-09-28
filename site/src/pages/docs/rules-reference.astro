@@ -31,6 +31,22 @@ const rules: readonly Rule[] = [
   { id: 'og-tags-missing', severity: 'info', categories: ['social'], fires: 'any of og:title / og:description / og:image absent' },
   { id: 'hreflang-present', severity: 'info', categories: ['meta'], fires: 'no <link rel="alternate" hreflang> entry (multiple locales are normal)' },
   { id: 'duplicate-content', severity: 'warning', categories: ['content'], fires: 'page body byte-identical to another crawled page (unhashed pages are unknown, never judged)' },
+  { id: 'structured-data-invalid', severity: 'error', categories: ['technical', 'integrity'], fires: 'JSON-LD that does not parse, or @context missing / not schema.org (parse errors only — no rich-result claims)' },
+  { id: 'structured-data-required-props', severity: 'warning', categories: ['technical', 'integrity'], fires: 'a common schema.org type is missing required properties (vendored, versioned table — the version is in the report)' },
+  { id: 'canonical-target-invalid', severity: 'error', categories: ['links', 'integrity'], fires: 'a canonical target fetched this run is non-200, redirects, noindex, or cross-host (an unfetched target is reported unknown, never judged)' },
+  { id: 'sitemap-invalid', severity: 'warning', categories: ['technical', 'integrity'], fires: 'retained sitemap evidence is malformed, claims >50k URLs, lists a wrong host, or exceeds lumen\'s 2 MB evidence cap' },
+  { id: 'sitemap-url-nonindexable', severity: 'warning', categories: ['integrity'], fires: 'sitemap URLs sampled in this crawl return non-200, noindex, or redirect elsewhere (the sample size is stated)' },
+  { id: 'robots-invalid', severity: 'warning', categories: ['technical', 'integrity'], fires: 'unknown robots.txt directives, an accidental blanket Disallow: / on a public target, or a declared sitemap that failed to fetch' },
+  { id: 'hreflang-reciprocity', severity: 'warning', categories: ['meta', 'integrity'], fires: 'hreflang present but defective: invalid codes, missing self-reference, or missing return tags (among crawled pages)' },
+  { id: 'orphan-page', severity: 'info', categories: ['integrity'], fires: 'a sitemap URL no crawled page links to (only when the crawl completed)' },
+  { id: 'broken-external-link', severity: 'warning', categories: ['links', 'integrity'], fires: 'OPT-IN (crawl.checkExternal): an external link returns 404/410/5xx or no response (HEAD, GET on 405; per-host paced; capped at 200 — the cap is reported)' },
+  { id: 'meta-refresh-redirect', severity: 'warning', categories: ['technical', 'integrity'], fires: '<meta http-equiv="refresh">' },
+  { id: 'security-headers', severity: 'info', categories: ['technical', 'integrity'], fires: 'on https: HSTS, X-Content-Type-Options, or CSP missing (presence only — not a security grade)' },
+  { id: 'twitter-card-missing', severity: 'info', categories: ['social'], fires: 'twitter:card absent while Open Graph tags are present' },
+  { id: 'thin-content', severity: 'info', categories: ['content', 'integrity'], fires: 'visible text below the word threshold (default 200 — the threshold used is in the message)' },
+  { id: 'ai-crawler-access', severity: 'info', categories: ['ai-search'], fires: 'always (site rule) — reports the robots.txt matrix for the vendored AI user-agent list; never recommends a training policy' },
+  { id: 'llms-txt', severity: 'info', categories: ['ai-search'], fires: 'always (site rule) — checks /llms.txt presence and llmstxt.org shape (a proposal with unproven impact)' },
+  { id: 'content-in-raw-html', severity: 'warning', categories: ['ai-search'], fires: 'SPA-shell signature with few visible words in the server HTML (HEURISTIC — primary content probably needs JavaScript)' },
 ];
 
 const sevBadge: Record<Rule['severity'], string> = {
@@ -56,18 +72,18 @@ const incompleteExample = `{
 ---
 <DocsLayout
   title="Audit rules"
-  description="The 20 built-in lumen audit rules: severities, categories, what fires them, how scoring and failThreshold work."
+  description="The 36 built-in lumen audit rules: severities, categories, what fires them, how scoring and failThreshold work."
   activeHref="/docs/rules-reference/"
   toc={[
     { id: 'severity', label: 'Severity model' },
     { id: 'scoring', label: 'Scoring' },
-    { id: 'rules', label: 'The 20 rules' },
+    { id: 'rules', label: 'The 36 rules' },
     { id: 'overrides', label: 'Overrides' },
     { id: 'examples', label: 'Issue + incomplete reports' },
   ]}
 >
   <p>
-    lumen’s audit engine ships 20 built-in rules across meta, content, links,
+    lumen’s audit engine ships 36 built-in rules across meta, content, links,
     technical, performance, accessibility and social categories. Rules are
     small, evidence-first, and plugin-shaped — the audit engine accepts
     additional rules via the plugin registry.
@@ -99,7 +115,7 @@ const incompleteExample = `{
     was actually audited scores 0 — honest, not generous.
   </p>
 
-  <h2 id="rules">The 20 rules</h2>
+  <h2 id="rules">The 36 rules</h2>
   <table>
     <thead>
       <tr><th scope="col">Rule id</th><th scope="col">Default</th><th scope="col">Categories</th><th scope="col">Fires when</th></tr>
@@ -115,9 +131,22 @@ const incompleteExample = `{
       ))}
     </tbody>
   </table>
+
+  <h2 id="ai-search">What lumen does and doesn't claim about AI search</h2>
+  <p>
+    The <code>ai-search</code> rules report <strong>facts</strong>: which AI
+    crawlers your robots.txt allows (from a vendored, dated list — the
+    <code>asOf</code> date and source are in the report), whether
+    <code>/llms.txt</code> exists in the llmstxt.org shape, and whether your
+    server HTML contains the primary content. They do <strong>not</strong>
+    claim any ranking effect: llms.txt is an unproven proposal, AI-crawler
+    access is your editorial choice, and the JS-content signal is a labeled
+    heuristic. lumen never recommends a training policy — blocking or allowing
+    training bots is entirely yours.
+  </p>
   <p class="note">
     Length thresholds (title, description) and the latency threshold are
-    configurable; everything else is fixed behavior. Crawl rules
+    configurable; the thin-content word floor is configurable too; everything else is fixed behavior. Crawl rules
     (<code>broken-internal-link</code>, <code>redirect-chain</code>) only fire
     on evidence gathered during the crawl itself — a link target that was
     never fetched is reported as unknown, not invented.

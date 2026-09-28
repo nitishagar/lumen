@@ -23,7 +23,7 @@ const REGISTRY_SERVER_JSON = {
   $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
   name: 'io.github.nitishagar/lumen',
   description:
-    'Deterministic, honest SEO audits as MCP tools: bounded polite site audit with 20 built-in rules, keyword ideas, rank checks, and CWV page reports — free/BYOK providers only, provenance on every number.',
+    'Deterministic, honest SEO audits as MCP tools: bounded polite site audit with 36 built-in rules, keyword ideas, rank checks, and CWV page reports — free/BYOK providers only, provenance on every number.',
   repository: { url: 'https://github.com/nitishagar/lumen', source: 'github' },
   version: '0.3.0',
   packages: [

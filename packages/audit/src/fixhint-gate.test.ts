@@ -10,7 +10,7 @@ import type { AuditRule, Issue } from '@lumen-seo/core';
 import { makePage } from './testing/page.js';
 import { createRuleSet, BUILT_IN_RULE_IDS } from './rules/rule-set.js';
 import { resolveAuditConfig } from './config.js';
-import type { CrawlIndex, CrawlRule, OutLink } from './types.js';
+import type { CrawlIndex, CrawlRule, OutLink, SiteContext, SiteRule } from './types.js';
 
 const rs = createRuleSet(resolveAuditConfig({}));
 
@@ -35,6 +35,11 @@ const BATTERY: { name: string; html: string; opts?: Parameters<typeof makePage>[
   { name: 'noindex-meta', html: '<html><head><title>T</title><meta name="robots" content="noindex"></head><body><h1>x</h1></body></html>' },
   { name: 'noindex-header', html: '<html><head><title>T</title></head><body><h1>x</h1></body></html>', opts: { headers: { 'content-type': 'text/html', 'x-robots-tag': 'noindex' } } },
   { name: 'status-500', html: '<html><head><title>T</title></head><body><h1>x</h1></body></html>', opts: { status: 500 } },
+  { name: 'jsonld-broken', html: '<html><head><title>T</title><script type="application/ld+json">{"@type":"Product","name":"x"</script></head><body>word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word</body></html>' },
+  { name: 'jsonld-missing-props', html: '<html><head><title>T</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"x"}</script></head><body></body></html>' },
+  { name: 'meta-refresh', html: '<html><head><title>T</title><meta http-equiv="refresh" content="5; url=/next"></head><body>word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word</body></html>' },
+  { name: 'spa-shell', html: '<html><head><title>T</title></head><body><div id="root"></div></body></html>' },
+  { name: 'og-no-twitter', html: '<html><head><title>T</title><meta property="og:title" content="T"></head><body>word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word</body></html>' },
 ];
 
 const pageIssues = async (): Promise<Issue[]> => {
@@ -66,13 +71,113 @@ const crawlIndex = (): CrawlIndex => {
   return { pages, outLinks, statusOf, bodyHashOf };
 };
 
-describe('fixHint coverage gate (PRD E1.2 FR-4 — 20/20)', () => {
+/** An integrity-crawl battery: index shapes triggering the 5 E1.6 crawl rules. */
+const crawlIndexIntegrity = (): { index: CrawlIndex; o: { depth: number; isSeed: boolean; incomplete: boolean; siteEvidence: NonNullable<import('./types.js').RuleContext['siteEvidence']> } }[] => {
+  const mk = (pages: Parameters<typeof buildIndex>[0], sitemapUrls: string[] = ['https://example.com/a']) => ({
+    index: buildIndex(pages),
+    o: { depth: 0, isSeed: true, incomplete: false, siteEvidence: { sitemapUrls, seedUrl: 'https://example.com/' } },
+  });
+  return [
+    // canonical-target-invalid: dead same-origin target + blocked target
+    mk([
+      { url: 'https://example.com/', status: 200, meta: { canonicalHref: '/dead' } },
+      { url: 'https://example.com/dead', status: 404 },
+    ]),
+    // sitemap-url-nonindexable: sitemap URL 404s
+    mk([
+      { url: 'https://example.com/', status: 200, meta: { canonicalHref: '/a' } },
+      { url: 'https://example.com/a', status: 200 },
+      { url: 'https://example.com/gone', status: 404 },
+    ], ['https://example.com/gone']),
+    // hreflang-reciprocity: no self-reference
+    mk([
+      { url: 'https://example.com/en', status: 200, meta: { hreflang: [{ lang: 'de', href: '/de' }] } },
+      { url: 'https://example.com/de', status: 200, meta: { hreflang: [{ lang: 'en', href: '/en' }] } },
+    ]),
+    // orphan-page: sitemap URL never linked
+    mk([
+      { url: 'https://example.com/', status: 200 },
+      { url: 'https://example.com/orphan', status: 200 },
+    ], ['https://example.com/orphan']),
+    // broken-external-link: outcomes ride via siteEvidence (run.ts fetches)
+    {
+      index: buildIndex([{ url: 'https://example.com/', status: 200 }]),
+      o: {
+        depth: 0,
+        isSeed: true,
+        incomplete: false,
+        siteEvidence: {
+          sitemapUrls: [],
+          seedUrl: 'https://example.com/',
+          externalOutcomes: [{ url: 'https://dead.example/x', pageUrl: 'https://example.com/', status: 404 }],
+          externalCap: 200,
+        },
+      },
+    },
+  ];
+};
+
+// Minimal index builder for the integrity battery (CrawlIndex shape).
+const buildIndex = (pages: { url: string; status: number; meta?: { noindex?: boolean; canonicalHref?: string; hreflang?: { lang: string; href: string }[] } }[]): CrawlIndex => {
+  const entries = pages.map((p) => ({ url: p.url, status: p.status, depth: 0, hops: 0, finalUrl: p.url, ...(p.meta === undefined ? {} : { meta: p.meta }) }));
+  const statusMap = new Map(entries.map((e) => [e.url, e]));
+  return {
+    pages: entries,
+    outLinks: new Map(),
+    statusOf: (url) => {
+      const e = statusMap.get(url);
+      return e === undefined ? undefined : { status: e.status, finalUrl: e.finalUrl };
+    },
+    bodyHashOf: () => undefined,
+    metaOf: (url) => statusMap.get(url)?.meta,
+  };
+};
+
+/** A site battery: evidence shapes that trigger sitemap-invalid + robots-invalid. */
+const siteBattery = (): readonly { name: string; ctx: SiteContext }[] => {
+  const base = {
+    seed: { url: 'https://example.com/', status: 200 },
+    sitemapUrls: [],
+    llmsTxt: { body: null, outcome: 'skipped' as const },
+    config: resolveAuditConfig({}),
+  };
+  return [
+    {
+      name: 'malformed-sitemap',
+      ctx: {
+        ...base,
+        robots: { body: 'User-agent: *\nDisallow: /private\n', outcome: 'ok' as const },
+        sitemaps: [{ url: 'https://example.com/sitemap.xml', body: '<this is not xml', outcome: 'malformed' as const }],
+      },
+    },
+    {
+      name: 'unknown-directive',
+      ctx: {
+        ...base,
+        robots: { body: 'User-agent: *\nFoo: bar\n', outcome: 'ok' as const },
+        sitemaps: [{ url: 'https://example.com/sitemap.xml', body: '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/a</loc></url></urlset>', outcome: 'ok' as const }],
+      },
+    },
+    {
+      name: 'bypassed-robots',
+      ctx: { ...base, robots: { body: null, outcome: 'bypassed' as const }, sitemaps: [] },
+    },
+  ];
+};
+
+describe('fixHint coverage gate (PRD E1.2 FR-4 — registry-wide)', () => {
   it('every built-in rule emits at least one issue across the battery', async () => {
     const issues = await pageIssues();
     const crawlIssues = (rs.crawlRules as readonly CrawlRule[]).flatMap((r) =>
       r.checkCrawl(crawlIndex(), { depth: 1, isSeed: false }),
     );
-    const seen = new Set([...issues, ...crawlIssues].map((i) => i.ruleId));
+    const siteIssues = (rs.siteRules as readonly SiteRule[]).flatMap((r) =>
+      siteBattery().map(({ ctx }) => r.checkSite(ctx)),
+    ).flat();
+    const integrityCrawlIssues = crawlIndexIntegrity().flatMap((ctx) =>
+      (rs.crawlRules as readonly CrawlRule[]).map((r) => r.checkCrawl(ctx.index, ctx.o)),
+    ).flat();
+    const seen = new Set([...issues, ...crawlIssues, ...siteIssues, ...integrityCrawlIssues].map((i) => i.ruleId));
     const missing = BUILT_IN_RULE_IDS.filter((id) => !seen.has(id));
     expect(missing, `rules never triggered by the gate battery (extend the battery): ${missing.join(', ')}`).toEqual([]);
   });
@@ -82,8 +187,14 @@ describe('fixHint coverage gate (PRD E1.2 FR-4 — 20/20)', () => {
     const crawlIssues = (rs.crawlRules as readonly CrawlRule[]).flatMap((r) =>
       r.checkCrawl(crawlIndex(), { depth: 1, isSeed: false }),
     );
-    expect(issues.length + crawlIssues.length).toBeGreaterThan(20);
-    for (const i of [...issues, ...crawlIssues]) {
+    const siteIssues = (rs.siteRules as readonly SiteRule[]).flatMap((r) =>
+      siteBattery().map(({ ctx }) => r.checkSite(ctx)),
+    ).flat();
+    const integrityCrawlIssues = crawlIndexIntegrity().flatMap((ctx) =>
+      (rs.crawlRules as readonly CrawlRule[]).map((r) => r.checkCrawl(ctx.index, ctx.o)),
+    ).flat();
+    expect(issues.length + crawlIssues.length + siteIssues.length + integrityCrawlIssues.length).toBeGreaterThan(20);
+    for (const i of [...issues, ...crawlIssues, ...siteIssues, ...integrityCrawlIssues]) {
       expect(typeof i.fixHint, `${i.ruleId} emitted an issue without a fixHint`).toBe('string');
       expect((i.fixHint ?? '').trim().length, `${i.ruleId} fixHint is empty`).toBeGreaterThan(0);
     }

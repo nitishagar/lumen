@@ -28,10 +28,17 @@ export interface SitemapOptions {
 const isAbort = (e: unknown, signal?: AbortSignal): boolean =>
   e instanceof AbortedError || signal?.aborted === true;
 
-export const discoverSitemaps = async (o: SitemapOptions): Promise<URL[]> => {
+export interface SitemapDiscovery {
+  urls: URL[];
+  /** Retained per-source evidence for site rules (E1.6) — bodies already capped. */
+  evidence: { url: string; body: string | null; outcome: 'ok' | 'malformed' | 'fetch_failed' | 'oversized' | 'skipped' }[];
+}
+
+export const discoverSitemaps = async (o: SitemapOptions): Promise<SitemapDiscovery> => {
   const { seed, deps, limiter, signal } = o;
   const found: URL[] = [];
   const seen = new Set<string>();
+  const evidence: SitemapDiscovery['evidence'] = [];
 
   const accept = (loc: string): boolean => {
     let url: URL;
@@ -63,15 +70,21 @@ export const discoverSitemaps = async (o: SitemapOptions): Promise<URL[]> => {
     } catch (e) {
       if (isAbort(e, signal)) throw new AbortedError('audit');
       if (!isProbe) o.onWarning?.('sitemap_fetch_failed');
+      if (!isProbe) evidence.push({ url: source.href, body: null, outcome: 'fetch_failed' });
       return;
     }
     if (res.status < 200 || res.status >= 300) {
       if (!isProbe) o.onWarning?.('sitemap_fetch_failed');
+      if (!isProbe) evidence.push({ url: source.href, body: null, outcome: 'fetch_failed' });
       return;
     }
 
     const { text, oversized } = await readBodyCapped(res, MAX_SITEMAP_BYTES, { keepPartial: true });
-    if (oversized) o.onWarning?.('sitemap_oversized');
+    if (oversized) {
+      o.onWarning?.('sitemap_oversized');
+      evidence.push({ url: source.href, body: text, outcome: 'oversized' });
+      return; // M9: one evidence row for an oversized body — the truncated text is never judged as 'ok'
+    }
 
     const dom = load(text, { xmlMode: true });
     const indexLocs: string[] = [];
@@ -84,8 +97,10 @@ export const discoverSitemaps = async (o: SitemapOptions): Promise<URL[]> => {
     });
     if (urlLocs.length === 0 && indexLocs.length === 0) {
       o.onWarning?.('sitemap_malformed');
+      evidence.push({ url: source.href, body: text, outcome: 'malformed' }); // M10: probe path too
       return;
     }
+    evidence.push({ url: source.href, body: text, outcome: 'ok' });
 
     for (const loc of urlLocs) {
       if (found.length >= MAX_SITEMAP_URLS) {
@@ -121,5 +136,5 @@ export const discoverSitemaps = async (o: SitemapOptions): Promise<URL[]> => {
     await fetchSource(new URL('/sitemap.xml', seed), true, true);
   }
 
-  return found.slice(0, MAX_SITEMAP_URLS);
+  return { urls: found.slice(0, MAX_SITEMAP_URLS), evidence };
 };

@@ -107,7 +107,9 @@ describe('robots gate (A2 policy table)', () => {
     expect(report.pages).toHaveLength(1);
     expect(fetcher.countFor(ROBOTS)).toBe(1);
     expect(fetcher.countFor('https://example.com/sitemap.xml')).toBe(1); // probe fallback
-    expect(report.configSnapshot.discoveryWarnings).toEqual([]);
+    // discoveryWarnings now also carries the E1.7 AI-UA provenance (always,
+    // when the ai-crawler rule is enabled) — filter it out for this assertion.
+    expect((report.configSnapshot.discoveryWarnings as string[]).filter((w) => !w.startsWith('ai_crawler_uas_') && !w.startsWith('schema_required_props_version'))).toEqual([]); // provenance warnings excluded
   });
 
   it('robots: malformed lines are dropped, valid groups enforced', async () => {

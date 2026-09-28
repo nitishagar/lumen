@@ -29,6 +29,8 @@ export interface RobotsGateResult {
   policy: RobotsPolicy;
   /** Probe `/sitemap.xml` when robots listed no `Sitemap:` lines (incl. 4xx robots). */
   probeSitemap: boolean;
+  /** Retained raw body + outcome for site rules (E1.6) — one fetch, reused. */
+  evidence: { body: string | null; outcome: 'ok' | 'absent' };
 }
 
 const ALLOW_ALL: RobotsPolicy = Object.freeze({ isAllowed: () => true, sitemaps: Object.freeze([]) });
@@ -96,11 +98,13 @@ export const robotsGate = async (
   }
 
   if (res.status >= 500) throw unreachable();
-  if (res.status >= 400) return { policy: ALLOW_ALL, probeSitemap: true };
+  if (res.status >= 400) return { policy: ALLOW_ALL, probeSitemap: true, evidence: { body: null, outcome: 'absent' } };
 
   // 2xx — parse via core's `loadRobots`, replaying the fetched response
-  // (its body is untouched so far: exactly one network fetch for the gate).
+  // (its body is untouched so far: exactly one network fetch for the gate);
+  // the SAME text is retained as site-rule evidence (E1.6) at no extra cost.
   const finalRes = res;
+  const robotsText = await finalRes.clone().text();
   const policy = await loadRobots({ fetch: async () => finalRes }, site);
-  return { policy, probeSitemap: policy.sitemaps.length === 0 };
+  return { policy, probeSitemap: policy.sitemaps.length === 0, evidence: { body: robotsText, outcome: 'ok' } };
 };

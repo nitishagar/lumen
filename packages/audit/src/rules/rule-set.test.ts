@@ -27,10 +27,12 @@ const site = (body: string, head?: string): Record<string, FakeRoute> => ({
 const ruleCtx: RuleContext = { depth: 0, isSeed: true };
 
 describe('rule-set configuration (I2)', () => {
-  it('exposes exactly the 20 built-in rule ids with metadata', () => {
-    expect(BUILT_IN_RULE_IDS).toHaveLength(20);
+  it('exposes unique built-in rule ids with metadata (registry-driven count)', () => {
+    // Registry-driven (E1.6 grew the pack): uniqueness + id-shape are the invariant.
+    expect(new Set(BUILT_IN_RULE_IDS).size).toBe(BUILT_IN_RULE_IDS.length);
+    for (const id of BUILT_IN_RULE_IDS) expect(id).toMatch(/^[a-z0-9-]+$/);
     const meta = builtInRuleMetadata();
-    expect(new Set(meta.map((m) => m.id)).size).toBe(20);
+    expect(new Set(meta.map((m) => m.id)).size).toBe(meta.length);
     expect(meta.find((m) => m.id === 'title-missing')).toEqual({ id: 'title-missing', defaultSeverity: 'error', categories: ['meta'] });
     expect(meta.find((m) => m.id === 'hreflang-present')).toEqual({ id: 'hreflang-present', defaultSeverity: 'info', categories: ['meta'] });
     expect(meta.find((m) => m.id === 'duplicate-content')).toEqual({ id: 'duplicate-content', defaultSeverity: 'warning', categories: ['content'] });

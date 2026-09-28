@@ -34,7 +34,8 @@
     "--update-baseline",
     "--verbose",
     "--format",
-    "--source-map"
+    "--source-map",
+    "--only"
   ],
   "exitCodes": [
     {

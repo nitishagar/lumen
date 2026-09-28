@@ -59,6 +59,7 @@ export const resolveAuditConfig = (config: AuditConfig = {}): ResolvedAuditConfi
 
   const t = config.thresholds ?? {};
   const thresholds: ResolvedThresholds = {
+    thinContentMinWords: t.thinContentMinWords ?? DEFAULT_THRESHOLDS.thinContentMinWords,
     titleMinChars: t.titleMinChars ?? DEFAULT_THRESHOLDS.titleMinChars,
     titleMaxChars: t.titleMaxChars ?? DEFAULT_THRESHOLDS.titleMaxChars,
     descriptionMinChars: t.descriptionMinChars ?? DEFAULT_THRESHOLDS.descriptionMinChars,
@@ -70,6 +71,7 @@ export const resolveAuditConfig = (config: AuditConfig = {}): ResolvedAuditConfi
     crawl,
     canonicalOrigin,
     targetScope: config.targetScope,
+    only: config.only,
     respectRobots: config.respectRobots ?? true,
     severityOverrides: config.severityOverrides ?? {},
     thresholds,

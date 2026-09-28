@@ -59,6 +59,8 @@ const USAGE_BY_COMMAND: Record<string, string> = {
       '--format F         human (default) | json | sarif | md (--json = --format json);',
       '                   sarif/md: --out writes the rendered artifact, stdout silent when --out given',
       '--source-map <glob> sarif: best-effort page URL → source file (exactly one match wins; ambiguous stays URL-only)',
+      '--only <list>     Comma-separated categories or rule ids to run (e.g. ai-search);',
+      '                   unknown tokens are a config error listing every valid one',
       '--json             One JSON document on stdout (alias for --format json)',
     ],
     [

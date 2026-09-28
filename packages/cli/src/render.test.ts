@@ -60,7 +60,7 @@ const issue = (ruleId: string, severity: Issue['severity']): Issue => ({
 });
 
 describe('renderSarif', () => {
-  it('emits 2.1.0 with all 20 catalog rules, one result per issue, level mapping, provenance in run.properties', () => {
+  it('emits 2.1.0 with all catalog rules, one result per issue, level mapping, provenance in run.properties', () => {
     const doc = JSON.parse(renderSarif(report([issue('title-missing', 'error'), issue('og-tags-missing', 'info')])));
     expect(doc.$schema).toContain('sarif-schema-2.1.0.json');
     expect(doc.version).toBe('2.1.0');
@@ -72,7 +72,7 @@ describe('renderSarif', () => {
     void run;
     expect(run.tool.driver.name).toBe('lumen');
     expect(run.tool.driver.informationUri).toContain('nitishagar.github.io/lumen');
-    expect(run.tool.driver.rules).toHaveLength(20); // ALL built-ins (plugin ids would append)
+    expect(run.tool.driver.rules).toHaveLength(36); // ALL built-ins (plugin ids would append)
     const byId = new Map(run.tool.driver.rules.map((r) => [r.id, r]));
     expect(byId.get('title-missing')?.helpUri).toContain('#title-missing');
     expect(byId.get('title-missing')?.help?.text).toContain('<title>');
@@ -95,7 +95,7 @@ describe('renderSarif', () => {
     const doc = JSON.parse(renderSarif(report([issue('my-plugin-rule', 'warning')])));
     const ids = doc.runs[0].tool.driver.rules.map((r: { id: string }) => r.id);
     expect(ids).toContain('my-plugin-rule');
-    expect(ids).toHaveLength(21);
+    expect(ids).toHaveLength(37);
     const plugin = doc.runs[0].tool.driver.rules.find((r: { id: string }) => r.id === 'my-plugin-rule');
     expect(plugin.helpUri).toBeUndefined();
   });

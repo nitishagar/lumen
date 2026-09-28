@@ -96,3 +96,19 @@ export const loadRobots = async (
     sitemaps: Object.freeze(sitemaps),
   });
 };
+
+/**
+ * E1.7: per-token robots matrix — queries the SAME parsed robots for each
+ * vendored AI user-agent token. Stays behind the wrapper so audit never
+ * imports robots-parser. `null` body → all tokens unknown (honest).
+ */
+export interface RobotsMatrixRow {
+  readonly token: string;
+  readonly allowed: boolean | null; // null = unknown (no robots evidence)
+}
+
+export const robotsMatrix = (body: string | null, url: string, tokens: readonly string[]): RobotsMatrixRow[] => {
+  if (body === null) return tokens.map((token) => ({ token, allowed: null }));
+  const parsed = robotsParser(url, body) as ParsedRobots;
+  return tokens.map((token) => ({ token, allowed: parsed.isAllowed(url, token) ?? true }));
+};

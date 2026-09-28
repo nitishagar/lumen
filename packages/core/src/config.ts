@@ -54,11 +54,13 @@ const CRAWL_KEYS = [
   'maxConcurrency',
   'perHostMinDelayMs',
   'allowPrivateHosts',
+  'checkExternal',
+  'externalLinkCap',
 ] as const;
 
 type CrawlKey = (typeof CRAWL_KEYS)[number];
 /** The numeric budget keys — `allowPrivateHosts` is a validated string array, handled separately. */
-type NumericCrawlKey = Exclude<CrawlKey, 'allowPrivateHosts'>;
+type NumericCrawlKey = Exclude<CrawlKey, 'allowPrivateHosts' | 'checkExternal' | 'externalLinkCap'>;
 
 export interface ResolvedConfig {
   readonly providers: Readonly<Partial<Record<ProviderBoundary, string>>>;
@@ -176,6 +178,22 @@ const resolveConfig = (root: Record<string, unknown>): ResolvedConfig => {
               path: `crawl.${k}`,
               message: `unknown key. Valid keys under "crawl": ${CRAWL_KEYS.join(', ')}`,
             });
+            continue;
+          }
+          if (k === 'checkExternal') {
+            if (typeof n !== 'boolean') {
+              details.push({ path: 'crawl.checkExternal', message: 'must be a boolean (external-link checks are opt-in)' });
+              continue;
+            }
+            crawl.checkExternal = n;
+            continue;
+          }
+          if (k === 'externalLinkCap') {
+            if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
+              details.push({ path: 'crawl.externalLinkCap', message: 'must be an integer >= 1' });
+              continue;
+            }
+            crawl.externalLinkCap = n;
             continue;
           }
           if (k === 'allowPrivateHosts') {

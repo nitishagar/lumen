@@ -43,6 +43,64 @@ export interface RuleContext {
   depth: number;
   isSeed: boolean;
   signal?: AbortSignal;
+  /** E1.6: crawl rules learn whether the run completed — orphan-page only fires when false. */
+  incomplete?: boolean;
+  /** E1.6: whole-site evidence gathered by run.ts (never fetched inside rules). */
+  siteEvidence?: {
+    sitemapUrls: readonly string[];
+    seedUrl: string;
+    externalOutcomes?: readonly { url: string; pageUrl: string; status: number | null; error?: string }[];
+    externalCap?: number;
+  };
+}
+
+/** Retained robots.txt evidence for site rules (E1.6 FR-2). Outcomes the gate can produce. */
+export type RobotsEvidenceOutcome = 'ok' | 'absent' | 'bypassed';
+
+export interface RobotsEvidence {
+  readonly body: string | null;
+  readonly outcome: RobotsEvidenceOutcome;
+}
+
+/** Retained sitemap evidence (bodies already capped by MAX_SITEMAP_BYTES). */
+export type SitemapEvidenceOutcome = 'ok' | 'malformed' | 'fetch_failed' | 'oversized' | 'skipped';
+
+export interface SitemapEvidence {
+  readonly url: string;
+  readonly body: string | null;
+  readonly outcome: SitemapEvidenceOutcome;
+}
+
+/** Retained /llms.txt evidence (one bounded same-origin fetch, E1.7 FR-2). */
+export interface LlmsTxtEvidence {
+  readonly body: string | null;
+  readonly outcome: 'ok' | 'absent' | 'fetch_failed' | 'skipped';
+}
+
+/**
+ * Site-rule context (E1.6 FR-2): runs ONCE per audit against the retained
+ * robots/sitemap evidence and the seed page's surviving fields. Rules report
+ * `unknown` in the MESSAGE when evidence is missing — never a silent pass.
+ */
+export interface SiteContext {
+  /** The seed URL + the fields that survive the crawl (no DOM). */
+  readonly seed: { url: string; status: number | null };
+  readonly robots: RobotsEvidence;
+  readonly sitemaps: readonly SitemapEvidence[];
+  /** Discovered sitemap URLs (capped by MAX_SITEMAP_URLS). */
+  readonly sitemapUrls: readonly string[];
+  readonly llmsTxt: LlmsTxtEvidence;
+  readonly config: ResolvedAuditConfig;
+  signal?: AbortSignal;
+}
+
+/** The third rule kind (E1.6 FR-2): once per audit, against the whole-site evidence. */
+export interface SiteRule {
+  readonly id: string;
+  readonly severity: Severity;
+  readonly categories: readonly string[];
+  /** Each issue MUST carry `url` = the seed page (FR-3 scoring attribution). */
+  checkSite(ctx: SiteContext): Issue[];
 }
 
 /** One audited/hit page in the crawl index (input to crawl-level rules). */
@@ -60,6 +118,14 @@ export interface CrawlIndexEntry {
    * to hash rules by construction, never compared.
    */
   bodyHash?: string;
+  /** E1.6: the two meta signals integrity rules need, extracted at record time
+   *  (the DOM does not survive the crawl). Absent for skipped pages. */
+  meta?: {
+    noindex?: boolean;
+    canonicalHref?: string;
+    /** E1.6 hreflang-reciprocity: retained per-page hreflang pairs. */
+    hreflang?: readonly { lang: string; href: string }[];
+  };
 }
 
 /** A discovered out-link, kept for crawl-level rules (never judged unless fetched). */
@@ -80,6 +146,12 @@ export interface CrawlIndex {
   statusOf(url: string): { status: number; finalUrl: string } | undefined;
   /** Observed body hash for a normalized URL — `undefined` when never fetched or unhashed. */
   bodyHashOf(url: string): { status: number; finalUrl: string; bodyHash: string } | undefined;
+  /** E1.6 C2: retained meta signals (noindex/canonical) — `undefined` when never fetched or absent. */
+  metaOf?(url: string): {
+    noindex?: boolean;
+    canonicalHref?: string;
+    hreflang?: readonly { lang: string; href: string }[];
+  } | undefined;
 }
 
 /** Audit-local extension of core's per-page `AuditRule` SPI for crawl-level rules. */
@@ -113,6 +185,8 @@ export interface AuditThresholds {
   descriptionMinChars?: number;
   descriptionMaxChars?: number;
   latencyMs?: number;
+  /** E1.6: thin-content floor (visible words); the threshold used is in the issue message. */
+  thinContentMinWords?: number;
 }
 
 export interface ResolvedThresholds {
@@ -121,9 +195,11 @@ export interface ResolvedThresholds {
   descriptionMinChars: number;
   descriptionMaxChars: number;
   latencyMs: number;
+  thinContentMinWords: number;
 }
 
 export const DEFAULT_THRESHOLDS: ResolvedThresholds = Object.freeze({
+  thinContentMinWords: 200,
   titleMinChars: 15,
   titleMaxChars: 65,
   descriptionMinChars: 50,
@@ -144,6 +220,8 @@ export interface AuditConfig {
   canonicalOrigin?: string;
   /** E1.1 FR-4: honest report label. Absent → derived from the seed's host. */
   targetScope?: 'private' | 'public';
+  /** E1.7 FR-4: run ONLY these categories/rule ids (--only). Validated at rule-set creation. */
+  only?: readonly string[];
   /** Default `true`. Skips the robots gate — NEVER the rate limiter or budgets (A2). */
   respectRobots?: boolean;
   severityOverrides?: Readonly<Record<string, Severity>>;
@@ -158,6 +236,7 @@ export interface ResolvedAuditConfig {
   crawl: CrawlBudgets;
   canonicalOrigin?: URL;
   targetScope?: 'private' | 'public';
+  only?: readonly string[];
   respectRobots: boolean;
   severityOverrides: Readonly<Record<string, Severity>>;
   thresholds: ResolvedThresholds;

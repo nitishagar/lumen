@@ -191,7 +191,7 @@ export class FakeFetcher implements Fetcher {
     return this.log.filter((c) => {
       if ((c.init as { redirect?: string } | undefined)?.redirect !== 'manual') return false;
       const path = new URL(c.url).pathname;
-      if (path.endsWith('/robots.txt') || path.endsWith('.xml')) return false; // robots + sitemap(-probe) infrastructure
+      if (path.endsWith('/robots.txt') || path.endsWith('.xml') || path.endsWith('/llms.txt')) return false; // robots + sitemap + llms.txt infrastructure
       const seq = this.routes.get(c.url);
       return seq?.[0]?.contentType !== 'application/xml';
     });

@@ -6,6 +6,19 @@ All notable changes to lumen are documented here. The format follows
 
 ## [Unreleased]
 
+- **Rule pack v2 (E1.6) — 16 new rules (24 → 36 built-in rules)**: integrity rules
+  (structured-data, canonical targets, sitemaps, robots, hreflang reciprocity,
+  orphans, meta-refresh, security headers, twitter cards, thin content,
+  opt-in external-link check) plus a third rule kind `site` (runs once per
+  audit against retained robots/sitemap evidence). The plugin SPI gains the
+  same `site` kind additively.
+- **AI-search readiness pack (E1.7)**: `ai-crawler-access` robots matrix for a
+  vendored, dated AI user-agent list (never advises a training policy),
+  `llms-txt` (unproven-impact disclaimer included), `content-in-raw-html`
+  heuristic, and `lumen audit --only <category|ruleId,…>`.
+- `--update-baseline` now exits 0 after the write (the adopt flow's first
+  command no longer fails on existing findings).
+
 Nothing yet — add user-facing changes here as they land; the section is
 renamed at release time.
 
@@ -16,7 +29,7 @@ tag is pushed (see `docs/distribution.md` for the release runbook).
 
 ### Added
 
-- **Two new audit rules (18 → 20 built-in rules)**: `hreflang-present`
+- **Two new audit rules (part of the 36 built-in rules this release ships)**: `hreflang-present`
   (info) and `duplicate-content` (warning, sha256 body-hash grouping)
   ([#37](https://github.com/nitishagar/lumen/pull/37)).
 - **Audit history**: kind-aware JSONL history store with

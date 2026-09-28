@@ -81,6 +81,8 @@ export interface PrivateScopeSpec {
 export interface RunnerScope {
   privateScope?: PrivateScopeSpec;
   canonicalOrigin?: URL;
+  /** E1.7 FR-4: --only categories/rule ids (validated by the engine's rule set). */
+  only?: readonly string[];
 }
 
 /**
@@ -112,6 +114,7 @@ export const createAuditRunner = (config: ResolvedConfig, scope?: RunnerScope): 
       },
       severityOverrides: { ...config.severityOverrides },
       ...(scope?.canonicalOrigin === undefined ? {} : { canonicalOrigin: scope.canonicalOrigin.href }),
+      ...(scope?.only === undefined || scope.only.length === 0 ? {} : { only: scope.only }),
       // FR-4 honesty label: blocklisted seed OR the run's policy admits the seed.
       targetScope: seedIsPrivate(input.url) || (policy?.allowHost(input.url) ?? false) ? 'private' : 'public',
     };
