@@ -60,7 +60,7 @@ export const robotsGate = async (
   const unreachable = (): LumenRobotsUnreachableError => new LumenRobotsUnreachableError(site.origin);
 
   const attempt = (): Promise<Response> =>
-    fetcher.fetch(robotsUrl, { signal }).catch((e: unknown) => {
+    fetcher.fetch(robotsUrl, { redirect: 'manual', signal }).catch((e: unknown) => {
       if (isAbort(e, signal)) throw new AbortedError('audit');
       if (e instanceof RetryExhaustedError && e.status === 429) throw new Robots429Exhausted();
       throw unreachable(); // 5xx / network / timeout after core's retries
@@ -75,7 +75,7 @@ export const robotsGate = async (
     // (core already retried honoring Retry-After up to its 30 s cap)
     await deps.delay(deps.jitter() * ROBOTS_RETRY_AFTER_CAP_MS, signal); // abort rejects propagate
     try {
-      res = await fetcher.fetch(robotsUrl, { signal });
+      res = await fetcher.fetch(robotsUrl, { redirect: 'manual', signal });
     } catch (e2) {
       if (isAbort(e2, signal)) throw new AbortedError('audit');
       throw unreachable();
@@ -87,7 +87,7 @@ export const robotsGate = async (
     const wait = retryAfterMsCapped(res.headers.get('retry-after')) ?? Math.round(deps.jitter() * ROBOTS_RETRY_AFTER_CAP_MS);
     await deps.delay(wait, signal); // abort rejects propagate
     try {
-      res = await fetcher.fetch(robotsUrl, { signal });
+      res = await fetcher.fetch(robotsUrl, { redirect: 'manual', signal });
     } catch (e) {
       if (isAbort(e, signal)) throw new AbortedError('audit');
       throw unreachable();

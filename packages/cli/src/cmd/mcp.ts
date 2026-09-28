@@ -42,7 +42,9 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     return EXIT.OK;
   }
 
-  const d = deps ?? (await buildDeps(ctx.configPathFlag));
+  // E1.1 FR-3: private targets are a LAUNCH-TIME decision (client config sets
+  // `lumen mcp --allow-private`); no tool argument can ever enable them.
+  const d = deps ?? (await buildDeps(ctx.configPathFlag, ctx.flags['allow-private'] === true ? { privateScope: { loopback: true } } : undefined));
   const server = buildMcpServer(mcpDepsFromCommand(d));
   const transport = new StdioServerTransport();
   await server.connect(transport);

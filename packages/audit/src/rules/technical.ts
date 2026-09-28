@@ -3,6 +3,7 @@
  * errors, plain-http pages, mixed content, response latency.
  */
 import type { AuditRule, Issue, Severity } from '@lumen-seo/core';
+import { isBlockedHost } from '@lumen-seo/core';
 import { EVIDENCE_CAP } from '../config.js';
 import type { ResolvedThresholds } from '../types.js';
 
@@ -41,12 +42,22 @@ export const statusError = (severity: Severity): AuditRule => ({
   },
 });
 
-export const insecureHttp = (severity: Severity): AuditRule => ({
+/**
+ * `canonicalOrigin` (PRD E1.1 FR-5): when auditing a private/loopback preview
+ * of a production https origin (`--canonical-origin https://…`), the page's
+ * plain http: is an artifact of the preview, not a production finding — the
+ * scheme context is the canonical origin's. A canonical http: origin keeps
+ * the finding (production really is plain http).
+ */
+export const insecureHttp = (severity: Severity, canonicalOrigin?: URL): AuditRule => ({
   id: 'insecure-http',
   severity,
   categories: ['technical'],
   check(page): Issue[] {
     if (page.url.protocol !== 'http:') return [];
+    if (canonicalOrigin !== undefined && canonicalOrigin.protocol === 'https:' && isBlockedHost(page.url.hostname)) {
+      return [];
+    }
     return [
       {
         ruleId: 'insecure-http',

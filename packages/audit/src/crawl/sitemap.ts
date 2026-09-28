@@ -59,7 +59,7 @@ export const discoverSitemaps = async (o: SitemapOptions): Promise<URL[]> => {
 
     let res;
     try {
-      res = await deps.fetcher.fetch(source, { signal });
+      res = await deps.fetcher.fetch(source, { redirect: 'manual', signal });
     } catch (e) {
       if (isAbort(e, signal)) throw new AbortedError('audit');
       if (!isProbe) o.onWarning?.('sitemap_fetch_failed');

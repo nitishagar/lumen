@@ -17,6 +17,7 @@
  * testable with zero live network and zero wall-clock dependence.
  */
 import { AbortedError, RedirectError, RetryAfterCapError, RetryExhaustedError, SsrfBlockedError, TimeoutError, UnsupportedSchemeError } from './errors.js';
+import type { SsrfPolicy } from './private-scope.js';
 import { isAllowedScheme, isBlockedHost, isBlockedIpAddress, isIpLiteral } from './ssrf.js';
 import { USER_AGENT } from './ua.js';
 
@@ -42,6 +43,9 @@ export interface FetcherOptions {
   delegate?: FetchTransport;
   /** Hostname → resolved IPs; ANY blocked IP refuses the request pre-connect (Node: node:dns). */
   resolve?: (host: string) => Promise<string[]>;
+  /** Scoped private-target opt-in (E1.1): may relax the host + resolved-IP blocklist
+   *  checks for hosts it permits (it owns the seed-origin check). Undefined = strict. */
+  allowPrivate?: SsrfPolicy;
   /** Sleep seam (default: setTimeout; fake timers / recorders in tests). */
   sleep?: (ms: number) => Promise<void>;
   /** RNG seam for full jitter (default: Math.random; seeded in tests). */
@@ -80,19 +84,26 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
     label,
     delegate = (url, init) => globalThis.fetch(url, init),
     resolve,
+    allowPrivate,
     sleep = defaultSleep,
     rng = Math.random,
     now = Date.now,
   } = opts;
 
-  /** Scheme + blocklist + (when wired) resolved-IP validation for one hop. */
+  /** Scheme + blocklist + (when wired) resolved-IP validation for one hop.
+   *  The optional `allowPrivate` policy may ONLY relax the two blocklist
+   *  checks — and only for hosts/IPs it explicitly permits (the scoped
+   *  private-target policy does its own origin checking, E1.1). Scheme,
+   *  resolution-failure refusal, and everything else stay strict. */
   const assertHopAllowed = async (url: URL, isRedirectHop: boolean): Promise<void> => {
     if (!isAllowedScheme(url.protocol)) {
       throw isRedirectHop
         ? new RedirectError('scheme', `redirect to non-http(s) target ${url.href}`, label)
         : new UnsupportedSchemeError(url.protocol, url.href, label);
     }
-    if (isBlockedHost(url.hostname)) throw new SsrfBlockedError(url.href, label);
+    if (isBlockedHost(url.hostname) && !(allowPrivate?.allowHost(url) ?? false)) {
+      throw new SsrfBlockedError(url.href, label);
+    }
     if (resolve !== undefined && !isIpLiteral(url.hostname)) {
       let ips: string[];
       try {
@@ -100,7 +111,9 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
       } catch {
         throw new SsrfBlockedError(url.href, label); // resolution failure → refuse (conservative)
       }
-      if (ips.some((ip) => isBlockedIpAddress(ip))) throw new SsrfBlockedError(url.href, label);
+      if (ips.some((ip) => isBlockedIpAddress(ip) && !(allowPrivate?.allowIp(url, ip) ?? false))) {
+        throw new SsrfBlockedError(url.href, label);
+      }
     }
   };
 

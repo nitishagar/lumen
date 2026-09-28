@@ -8,7 +8,9 @@ import type { CrawlBudgets } from '@lumen-seo/core';
 import {
   DEFAULT_THRESHOLDS,
 } from './types.js';
+import { isAllowedScheme } from '@lumen-seo/core';
 import type { AuditConfig, ResolvedAuditConfig, ResolvedThresholds } from './types.js';
+import { LumenError } from '@lumen-seo/core';
 
 /** Audit-owned response-body cap (2 MiB). */
 export const DEFAULT_MAX_BODY_BYTES = 2_000_000;
@@ -44,6 +46,17 @@ export const resolveAuditConfig = (config: AuditConfig = {}): ResolvedAuditConfi
   crawl.maxConcurrency = Math.max(1, Math.floor(crawl.maxConcurrency));
   crawl.perHostMinDelayMs = Math.max(0, Math.floor(crawl.perHostMinDelayMs));
 
+  let canonicalOrigin: URL | undefined;
+  if (config.canonicalOrigin !== undefined) {
+    try {
+      const u = new URL(config.canonicalOrigin);
+      if (!isAllowedScheme(u.protocol)) throw new Error('scheme');
+      canonicalOrigin = u;
+    } catch {
+      throw new LumenError(`invalid canonicalOrigin "${config.canonicalOrigin}" — must be an absolute http(s) URL`, 'audit');
+    }
+  }
+
   const t = config.thresholds ?? {};
   const thresholds: ResolvedThresholds = {
     titleMinChars: t.titleMinChars ?? DEFAULT_THRESHOLDS.titleMinChars,
@@ -55,6 +68,8 @@ export const resolveAuditConfig = (config: AuditConfig = {}): ResolvedAuditConfi
 
   return {
     crawl,
+    canonicalOrigin,
+    targetScope: config.targetScope,
     respectRobots: config.respectRobots ?? true,
     severityOverrides: config.severityOverrides ?? {},
     thresholds,

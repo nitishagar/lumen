@@ -22,7 +22,7 @@
     "init",
     "doctor"
   ],
-  "cliFlags": ["--max-pages", "--out", "--json", "--domain"],
+  "cliFlags": ["--max-pages", "--out", "--json", "--domain", "--allow-private", "--canonical-origin"],
   "exitCodes": [
     { "code": 0, "meaning": "ok — no issues at or above failThreshold" },
     { "code": 1, "meaning": "issues at or above failThreshold" },

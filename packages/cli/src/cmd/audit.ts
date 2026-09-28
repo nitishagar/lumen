@@ -8,11 +8,12 @@
  * report). `--out` writes are atomic; `--max-pages` has NO flag-level default
  * (R8) — absent means core's config budget applies.
  */
-import { countIssuesAtOrAbove, EXIT, FAIL_THRESHOLDS, MAX_PAGES_CEILING } from '@lumen-seo/core';
-import type { FailThreshold, SiteAuditReport } from '@lumen-seo/core';
+import { countIssuesAtOrAbove, createPrivateScopePolicy, EXIT, FAIL_THRESHOLDS, MAX_PAGES_CEILING } from '@lumen-seo/core';
+import type { FailThreshold, SiteAuditReport, SsrfPolicy } from '@lumen-seo/core';
 import { intFlag } from '../args.js';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
+import type { RunnerScope } from '../composition/audit-adapter.js';
 import { jsonDocument } from '../io.js';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
@@ -21,9 +22,37 @@ import { validatePublicHttpUrl } from '@lumen-seo/mcp/url-guard';
 import { writeFileAtomic } from '../write-atomic.js';
 
 export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<number> => {
-  const d = deps ?? (await buildDeps(ctx.configPathFlag));
-  const guard = validatePublicHttpUrl(ctx.positionals[0]);
-  if (!guard.ok) throw new UsageError(guard.message);
+  // E1.1 FR-5: canonical origin must be an absolute http(s) URL (fail fast).
+  let canonicalOrigin: URL | undefined;
+  if (ctx.flags['canonical-origin'] !== undefined) {
+    const raw = String(ctx.flags['canonical-origin']);
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
+      canonicalOrigin = u;
+    } catch {
+      throw new UsageError(`--canonical-origin must be an absolute http(s) URL (got "${raw}")`);
+    }
+  }
+  const scope: RunnerScope | undefined =
+    ctx.flags['allow-private'] === true || canonicalOrigin !== undefined
+      ? { ...(ctx.flags['allow-private'] === true ? { privateScope: { loopback: true } } : {}), ...(canonicalOrigin === undefined ? {} : { canonicalOrigin }) }
+      : undefined;
+  const d = deps ?? (await buildDeps(ctx.configPathFlag, scope));
+  // E1.1 admission: with a launch-time scope, a private host is admitted ONLY
+  // at its own (the seed's) origin; without one the guard is unchanged.
+  const policyFor: ((url: URL) => SsrfPolicy) | undefined =
+    d.privateScope === undefined
+      ? undefined
+      : (url: URL) => createPrivateScopePolicy({ seedOrigin: url, loopback: d.privateScope!.loopback, allowHosts: d.privateScope!.allowHosts });
+  const guard = validatePublicHttpUrl(ctx.positionals[0], policyFor);
+  if (!guard.ok) {
+    throw new UsageError(
+      guard.blockedHost === true
+        ? `${guard.message} — for local/private targets pass --allow-private (and list non-loopback ranges in crawl.allowPrivateHosts)`
+        : guard.message,
+    );
+  }
   const url = guard.url;
 
   const maxPagesFlag = intFlag(ctx.flags, 'max-pages');

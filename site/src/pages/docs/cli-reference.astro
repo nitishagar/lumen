@@ -19,9 +19,12 @@ const flags = [
   { flag: '--out <file>', what: 'write the full report JSON to a file' },
   { flag: '--json', what: 'machine-readable output on stdout (every command)' },
   { flag: '--domain <domain>', what: 'target domain for lumen rank' },
+  { flag: '--allow-private', what: 'audit/report on a LOCAL target: loopback only (localhost, 127.0.0.0/8, ::1), scoped to the seed origin — redirects or links to any other private host are still refused; non-loopback ranges must be listed in crawl.allowPrivateHosts' },
+  { flag: '--canonical-origin <url>', what: 'with --allow-private: the production origin a preview represents — scheme-context rules (insecure-http) evaluate against it instead of flooding on the preview' },
 ];
 const example = [
   { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },
+  { kind: 'cmd' as const, text: 'lumen audit http://localhost:4321 --allow-private --canonical-origin https://example.com' },
   { kind: 'cmd' as const, text: 'lumen keywords "broadfork" --json | jq \'.[0:5]\'' },
   { kind: 'cmd' as const, text: 'lumen rank "garden tools" --domain example.com' },
   { kind: 'out' as const, text: 'position 14 (ddg-serp · gray, best-effort) — appended to .lumen/history.jsonl' },

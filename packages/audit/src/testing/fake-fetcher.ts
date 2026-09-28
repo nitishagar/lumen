@@ -180,9 +180,21 @@ export class FakeFetcher implements Fetcher {
     return res;
   }
 
-  /** Calls whose init carried `redirect: 'manual'` (every crawler page fetch). */
+  /**
+   * Calls whose init carried `redirect: 'manual'` AND that are crawler PAGE
+   * fetches. Since the security-review C1 fix, the robots.txt and sitemap
+   * legs share the exact same transport contract (manual redirects, per-hop
+   * SSRF revalidation) as page fetches — infrastructure is therefore excluded
+   * by route kind: `/robots.txt` paths and `application/xml` routes.
+   */
   pageCalls(): FakeCall[] {
-    return this.log.filter((c) => (c.init as { redirect?: string } | undefined)?.redirect === 'manual');
+    return this.log.filter((c) => {
+      if ((c.init as { redirect?: string } | undefined)?.redirect !== 'manual') return false;
+      const path = new URL(c.url).pathname;
+      if (path.endsWith('/robots.txt') || path.endsWith('.xml')) return false; // robots + sitemap(-probe) infrastructure
+      const seq = this.routes.get(c.url);
+      return seq?.[0]?.contentType !== 'application/xml';
+    });
   }
 
   countFor(url: string): number {

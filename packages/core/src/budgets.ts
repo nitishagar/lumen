@@ -9,6 +9,9 @@ export interface CrawlBudgets {
   maxDurationMs: number;
   maxConcurrency: number;
   perHostMinDelayMs: number;
+  /** E1.1: exact hostnames / CIDRs the SSRF guard may allow AT THE SEED ORIGIN
+   *  when the run opts in (`--allow-private`). Absent/empty = strict guard. */
+  allowPrivateHosts?: readonly string[];
 }
 
 /** R3 defaults; the config loader hard-clamps `maxPages` at 10 000. */

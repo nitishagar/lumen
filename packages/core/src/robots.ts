@@ -51,7 +51,10 @@ export const loadRobots = async (
 
   let res: Response;
   try {
-    res = await fetcher.fetch(robotsUrl, o.signal === undefined ? undefined : { signal: o.signal });
+    res = await fetcher.fetch(
+      robotsUrl,
+      o.signal === undefined ? { redirect: 'manual' } : { redirect: 'manual', signal: o.signal },
+    );
   } catch {
     return disallowAll; // network failure (incl. blocked target) → disallow-all (BA-9)
   }

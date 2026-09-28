@@ -184,3 +184,26 @@ describe('config loader (SC-3 / SC-5)', () => {
     expect(paths).toEqual(['nope1', 'failThreshold', 'crawl.bad']);
   });
 });
+
+describe('crawl.allowPrivateHosts (E1.1)', () => {
+  it('accepts a list of hostnames and CIDRs, defaulting to absent', async () => {
+    const cfg = await load('{"crawl":{"allowPrivateHosts":["localhost","10.0.0.0/8","staging.internal"]}}');
+    expect(cfg.crawl.allowPrivateHosts).toEqual(['localhost', '10.0.0.0/8', 'staging.internal']);
+    const noKey = await load('{"crawl":{"maxPages":5}}');
+    expect(noKey.crawl.allowPrivateHosts).toBeUndefined();
+  });
+
+  it('rejects malformed entries and allow-everything CIDRs loudly (ConfigError detail names the entry)', async () => {
+    for (const bad of ['0.0.0.0/0', '::/0', '10.0.0.0/33', 'not a host', 42]) {
+      const content = JSON.stringify({ crawl: { allowPrivateHosts: [bad] } });
+      await expect(load(content)).rejects.toThrow(/allowPrivateHosts/);
+    }
+    const err = await load('{"crawl":{"allowPrivateHosts":["10.0.0.0/33"]}}').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ConfigError);
+    expect((err as ConfigError).details[0]?.message).toContain('10.0.0.0/33');
+  });
+
+  it('rejects a non-array value', async () => {
+    await expect(load('{"crawl":{"allowPrivateHosts":"localhost"}}')).rejects.toThrow(ConfigError);
+  });
+});

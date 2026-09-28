@@ -139,6 +139,11 @@ export const DEFAULT_THRESHOLDS: ResolvedThresholds = Object.freeze({
  */
 export interface AuditConfig {
   crawl?: Partial<CrawlBudgets>;
+  /** E1.1 FR-5: the production origin a private/loopback preview represents —
+   *  scheme-context for context-dependent rules (insecure-http). */
+  canonicalOrigin?: string;
+  /** E1.1 FR-4: honest report label. Absent → derived from the seed's host. */
+  targetScope?: 'private' | 'public';
   /** Default `true`. Skips the robots gate — NEVER the rate limiter or budgets (A2). */
   respectRobots?: boolean;
   severityOverrides?: Readonly<Record<string, Severity>>;
@@ -151,6 +156,8 @@ export interface AuditConfig {
 
 export interface ResolvedAuditConfig {
   crawl: CrawlBudgets;
+  canonicalOrigin?: URL;
+  targetScope?: 'private' | 'public';
   respectRobots: boolean;
   severityOverrides: Readonly<Record<string, Severity>>;
   thresholds: ResolvedThresholds;

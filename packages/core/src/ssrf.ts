@@ -31,7 +31,8 @@ const V4_RANGES: readonly [number, number][] = [
   [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
 ];
 
-const ipv4ToInt = (s: string): number | null => {
+/** Shared with `private-scope.ts` (the policy parses hosts identically to the blocklist). */
+export const ipv4ToInt = (s: string): number | null => {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
   if (m === null) return null;
   let value = 0;
@@ -48,7 +49,8 @@ const isBlockedIpv4 = (ip: number): boolean => {
   return false;
 };
 
-const parseIpv6 = (input: string): bigint | null => {
+/** Shared with `private-scope.ts` (CIDR matching uses the same 128-bit parser). */
+export const parseIpv6 = (input: string): bigint | null => {
   let s = input;
   const lastColon = s.lastIndexOf(':');
   if (lastColon !== -1 && s.slice(lastColon + 1).includes('.')) {
@@ -93,8 +95,10 @@ const isBlockedIpv6 = (addr: bigint): boolean => {
   return false;
 };
 
-/** Strips brackets, a zone id, and trailing FQDN dots from a URL hostname. */
-const normalizeHost = (hostname: string): string => {
+/** Strips brackets, a zone id, and trailing FQDN dots from a URL hostname.
+ *  Exported so the scoped private-target policy (`private-scope.ts`) MUST
+ *  normalize hosts identically to the blocklist. */
+export const normalizeHost = (hostname: string): string => {
   let host = hostname;
   if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
   const zone = host.indexOf('%');

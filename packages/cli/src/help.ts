@@ -44,11 +44,14 @@ const usage = (title: string, usageLine: string, flags: string[], notes: string[
 const USAGE_BY_COMMAND: Record<string, string> = {
   audit: usage(
     'lumen audit — bounded site audit',
-    'lumen audit <url> [--max-pages N] [--out report.json] [--fail-threshold S] [--json]',
+    'lumen audit <url> [--max-pages N] [--out report.json] [--fail-threshold S] [--json]\n    lumen audit <url> --allow-private [--canonical-origin https://prod.example]',
     [
       '--max-pages N      Crawl budget override (default: config crawl.maxPages = 100, clamp 10000)',
       '--out <path>       Write the full report JSON atomically (tmp + rename)',
       '--fail-threshold S info | warning | error | off (default: config, else error)',
+      '--allow-private    Audit a LOCAL target: loopback only, scoped to the seed origin;',
+      '                   other private ranges need crawl.allowPrivateHosts in config',
+      '--canonical-origin Production origin of a preview (--canonical-origin https://prod.example)',
       '--json             One JSON document on stdout',
     ],
     [
@@ -58,9 +61,10 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   ),
   report: usage(
     'lumen report — page report (PSI lab + CrUX field + local page meta)',
-    'lumen report <url> [--strategy mobile|desktop] [--json]',
+    'lumen report <url> [--strategy mobile|desktop] [--json] [--allow-private]',
     [
       '--strategy S       mobile | desktop (default mobile)',
+      '--allow-private    Report on a LOCAL target: loopback only, scoped to the seed origin',
       '--json             One JSON document on stdout',
     ],
     ['Provenance on every metric; unavailable providers are labeled, never zero-filled.'],
@@ -96,9 +100,11 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   ),
   mcp: usage(
     'lumen mcp — MCP server (stdio) and onboarding payloads',
-    'lumen mcp [--print json|claude|cursor|vscode|mcpb|registry|claude-plugin] [--url <remote>] [--json]',
+    'lumen mcp [--print json|claude|cursor|vscode|mcpb|registry|claude-plugin] [--url <remote>] [--json] [--allow-private]',
     [
       '--print <target>   Print the onboarding payload and exit 0 (no server)',
+      '--allow-private    LAUNCH-TIME: stdio tools may audit loopback targets (set in client config;',
+      '                   never a tool argument; non-loopback ranges need crawl.allowPrivateHosts)',
       '--url <remote>     Remote worker URL for --print payloads',
       '--json             Accepted for uniformity; stdout is protocol-only while serving',
     ],

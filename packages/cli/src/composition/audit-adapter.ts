@@ -20,9 +20,12 @@ import { randomUUID } from 'node:crypto';
 import { load as loadDom } from 'cheerio';
 import { AbortedError } from '@lumen-seo/core';
 import type { ResolvedConfig, SiteAuditReport } from '@lumen-seo/core';
+import { DEFAULT_BUDGETS } from '@lumen-seo/core';
 import { createNodeFetcher } from '@lumen-seo/core/node';
 import { runSiteAudit, sanitizeText } from '@lumen-seo/audit';
 import type { AuditConfig, CancellableDelay, CrawlerDeps } from '@lumen-seo/audit';
+import { createPrivateScopePolicy, isLoopbackHostname, seedIsPrivate } from '@lumen-seo/core';
+import type { SsrfPolicy } from '@lumen-seo/core';
 import type { AuditInput, AuditRunner, PageMeta, PageMetaFetcher } from '@lumen-seo/mcp/ports';
 
 /** Page-meta body cap (bytes) — aligned with the audit engine's default maxBodyBytes. */
@@ -56,21 +59,63 @@ const delay = (ms: number, signal?: AbortSignal): CancellableDelay => {
 };
 
 /** Production CrawlerDeps (ports.ts mapping): real fetcher, wall clock, random jitter/id. */
-const crawlerDeps = (): CrawlerDeps => ({
-  fetcher: createNodeFetcher(),
+const crawlerDeps = (fetcher: ReturnType<typeof createNodeFetcher>): CrawlerDeps => ({
+  fetcher,
   now: () => Date.now(),
   delay,
   jitter: () => Math.random(),
   randomId: () => randomUUID(),
 });
 
-export const createAuditRunner = (config: ResolvedConfig): AuditRunner => ({
+/**
+ * Launch-time private-target scope (PRD E1.1/D3): `loopback` is the
+ * `--allow-private` flag (loopback-only); `allowHosts` is
+ * `crawl.allowPrivateHosts`. Undefined = strict guard everywhere.
+ */
+export interface PrivateScopeSpec {
+  loopback: boolean;
+  allowHosts?: readonly string[];
+}
+
+/** The launch-time spec plus FR-5's canonical origin, resolved per run. */
+export interface RunnerScope {
+  privateScope?: PrivateScopeSpec;
+  canonicalOrigin?: URL;
+}
+
+/**
+ * The scope-bearing fetcher for ONE seed: the policy is built per run with
+ * the seed origin baked in, so the origin check in core's policy is provably
+ * against THIS run's seed (FR-2) — never a stale or shared origin.
+ */
+const scopedFetcher = (url: URL, scope?: PrivateScopeSpec): { fetcher: ReturnType<typeof createNodeFetcher>; policy?: SsrfPolicy } => {
+  if (scope === undefined) return { fetcher: createNodeFetcher() };
+  const policy = createPrivateScopePolicy({ seedOrigin: url, loopback: scope.loopback, allowHosts: scope.allowHosts });
+  return { fetcher: createNodeFetcher({ allowPrivate: policy }), policy };
+};
+
+export const createAuditRunner = (config: ResolvedConfig, scope?: RunnerScope): AuditRunner => ({
   run: async (input: AuditInput, signal?: AbortSignal): Promise<SiteAuditReport> => {
+    const { fetcher, policy } = scopedFetcher(input.url, scope?.privateScope);
+    // FR-4: on a loopback target the user owns the server — the default
+    // politeness delay drops to 0 unless explicitly configured otherwise
+    // (an explicit non-default value always wins).
+    const zeroDelay =
+      scope?.privateScope !== undefined &&
+      isLoopbackHostname(input.url.hostname) &&
+      config.crawl.perHostMinDelayMs === DEFAULT_BUDGETS.perHostMinDelayMs;
     const auditConfig: AuditConfig = {
-      crawl: { ...config.crawl, ...(input.maxPages === undefined ? {} : { maxPages: input.maxPages }) },
+      crawl: {
+        ...config.crawl,
+        ...(input.maxPages === undefined ? {} : { maxPages: input.maxPages }),
+        ...(zeroDelay ? { perHostMinDelayMs: 0 } : {}),
+      },
       severityOverrides: { ...config.severityOverrides },
+      ...(scope?.canonicalOrigin === undefined ? {} : { canonicalOrigin: scope.canonicalOrigin.href }),
+      // FR-4 honesty label: blocklisted seed OR the run's policy admits the seed.
+      targetScope: seedIsPrivate(input.url) || (policy?.allowHost(input.url) ?? false) ? 'private' : 'public',
     };
-    return runSiteAudit(input.url, auditConfig, crawlerDeps(), signal);
+    return runSiteAudit(input.url, auditConfig, crawlerDeps(fetcher), signal);
   },
 });
 
@@ -95,14 +140,16 @@ const readCapped = async (res: Response): Promise<string | null> => {
   return parts.join('');
 };
 
-export const createPageMetaFetcher = (): PageMetaFetcher => {
-  const fetcher = createNodeFetcher();
+export const createPageMetaFetcher = (privateScope?: PrivateScopeSpec): PageMetaFetcher => {
   const textOrNull = (s: string | undefined): string | null => {
     const t = sanitizeText(s ?? '').trim();
     return t === '' ? null : t;
   };
   return {
     fetch: async (url: URL, signal?: AbortSignal): Promise<PageMeta | null> => {
+      // Scoped builds construct the fetcher per call so the policy's seed
+      // origin is THIS URL — never frozen at factory time (E1.1 FR-2).
+      const { fetcher } = scopedFetcher(url, privateScope);
       const res = await fetcher.fetch(url, { redirect: 'manual', signal });
       const contentType = res.headers.get('content-type') ?? '';
       if (!res.ok || !contentType.includes('text/html')) return null;

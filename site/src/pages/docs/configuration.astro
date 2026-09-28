@@ -16,7 +16,8 @@ const configExample = `{
     "maxDepth": 4,
     "maxDurationMs": 600000,
     "maxConcurrency": 5,
-    "perHostMinDelayMs": 500
+    "perHostMinDelayMs": 500,
+    "allowPrivateHosts": ["staging.internal", "10.0.0.0/8"]
   },
   "failThreshold": "warning",
   "byok": {
@@ -30,7 +31,7 @@ const configExample = `{
 const keys = [
   { key: 'providers', what: 'provider name per boundary (keywords, serp, pagespeed, crux, authority); unknown names are a config error listing the options' },
   { key: 'severityOverrides', what: 'per-rule severity overrides by rule id' },
-  { key: 'crawl', what: 'budgets: maxPages, maxDepth, maxDurationMs, maxConcurrency, perHostMinDelayMs' },
+  { key: 'crawl', what: 'budgets: maxPages, maxDepth, maxDurationMs, maxConcurrency, perHostMinDelayMs; plus allowPrivateHosts (E1.1 local-target opt-in)' },
   { key: 'failThreshold', what: 'lowest severity that fails a run: error | warning | info | off (default error)' },
   { key: 'byok', what: 'env-var NAMES for provider keys (values never enter the file)' },
   { key: 'plugins', what: 'local plugin files implementing extra audit rules (Node-only)' },
@@ -43,6 +44,7 @@ const keys = [
   toc={[
     { id: 'file', label: 'The file' },
     { id: 'keys', label: 'Keys' },
+    { id: 'allow-private', label: 'Local targets' },
     { id: 'defaults', label: 'Crawl defaults' },
     { id: 'errors', label: 'Error behavior' },
     { id: 'safety', label: 'Fetch safety & etiquette' },
@@ -74,6 +76,29 @@ const keys = [
       ))}
     </tbody>
   </table>
+
+  <h2 id="allow-private">Auditing local and preview targets</h2>
+  <p>
+    <code>crawl.allowPrivateHosts</code> lists the exact hostnames or CIDR
+    ranges (IPv4 like <code>10.0.0.0/8</code>, IPv6 like <code>fd00::/8</code>)
+    the SSRF guard may reach. Listing entries here opts those ranges in BY
+    ITSELF; <code>--allow-private</code> additionally opens loopback — always
+    only at the audited URL's own origin:
+    redirects or links to any <em>other</em> private host are still refused.
+    <code>0.0.0.0/0</code> and <code>::/0</code> are rejected outright as
+    allow-everything. Prefer CIDR or IP entries: a hostname entry trusts
+    whatever that name resolves to at call time. The flag alone covers
+    loopback only (<code>localhost</code>, <code>127.0.0.0/8</code>,
+    <code>::1</code>); on a loopback seed the per-host politeness delay
+    defaults to 0 because you own that server, and reports label the run{' '}
+    <code>target.scope: "private"</code> so results are never mistaken for
+    production. Pair the flag with <code>--canonical-origin https://prod.example</code>{' '}
+    so scheme rules (plain-http) judge the production origin, not the preview.
+    Note that with provider keys configured, <code>lumen report</code> still
+    hands the local URL to PSI/CrUX as a query parameter (they cannot fetch it;
+    their own fetchers stay strict) — skip those legs if that disclosure
+    matters to you.
+  </p>
 
   <h2 id="defaults">Crawl defaults</h2>
   <table>

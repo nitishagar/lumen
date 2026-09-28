@@ -13,7 +13,7 @@ import { brokenInternalLink, duplicateContent, redirectChain } from './links.js'
 import { ogTagsMissing } from './social.js';
 import type { CrawlRule, ResolvedAuditConfig, ResolvedThresholds } from '../types.js';
 
-type PageRuleFactory = (severity: Severity, t: ResolvedThresholds) => AuditRule;
+type PageRuleFactory = (severity: Severity, t: ResolvedThresholds, canonicalOrigin?: URL) => AuditRule;
 type CrawlRuleFactory = (severity: Severity) => CrawlRule;
 
 interface BuiltinSpec {
@@ -40,7 +40,7 @@ export const BUILT_IN_RULES: readonly BuiltinSpec[] = [
   { id: 'redirect-chain', defaultSeverity: 'warning', categories: ['links', 'technical'], make: (s: Severity) => redirectChain(s), kind: 'crawl' },
   { id: 'robots-noindex', defaultSeverity: 'info', categories: ['meta', 'technical'], make: (s: Severity) => robotsNoindex(s), kind: 'page' },
   { id: 'status-error', defaultSeverity: 'error', categories: ['technical'], make: (s: Severity) => statusError(s), kind: 'page' },
-  { id: 'insecure-http', defaultSeverity: 'warning', categories: ['technical'], make: (s: Severity) => insecureHttp(s), kind: 'page' },
+  { id: 'insecure-http', defaultSeverity: 'warning', categories: ['technical'], make: (s: Severity, _t, c) => insecureHttp(s, c), kind: 'page' },
   { id: 'mixed-content', defaultSeverity: 'error', categories: ['technical'], make: (s: Severity) => mixedContent(s), kind: 'page' },
   { id: 'response-latency', defaultSeverity: 'warning', categories: ['performance'], make: (s: Severity, t: ResolvedThresholds) => responseLatency(s, t), kind: 'page' },
   { id: 'og-tags-missing', defaultSeverity: 'info', categories: ['social'], make: (s: Severity) => ogTagsMissing(s), kind: 'page' },
@@ -77,7 +77,7 @@ export const createRuleSet = (config: ResolvedAuditConfig): RuleSet => {
   const shims = BUILT_IN_RULES.filter((r) => r.kind === 'crawl').map(asAuditRule);
   const registry = createRuleRegistry(
     [
-      ...BUILT_IN_RULES.filter((r) => r.kind === 'page').map((r) => (r.make as PageRuleFactory)(r.defaultSeverity, t)),
+      ...BUILT_IN_RULES.filter((r) => r.kind === 'page').map((r) => (r.make as PageRuleFactory)(r.defaultSeverity, t, config.canonicalOrigin)),
       ...shims,
       ...config.extraRules,
     ],
@@ -91,7 +91,7 @@ export const createRuleSet = (config: ResolvedAuditConfig): RuleSet => {
   for (const spec of BUILT_IN_RULES) {
     const severity = registry.effectiveSeverity(spec.id) ?? spec.defaultSeverity;
     effective[spec.id] = severity;
-    if (spec.kind === 'page') pageRules.push((spec.make as PageRuleFactory)(severity, t));
+    if (spec.kind === 'page') pageRules.push((spec.make as PageRuleFactory)(severity, t, config.canonicalOrigin));
     else crawlRules.push((spec.make as CrawlRuleFactory)(severity));
   }
   for (const plugin of config.extraRules) {

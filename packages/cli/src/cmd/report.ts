@@ -12,6 +12,8 @@ import { validatePublicHttpUrl } from '@lumen-seo/mcp/url-guard';
 import { NotConfiguredError } from '@lumen-seo/providers';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
+import { createPrivateScopePolicy } from '@lumen-seo/core';
+import type { SsrfPolicy } from '@lumen-seo/core';
 import { jsonDocument } from '../io.js';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
@@ -27,9 +29,19 @@ type Field = CruxRecord | Unavailable;
 type Meta = (PageMeta & { retrievedAt: string }) | Unavailable;
 
 export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<number> => {
-  const d = deps ?? (await buildDeps(ctx.configPathFlag));
-  const guard = validatePublicHttpUrl(ctx.positionals[0]);
-  if (!guard.ok) throw new UsageError(guard.message);
+  const d = deps ?? (await buildDeps(ctx.configPathFlag, ctx.flags['allow-private'] === true ? { privateScope: { loopback: true } } : undefined));
+  const policyFor: ((url: URL) => SsrfPolicy) | undefined =
+    d.privateScope === undefined
+      ? undefined
+      : (url: URL) => createPrivateScopePolicy({ seedOrigin: url, loopback: d.privateScope!.loopback, allowHosts: d.privateScope!.allowHosts });
+  const guard = validatePublicHttpUrl(ctx.positionals[0], policyFor);
+  if (!guard.ok) {
+    throw new UsageError(
+      guard.blockedHost === true
+        ? `${guard.message} — for local/private targets pass --allow-private`
+        : guard.message,
+    );
+  }
   const url = guard.url;
 
   const strategyFlag = ctx.flags.strategy === undefined ? 'mobile' : String(ctx.flags.strategy);

@@ -25,6 +25,7 @@ import { ConfigError } from './errors.js';
 import type { ConfigErrorDetail } from './errors.js';
 import { isProviderBoundary, PROVIDER_BOUNDARIES } from './providers.js';
 import type { ProviderBoundary } from './providers.js';
+import { allowPrivateEntryError } from './private-scope.js';
 import { isSeverity, SEVERITIES } from './severity.js';
 import type { Severity } from './severity.js';
 
@@ -52,9 +53,12 @@ const CRAWL_KEYS = [
   'maxDurationMs',
   'maxConcurrency',
   'perHostMinDelayMs',
+  'allowPrivateHosts',
 ] as const;
 
 type CrawlKey = (typeof CRAWL_KEYS)[number];
+/** The numeric budget keys — `allowPrivateHosts` is a validated string array, handled separately. */
+type NumericCrawlKey = Exclude<CrawlKey, 'allowPrivateHosts'>;
 
 export interface ResolvedConfig {
   readonly providers: Readonly<Partial<Record<ProviderBoundary, string>>>;
@@ -174,11 +178,28 @@ const resolveConfig = (root: Record<string, unknown>): ResolvedConfig => {
             });
             continue;
           }
+          if (k === 'allowPrivateHosts') {
+            // E1.1: exact hostnames / CIDRs the SSRF guard may allow AT THE SEED ORIGIN.
+            // Loud validation: a malformed or allow-everything entry is a config error.
+            if (!Array.isArray(n) || n.some((e) => typeof e !== 'string')) {
+              details.push({ path: 'crawl.allowPrivateHosts', message: 'must be an array of hostname or CIDR strings' });
+              continue;
+            }
+            const entryErrors = (n as string[])
+              .map((e) => allowPrivateEntryError(e))
+              .filter((msg): msg is string => msg !== null);
+            if (entryErrors.length > 0) {
+              details.push({ path: 'crawl.allowPrivateHosts', message: entryErrors.join('; ') });
+              continue;
+            }
+            crawl.allowPrivateHosts = Object.freeze([...(n as string[])]);
+            continue;
+          }
           const min = k === 'perHostMinDelayMs' ? 0 : 1; // a zero politeness delay is meaningful; budgets are not
           if (typeof n !== 'number' || !Number.isInteger(n) || n < min) {
             details.push({ path: `crawl.${k}`, message: `must be an integer >= ${min}` });
           } else {
-            crawl[k as CrawlKey] = n;
+            crawl[k as NumericCrawlKey] = n;
           }
         }
         break;

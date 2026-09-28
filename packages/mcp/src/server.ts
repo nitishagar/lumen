@@ -33,6 +33,8 @@ import {
 import { LOCAL_ONLY_NOTE, localOnly } from './local-only.js';
 import { strictArgs } from './strict-args.js';
 import { validatePublicHttpUrl } from './url-guard.js';
+import { createPrivateScopePolicy } from '@lumen-seo/core';
+import type { SsrfPolicy } from '@lumen-seo/core';
 
 export interface McpDeps {
   /** Injected ISO clock (I10 — never a hidden wall clock). */
@@ -48,6 +50,12 @@ export interface McpDeps {
   pageMeta?: PageMetaFetcher;
   /** Rank history (stdio CLI only — the Worker never writes local files). */
   history?: HistoryStore;
+  /**
+   * E1.1 FR-3: private-target scope, set ONLY at launch (`lumen mcp
+   * --allow-private` + config allowlist). Never derivable from a tool
+   * argument. Undefined = every tool enforces the strict public-URL guard.
+   */
+  privateScope?: { loopback: boolean; allowHosts?: readonly string[] };
 }
 
 const text = (payload: unknown): CallToolResult['content'] => [
@@ -86,6 +94,18 @@ const AUTHORITY_DESC =
   'Unconfigured providers are listed, never called.';
 
 export const buildMcpServer = (deps: McpDeps): McpServer => {
+  // E1.1: the scoped policy is built PER CALL with the tool's URL as the seed
+  // origin — launch-time scope only; a tool argument can never create it.
+  const policyFor: ((url: URL) => SsrfPolicy) | undefined =
+    deps.privateScope === undefined
+      ? undefined
+      : (url: URL) =>
+          createPrivateScopePolicy({
+            seedOrigin: url,
+            loopback: deps.privateScope!.loopback,
+            allowHosts: deps.privateScope!.allowHosts,
+          });
+
   const server = new McpServer({ name: 'lumen', version: '0.0.0' });
 
   server.registerTool(
@@ -101,7 +121,7 @@ export const buildMcpServer = (deps: McpDeps): McpServer => {
       if (deps.auditRunner === undefined) {
         return err(localOnly('lumen_audit_site', 'npx @lumen-seo/cli audit <url>'));
       }
-      const guard = validatePublicHttpUrl(args.url);
+      const guard = validatePublicHttpUrl(args.url, policyFor);
       if (!guard.ok) return err({ code: 'INVALID_URL', message: guard.message });
       try {
         const report = await deps.auditRunner.run(
@@ -128,7 +148,7 @@ export const buildMcpServer = (deps: McpDeps): McpServer => {
     async (args, extra) => {
       const violation = strictArgs(args, ALLOWED_ARGS.lumen_page_report);
       if (violation !== null) return err(violation);
-      const guard = validatePublicHttpUrl(args.url);
+      const guard = validatePublicHttpUrl(args.url, policyFor);
       if (!guard.ok) return err({ code: 'INVALID_URL', message: guard.message });
       const url = guard.url;
       const retrievedAt = deps.clock();

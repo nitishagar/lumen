@@ -21,6 +21,7 @@ import type { AuditRunner, PageMetaFetcher } from '@lumen-seo/mcp/ports';
 import { effectiveByok, resolveHistoryDir } from '../cli-config.js';
 import { JsonlHistoryStore } from '../history/jsonl-store.js';
 import { availableProviders } from './available.js';
+import type { PrivateScopeSpec, RunnerScope } from './audit-adapter.js';
 import { createAuditRunner, createPageMetaFetcher } from './audit-adapter.js';
 
 export interface CommandDeps {
@@ -32,6 +33,8 @@ export interface CommandDeps {
   authority: readonly AuthorityProvider[];
   /** Providers configured but skipped for a missing BYOK key (I1/E8). */
   authorityUnconfigured: readonly string[];
+  /** Merged private-target scope (E1.1): launch flag + config allowlist. Undefined = strict guard. */
+  privateScope?: PrivateScopeSpec;
   history: HistoryStore;
   auditRunner?: AuditRunner;
   pageMeta?: PageMetaFetcher;
@@ -55,7 +58,18 @@ export const byokReady = (config: ResolvedConfig, providerName: string): boolean
   return process.env[envName] !== undefined && process.env[envName] !== '';
 };
 
-export const nodeComposition = (config: ResolvedConfig): CommandDeps => {
+export const nodeComposition = (config: ResolvedConfig, scope?: RunnerScope): CommandDeps => {
+  // E1.1/D3 merger: the launch flag (`--allow-private`, loopback-only) and the
+  // config allowlist (`crawl.allowPrivateHosts`) compose; either alone is enough.
+  const configHosts = config.crawl.allowPrivateHosts ?? [];
+  const mergedPrivateScope: PrivateScopeSpec | undefined =
+    scope?.privateScope === undefined && configHosts.length === 0
+      ? undefined
+      : {
+          loopback: scope?.privateScope?.loopback ?? false,
+          allowHosts: [...configHosts, ...(scope?.privateScope?.allowHosts ?? [])],
+        };
+  const effectiveScope: RunnerScope = { privateScope: mergedPrivateScope, canonicalOrigin: scope?.canonicalOrigin };
   const registry = createProviderRegistry(config.providers, config.byok, availableProviders(config));
   const keyword = registry.keywords();
   const serp = registry.serp();
@@ -82,14 +96,15 @@ export const nodeComposition = (config: ResolvedConfig): CommandDeps => {
   return {
     clock: realClock,
     failThreshold: config.failThreshold,
+    privateScope: mergedPrivateScope,
     keywords: keyword === undefined ? [] : [keyword],
     serp,
     authority: authorityProviders,
     authorityUnconfigured,
     history: new JsonlHistoryStore(resolveHistoryDir()),
     // Real audit engine + page-meta adapter — see composition/audit-adapter.ts.
-    auditRunner: createAuditRunner(config),
-    pageMeta: createPageMetaFetcher(),
+    auditRunner: createAuditRunner(config, effectiveScope),
+    pageMeta: createPageMetaFetcher(effectiveScope.privateScope),
     pageSpeed: byokReason('pagespeed', config.providers.pagespeed) === undefined ? pageSpeed : undefined,
     pagespeedUnconfigured: byokReason('pagespeed', config.providers.pagespeed),
     crux: byokReason('crux', config.providers.crux) === undefined ? crux : undefined,
@@ -98,8 +113,8 @@ export const nodeComposition = (config: ResolvedConfig): CommandDeps => {
 };
 
 /** Loads config and builds the production deps for a command invocation. */
-export const buildDeps = async (configPathFlag?: string): Promise<CommandDeps> => {
+export const buildDeps = async (configPathFlag?: string, scope?: RunnerScope): Promise<CommandDeps> => {
   const { loadCliConfig } = await import('../cli-config.js');
   const { config } = await loadCliConfig(configPathFlag);
-  return nodeComposition(config);
+  return nodeComposition(config, scope);
 };

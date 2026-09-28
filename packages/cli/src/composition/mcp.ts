@@ -12,6 +12,7 @@ import type { CommandDeps } from './node.js';
 
 export const mcpDepsFromCommand = (d: CommandDeps): McpDeps => ({
   clock: d.clock,
+  privateScope: d.privateScope,
   keyword: d.keywords,
   authority: d.authority,
   unconfigured: d.authorityUnconfigured,

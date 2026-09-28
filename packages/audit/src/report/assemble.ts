@@ -5,6 +5,7 @@
  * crawler (normalized keys); the id is path-safe (I13).
  */
 import type { PageReport, Severity, SiteAuditReport } from '@lumen-seo/core';
+import { isBlockedHost } from '@lumen-seo/core';
 import type { CrawledPage } from '../crawl/crawler.js';
 import type { CrawlerDeps, ResolvedAuditConfig, StopReason } from '../types.js';
 import { reportIdFor } from './id.js';
@@ -65,6 +66,7 @@ export const assembleReport = (
     incomplete: stop !== 'completed',
     configSnapshot: {
       seed: seed.href,
+      target: { scope: resolved.targetScope ?? (isBlockedHost(seed.hostname) ? 'private' : 'public') },
       crawl: { ...resolved.crawl },
       respectRobots: resolved.respectRobots,
       renderer: 'static', // A10 — honesty label: no JS rendering

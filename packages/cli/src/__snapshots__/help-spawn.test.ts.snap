@@ -31,11 +31,15 @@ exports[`help contract via the real bin (E15) > audit --help prints command usag
 "lumen audit — bounded site audit
 
 Usage: lumen audit <url> [--max-pages N] [--out report.json] [--fail-threshold S] [--json]
+    lumen audit <url> --allow-private [--canonical-origin https://prod.example]
 
 Flags:
   --max-pages N      Crawl budget override (default: config crawl.maxPages = 100, clamp 10000)
   --out <path>       Write the full report JSON atomically (tmp + rename)
   --fail-threshold S info | warning | error | off (default: config, else error)
+  --allow-private    Audit a LOCAL target: loopback only, scoped to the seed origin;
+                     other private ranges need crawl.allowPrivateHosts in config
+  --canonical-origin Production origin of a preview (--canonical-origin https://prod.example)
   --json             One JSON document on stdout
 
 Exit codes: 0 under threshold; 1 issues at/above failThreshold or incomplete; 2 error.
@@ -135,10 +139,12 @@ Flags:
 exports[`help contract via the real bin (E15) > mcp --help prints command usage, exit 0 > help-mcp 1`] = `
 "lumen mcp — MCP server (stdio) and onboarding payloads
 
-Usage: lumen mcp [--print json|claude|cursor|vscode|mcpb|registry|claude-plugin] [--url <remote>] [--json]
+Usage: lumen mcp [--print json|claude|cursor|vscode|mcpb|registry|claude-plugin] [--url <remote>] [--json] [--allow-private]
 
 Flags:
   --print <target>   Print the onboarding payload and exit 0 (no server)
+  --allow-private    LAUNCH-TIME: stdio tools may audit loopback targets (set in client config;
+                     never a tool argument; non-loopback ranges need crawl.allowPrivateHosts)
   --url <remote>     Remote worker URL for --print payloads
   --json             Accepted for uniformity; stdout is protocol-only while serving
 
@@ -168,10 +174,11 @@ Not found in top N is success (found:false, position:null). One history line per
 exports[`help contract via the real bin (E15) > report --help prints command usage, exit 0 > help-report 1`] = `
 "lumen report — page report (PSI lab + CrUX field + local page meta)
 
-Usage: lumen report <url> [--strategy mobile|desktop] [--json]
+Usage: lumen report <url> [--strategy mobile|desktop] [--json] [--allow-private]
 
 Flags:
   --strategy S       mobile | desktop (default mobile)
+  --allow-private    Report on a LOCAL target: loopback only, scoped to the seed origin
   --json             One JSON document on stdout
 
 Provenance on every metric; unavailable providers are labeled, never zero-filled.
