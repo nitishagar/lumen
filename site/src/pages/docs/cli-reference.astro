@@ -25,6 +25,8 @@ const flags = [
   { flag: '--baseline <file>', what: 'gate the audit only on findings NOT in the baseline (fingerprint = rule + normalized URL + selector; message tweaks never un-baseline); pages not audited this run are unknown, never "fixed"' },
   { flag: '--update-baseline <file>', what: "write this run's fingerprints to a sorted, versioned baseline file and exit 0 — the adopt flow for a site with existing findings" },
   { flag: '--verbose', what: 'list every affected URL per rule group instead of 3 samples' },
+  { flag: '--format F', what: 'audit output renderer: human (default) | json | sarif 2.1.0 | md job summary (--json is an alias for json); with --out, sarif/md write the rendered artifact and stdout stays silent' },
+  { flag: '--source-map <glob>', what: 'with --format sarif: best-effort page-URL → source-file mapping for annotations; an ambiguous match stays URL-only, never guessed' },
 ];
 const example = [
   { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },

@@ -8,6 +8,8 @@
  * guard (E7/B7) and every URL passes the public-URL guard (I12).
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { domainToASCII } from 'node:url';
 import type {
@@ -33,6 +35,7 @@ import {
 import { LOCAL_ONLY_NOTE, localOnly } from './local-only.js';
 import { strictArgs } from './strict-args.js';
 import { validatePublicHttpUrl } from './url-guard.js';
+import { RULES_CATALOG } from './rules-catalog.js';
 import { createPrivateScopePolicy } from '@lumen-seo/core';
 import type { SsrfPolicy } from '@lumen-seo/core';
 
@@ -392,6 +395,147 @@ export const buildMcpServer = (deps: McpDeps): McpServer => {
         unconfigured: [...(deps.unconfigured ?? [])],
         ...(args.response_format === 'detailed' && unavailable.length > 0 ? { unavailable } : {}),
       });
+    },
+  );
+
+  // ── E1.5: prompts + resources (ADDITIVE surfaces — tools/list stays exactly 5) ──
+
+  // Prompts are deterministic instructions over the EXISTING five tools —
+  // no tool executes at registration, no new execution surface.
+  server.registerPrompt(
+    'lumen-prelaunch-check',
+    {
+      title: 'Pre-launch check',
+      description: 'Audit a site, report its home page, pull authority signals, and return a prioritized fix list.',
+      argsSchema: { url: z.string().url().describe('the site URL to check') },
+    },
+    ({ url }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              `Run a pre-launch check for ${url}:`,
+              `1. lumen_audit_site { "url": "${url}" } — read topRules: fix groups in order (severity, then affected pages).`,
+              `2. lumen_page_report { "url": "${url}" } — note any unavailable lab/field legs (missing BYOK keys) and say so honestly.`,
+              `3. lumen_authority { "domain": "<host of ${url}>" } — record the signals with their attributions.`,
+              'Return: a prioritized fix list (rule, why it matters, the fixHint, sample pages), then a one-paragraph launch readiness verdict. Never invent findings a tool did not return.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    'lumen-fix-top-issues',
+    {
+      title: 'Fix top issues',
+      description: 'Audit a site and produce an actionable patch plan for the top rule groups.',
+      argsSchema: {
+        url: z.string().url().describe('the site URL to audit'),
+        // MCP prompt arguments arrive as STRINGS — coerce, don't reject.
+        limit: z.coerce.number().int().min(1).max(10).default(3).describe('how many rule groups to fix'),
+      },
+    },
+    ({ url, limit }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              `Audit ${url} with lumen_audit_site, then build a fix plan for the TOP ${limit} rule groups from topRules.`,
+              'For each group: the rule id and its helpUrl anchor, the affected sample pages, the exact fixHint, and the file(s) you would edit (ask before editing anything outside the repo).',
+              'Skip groups whose severity the user clearly does not care about; state which you skipped and why.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  );
+
+  server.registerPrompt(
+    'lumen-keyword-brief',
+    {
+      title: 'Keyword brief',
+      description: 'Keyword ideas for a seed term, optionally biased to a domain.',
+      argsSchema: {
+        seed: z.string().min(1).describe('the seed keyword or topic'),
+        domain: z.string().optional().describe('optional domain to bias examples toward'),
+      },
+    },
+    ({ seed, domain }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              `Build a keyword brief for "${seed}"${domain === undefined ? '' : ` (domain: ${domain})`}:`,
+              '1. lumen_keyword_ideas { "seed": "' + seed + '" } — group the ideas by intent (informational / commercial / navigational).',
+              domain === undefined
+                ? '2. Optionally lumen_rank_check one head term against a relevant domain to ground difficulty.'
+                : `2. lumen_rank_check the strongest head term against ${domain} and note the position honestly (not found is a valid answer).`,
+              'Return: grouped ideas with the provider attribution, 3 recommended primary targets, and what to publish for each. Label every heuristic as heuristic.',
+            ].join('\n'),
+          },
+        },
+      ],
+    }),
+  );
+
+  // lumen://rules — the built-in catalog (worker-safe literal; parity-gated).
+  server.registerResource(
+    'rules',
+    'lumen://rules',
+    { description: 'The lumen rule catalog: ids, severities, fixHints, helpUrl anchors.' },
+    async (uri) => ({
+      contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(RULES_CATALOG) }],
+    }),
+  );
+
+  // History resources — STDIO-ONLY data. Registered as templates WITHOUT a
+  // list callback (they appear in resources/templates/list, not resources/list
+  // — SDK behavior). Without a history store (the Worker), reads return the
+  // typed LOCAL_ONLY payload inside a successful read result (resource reads
+  // cannot be CallToolResult-shaped — FR-3's honest degradation).
+  const latestAudit = new ResourceTemplate('lumen://audit/latest/{domain}', { list: undefined });
+  server.registerResource(
+    'audit-latest',
+    latestAudit,
+    { description: 'Latest audit digest for a domain (stdio only — local history).' },
+    async (uri, { domain }) => {
+      if (deps.history === undefined) {
+        return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(localOnly('lumen://audit/latest', 'npx @lumen-seo/cli audit <url>')) }] };
+      }
+      // jsonl-store lists ascending (rotated-then-current) — the LATEST is last.
+      const entries = await deps.history.list({ kind: 'audit', domain: String(domain) });
+      const latest = entries.at(-1);
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(latest ?? { note: 'no audit history for that domain yet' }),
+          },
+        ],
+      };
+    },
+  );
+
+  const rankHistory = new ResourceTemplate('lumen://history/rank/{domain}', { list: undefined });
+  server.registerResource(
+    'rank-history',
+    rankHistory,
+    { description: 'Rank history entries for a domain (stdio only — local history).' },
+    async (uri, { domain }) => {
+      if (deps.history === undefined) {
+        return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(localOnly('lumen://history/rank', 'npx @lumen-seo/cli rank --history')) }] };
+      }
+      const entries = await deps.history.list({ kind: 'rank', domain: String(domain) });
+      return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(entries) }] };
     },
   );
 

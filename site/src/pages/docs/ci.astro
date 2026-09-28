@@ -1,0 +1,121 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import Code from '../../components/Code.astro';
+import { u } from '../../utils/site';
+
+const ghAction = [
+  { kind: 'cmd' as const, text: '- uses: nitishagar/lumen/action@v0.4.0' },
+  { kind: 'out' as const, text: '  with:' },
+  { kind: 'out' as const, text: '    url: https://example.com' },
+  { kind: 'out' as const, text: '    fail-threshold: warning' },
+  { kind: 'out' as const, text: '    baseline: lumen.baseline.json   # gate only on NEW findings' },
+];
+const gitlab = [
+  { kind: 'cmd' as const, text: 'audit:' },
+  { kind: 'out' as const, text: '  script:' },
+  { kind: 'out' as const, text: '    - npx -y @lumen-seo/cli@0 audit "$SITE_URL" --format sarif --out lumen.sarif' },
+  { kind: 'out' as const, text: '  artifacts:' },
+  { kind: 'out' as const, text: '    paths: [lumen.sarif]' },
+];
+const shell = [
+  { kind: 'cmd' as const, text: 'npx -y @lumen-seo/cli@0 audit https://example.com \\' },
+  { kind: 'out' as const, text: '  --format sarif --out lumen.sarif --fail-threshold warning' },
+  { kind: 'out' as const, text: 'echo "exit $?  # 0 ok · 1 findings at/above threshold · 2 config error"' },
+];
+const summary = [
+  { kind: 'cmd' as const, text: 'npx @lumen-seo/cli audit "$SITE_URL" --format md >> "$GITHUB_STEP_SUMMARY"' },
+];
+---
+<DocsLayout
+  title="Lumen in CI"
+  description="Wire lumen into GitHub Actions, GitLab CI, or any shell: SARIF for code scanning, a Markdown job summary, and baseline-gated regressions."
+  activeHref="/docs/ci/"
+  toc={[
+    { id: 'github', label: 'GitHub Actions' },
+    { id: 'sarif', label: 'SARIF' },
+    { id: 'summary', label: 'Job summary' },
+    { id: 'baseline', label: 'Baseline gate' },
+    { id: 'gitlab', label: 'GitLab CI' },
+    { id: 'shell', label: 'Any shell' },
+    { id: 'exit', label: 'Exit codes' },
+  ]}
+>
+  <p>
+    lumen is built for CI: one command, one exit-code contract, and two CI-native
+    render formats — <code>--format sarif</code> (2.1.0, validated against the
+    official schema) and <code>--format md</code> (a job summary). Previews on
+    localhost work with <code>--allow-private</code> (the Action infers it for
+    loopback URLs automatically).
+  </p>
+
+  <h2 id="github">GitHub Actions</h2>
+  <p>
+    The composite action under <code>nitishagar/lumen/action</code> starts an
+    optional preview server, audits it, uploads the SARIF artifact, and writes
+    the Markdown summary to <code>$GITHUB_STEP_SUMMARY</code>:
+  </p>
+  <Code lines={ghAction} />
+  <p>
+    To surface findings as PR annotations, upload the artifact to code scanning
+    with <code>github/codeql-action/upload-sarif@v3</code> — see the{' '}
+    <a href="https://github.com/nitishagar/lumen/tree/main/action">action README</a>{' '}
+    for the full snippet and the pinning note.
+  </p>
+
+  <h2 id="sarif">SARIF</h2>
+  <p>
+    <code>--format sarif</code> emits one rule per lumen rule (with its{' '}
+    <a href={u('/docs/rules-reference/')}>rules-reference anchor</a> as{' '}
+    <code>helpUri</code>), one result per finding, and the run's provenance
+    (version, budgets, started/completed, incomplete/stopReason) in{' '}
+    <code>run.properties</code>. With <code>--out</code>, the artifact is
+    written and stdout stays silent; without it, the document goes to stdout.
+  </p>
+  <Code lines={[
+    { kind: 'cmd', text: 'npx @lumen-seo/cli audit https://example.com --format sarif --out lumen.sarif' },
+  ]} />
+  <p>
+    <code>--source-map site/src/pages/**</code> adds a best-effort page-URL →
+    source-file mapping for annotations; when the mapping is ambiguous the
+    result stays URL-only — never guessed.
+  </p>
+
+  <h2 id="summary">Job summary</h2>
+  <Code lines={summary} />
+  <p>
+    The summary carries the score, the top rule groups with fixes (linking the
+    rules reference), and — when baselined — the new/fixed/unknown breakdown.
+  </p>
+
+  <h2 id="baseline">Baseline gate</h2>
+  <p>
+    Adopt lumen on a site with existing findings: record a baseline once, commit
+    it, and gate only on regressions in CI:
+  </p>
+  <Code lines={[
+    { kind: 'cmd', text: 'npx @lumen-seo/cli audit "$SITE_URL" --update-baseline lumen.baseline.json' },
+    { kind: 'out', text: '# commit lumen.baseline.json, then in CI:' },
+    { kind: 'cmd', text: 'npx @lumen-seo/cli audit "$SITE_URL" --baseline lumen.baseline.json' },
+    { kind: 'out', text: '# exit 1 only when NEW findings appear at/above failThreshold' },
+  ]} />
+  <p>
+    Fingerprints are <code>rule + normalized URL + selector</code> — message
+    tweaks never un-baseline an issue; pages not audited in a run are{' '}
+    <em>unknown</em>, never counted as fixed. Compare any two saved reports
+    with <code>lumen diff a.json b.json</code>.
+  </p>
+
+  <h2 id="gitlab">GitLab CI</h2>
+  <Code lines={gitlab} />
+
+  <h2 id="shell">Any shell</h2>
+  <Code lines={shell} />
+
+  <h2 id="exit">Exit codes</h2>
+  <p>
+    The contract is stable across every renderer: <code>0</code> under
+    threshold, <code>1</code> findings at/above <code>failThreshold</code> (or
+    new findings with <code>--baseline</code>; an incomplete run always gates),
+    <code>2</code> usage/config error.
+  </p>
+</DocsLayout>

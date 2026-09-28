@@ -31,6 +31,7 @@ export const docsNav: readonly NavGroup[] = [
       { href: '/docs/mcp-onboarding/', title: 'MCP onboarding' },
       { href: '/docs/providers-byok/', title: 'Providers & BYOK' },
       { href: '/docs/configuration/', title: 'Configuration' },
+      { href: '/docs/ci/', title: 'Lumen in CI' },
     ],
   },
   {

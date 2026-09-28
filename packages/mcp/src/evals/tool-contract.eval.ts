@@ -430,3 +430,33 @@ evalite('concise-payload-budget', {
     },
   ],
 });
+
+evalite('prompts-and-resources-snapshot', {
+  data: [
+    {
+      input: 'prompts+resources',
+      expected: {
+        prompts: ['lumen-fix-top-issues', 'lumen-keyword-brief', 'lumen-prelaunch-check'],
+        resources: ['lumen://rules'],
+      },
+    },
+  ],
+  task: async () => {
+    const client = await connectClient(fixtureDeps());
+    try {
+      const [prompts, resources] = await Promise.all([client.listPrompts(), client.listResources()]);
+      return {
+        prompts: prompts.prompts.map((p) => p.name).sort(),
+        resources: resources.resources.map((r) => r.uri).sort(),
+      };
+    } finally {
+      await close(client);
+    }
+  },
+  scorers: [
+    {
+      name: 'lists-exactly-match-snapshot',
+      scorer: ({ output, expected }) => (JSON.stringify(output) === JSON.stringify(expected) ? 1 : 0),
+    },
+  ],
+});

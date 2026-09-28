@@ -29,6 +29,8 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
     baseline: { type: 'string' },
     'update-baseline': { type: 'string' },
     verbose: { type: 'boolean' },
+    format: { type: 'string' },
+    'source-map': { type: 'string' },
   },
   diff: { json: { type: 'boolean' } },
   report: { strategy: { type: 'string' }, json: { type: 'boolean' }, 'allow-private': { type: 'boolean' } },

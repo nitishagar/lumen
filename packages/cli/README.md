@@ -11,7 +11,7 @@ npm install -g @lumen-seo/cli
 lumen --help
 ```
 
-Commands: `audit` · `report` · `keywords` · `rank` · `authority` · `mcp` · `config show`. Every command takes `--json`; `audit` supports `--max-pages`, `--out`, and `--fail-threshold` for CI. Exit codes: `0` pass, `1` findings, `2` usage/abort.
+Commands: `audit` · `report` · `keywords` · `rank` · `authority` · `mcp` · `config show`. Every command takes `--json`; `audit` supports `--max-pages`, `--out`, `--fail-threshold`, `--format human|json|sarif|md`, and `--source-map` for CI. Exit codes: `0` pass, `1` findings, `2` usage/abort.
 
 Expose the five MCP tools to your agent:
 

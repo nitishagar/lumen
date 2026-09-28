@@ -1,0 +1,97 @@
+name: 'lumen-action-e2e'
+on:
+  pull_request:
+    paths: ['site/**', 'action/**', '.github/workflows/lumen-action-e2e.yml']
+  workflow_dispatch:
+    inputs:
+      seed_regression:
+        description: 'Seed a broken page and expect the audit to FAIL (red-path acceptance).'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the site
+        run: npm run build -w @lumen-seo/site
+
+      - name: Seed a regression (manual red path)
+        if: ${{ inputs.seed_regression == true }}
+        run: |
+          # Remove the rendered <title> so title-missing (an ERROR rule) fires.
+          python3 - << 'EOF'
+          import re
+          p = 'site/src/layouts/Base.astro'
+          s = open(p).read()
+          s2, n = re.subn(r'<title>\{title\}</title>', '', s, count=1)
+          assert n == 1, 'seed target not found — Base.astro title tag changed?'
+          open(p, 'w').write(s2)
+          print('seeded: <title>{title}</title> removed from Base.astro')
+          EOF
+          npm run build -w @lumen-seo/site
+
+      - name: Start the preview server
+        run: npm run preview -w @lumen-seo/site &
+        # Astro preview binds localhost:4321 by default.
+
+      - name: Wait for the preview server
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS --max-time 2 http://localhost:4321/ >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "preview server never became ready" >&2
+          exit 1
+
+      # GREEN PATH (default): the action gates on findings and passes.
+      # RED PATH (seed_regression=true): the seeded title-missing error MUST
+      # fail the audit step; the follow-up asserts the outcome (the action's
+      # upload-sarif step runs always(), so the SARIF artifact — the
+      # annotation source — exists on the run either way).
+      - name: Audit the preview via the local action
+        id: audit
+        uses: ./action
+        continue-on-error: ${{ inputs.seed_regression == true }}
+        with:
+          url: http://localhost:4321
+          fail-threshold: error
+          max-pages: 20
+
+      - name: Assert the audit outcome
+        if: ${{ inputs.seed_regression == true }}
+        run: |
+          if [ "${{ steps.audit.outcome }}" != "failure" ]; then
+            echo "expected failure, got ${{ steps.audit.outcome }}" >&2
+            exit 1
+          fi
+          echo "seeded red path confirmed; the SARIF below carries the annotation source"
+
+      - name: Assert the green path succeeded (default runs)
+        if: ${{ inputs.seed_regression != true }}
+        run: |
+          if [ "${{ steps.audit.outcome }}" != "success" ]; then
+            echo "expected success, got ${{ steps.audit.outcome }}" >&2
+            exit 1
+          fi
+
+      # I5: the SARIF becomes PR annotations through code scanning.
+      - name: Upload SARIF to code scanning
+        if: ${{ always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: lumen.sarif

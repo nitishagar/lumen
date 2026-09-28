@@ -1,0 +1,115 @@
+name: 'lumen audit'
+description: >-
+  Run a lumen SEO audit in CI: optional preview-server startup, SARIF artifact
+  for code scanning, and a Markdown job summary. Gates the job on new or
+  existing findings per fail-threshold.
+inputs:
+  url:
+    description: 'The site URL to audit (loopback URLs automatically imply --allow-private).'
+    required: true
+  start-command:
+    description: 'Optional: command that starts the preview server (run in the background).'
+    required: false
+  wait-on:
+    description: 'Optional: wait-on target (e.g. http://localhost:4321) — waits for readiness before auditing.'
+    required: false
+  baseline:
+    description: 'Optional: path to a baseline file — the job gates only on NEW findings.'
+    required: false
+  fail-threshold:
+    description: 'Lowest severity that fails the job: error | warning | info | off (default error).'
+    required: false
+    default: 'error'
+  max-pages:
+    description: 'Page budget for the crawl (default 100, ceiling 10000).'
+    required: false
+    default: '100'
+  upload-sarif:
+    description: 'Write the SARIF artifact (true/false, default true).'
+    required: false
+    default: 'true'
+runs:
+  using: 'composite'
+  steps:
+    - name: Start preview server (optional)
+      if: ${{ inputs.start-command != '' }}
+      shell: bash
+      run: ${{ inputs.start-command }} &
+
+    - name: Wait for server readiness (optional)
+      if: ${{ inputs.wait-on != '' }}
+      shell: bash
+      env:
+        LUMEN_WAIT_ON: ${{ inputs.wait-on }}
+      run: |
+        # Waits up to 60s for the target to answer (no extra dependency).
+        for i in $(seq 1 60); do
+          if curl -fsS --max-time 2 "$LUMEN_WAIT_ON" >/dev/null 2>&1; then exit 0; fi
+          sleep 1
+        done
+        echo "server never became ready at $LUMEN_WAIT_ON" >&2
+        exit 1
+
+    - name: Run lumen audit (SARIF artifact — this run's exit code gates the job)
+      shell: bash
+      env:
+        LUMEN_URL: ${{ inputs.url }}
+        LUMEN_BASELINE: ${{ inputs.baseline }}
+        LUMEN_FAIL_THRESHOLD: ${{ inputs.fail-threshold }}
+        LUMEN_MAX_PAGES: ${{ inputs.max-pages }}
+      run: |
+        # Inputs arrive via env (never interpolated into the script body).
+        # Loopback URLs imply --allow-private (the preview server is the
+        # user's own); any other private target still requires config opt-in.
+        ALLOW_PRIVATE=""
+        if printf '%s' "$LUMEN_URL" | grep -Eq '^(https?://)?(localhost|127\.0\.0\.1|\[::1\])(:|/|$)'; then
+          ALLOW_PRIVATE="--allow-private"
+        fi
+        BASELINE=""
+        if [ -n "$LUMEN_BASELINE" ]; then BASELINE="--baseline $LUMEN_BASELINE"; fi
+        npx -y @lumen-seo/cli@0 audit "$LUMEN_URL" \
+          $ALLOW_PRIVATE \
+          $BASELINE \
+          --fail-threshold "$LUMEN_FAIL_THRESHOLD" \
+          --max-pages "$LUMEN_MAX_PAGES" \
+          --format sarif --out lumen.sarif
+
+    - name: Render the Markdown job summary
+      if: ${{ always() }}
+      shell: bash
+      env:
+        LUMEN_URL: ${{ inputs.url }}
+        LUMEN_BASELINE: ${{ inputs.baseline }}
+        LUMEN_MAX_PAGES: ${{ inputs.max-pages }}
+      run: |
+        # The CLI renders ONE format per run; the summary re-runs the (bounded,
+        # user-owned preview) audit with --fail-threshold off so only the SARIF
+        # run above gates the job.
+        ALLOW_PRIVATE=""
+        if printf '%s' "$LUMEN_URL" | grep -Eq '^(https?://)?(localhost|127\.0\.0\.1|\[::1\])(:|/|$)'; then
+          ALLOW_PRIVATE="--allow-private"
+        fi
+        BASELINE=""
+        if [ -n "$LUMEN_BASELINE" ]; then BASELINE="--baseline $LUMEN_BASELINE"; fi
+        npx -y @lumen-seo/cli@0 audit "$LUMEN_URL" \
+          $ALLOW_PRIVATE \
+          $BASELINE \
+          --fail-threshold off \
+          --max-pages "$LUMEN_MAX_PAGES" \
+          --format md --out lumen-summary.md || true
+
+    - name: Write job summary
+      if: ${{ always() }}
+      shell: bash
+      run: |
+        if [ -f lumen-summary.md ]; then
+          cat lumen-summary.md >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Upload SARIF artifact
+      if: ${{ inputs.upload-sarif == 'true' && always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: lumen-sarif
+        path: lumen.sarif
+        if-no-files-found: ignore

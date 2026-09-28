@@ -162,3 +162,40 @@ describe('stdio round-trip via the real bin (E2/E14)', () => {
     30_000,
   );
 });
+
+describe('stdio round-trip: prompts + resources over the real bin (E1.5)', () => {
+  it(
+    'prompts/list = 3, resources/list >= 1, tools/list STILL 5, and a prompt get round-trips',
+    async () => {
+      const { stdout, responses } = await roundTrip(
+        [
+          ...initializeFrames(1),
+          { jsonrpc: '2.0', id: 2, method: 'prompts/list' },
+          { jsonrpc: '2.0', id: 3, method: 'resources/list' },
+          { jsonrpc: '2.0', id: 4, method: 'tools/list' },
+          {
+            jsonrpc: '2.0',
+            id: 5,
+            method: 'prompts/get',
+            params: { name: 'lumen-fix-top-issues', arguments: { url: 'https://example.com', limit: '3' } },
+          },
+        ],
+        [1, 2, 3, 4, 5],
+      );
+      // stdout carries ONLY JSON-RPC frames (E2) — the new surfaces included.
+      expect(stdout.startsWith('{')).toBe(true);
+      const byId = responses; // roundTrip already returns a Map<id, message>
+      const prompts = byId.get(2)?.result?.prompts as { name: string }[];
+      expect(prompts.map((p) => p.name).sort()).toEqual(['lumen-fix-top-issues', 'lumen-keyword-brief', 'lumen-prelaunch-check']);
+      const resources = byId.get(3)?.result?.resources as { uri: string }[];
+      expect(resources.map((r) => r.uri)).toContain('lumen://rules');
+      const tools = byId.get(4)?.result?.tools as { name: string }[];
+      expect(tools).toHaveLength(5);
+      // limit arrives as the STRING "3" (MCP arguments are strings) — coerce.
+      const prompt = byId.get(5)?.result?.messages as { content: { text: string } }[];
+      expect(prompt[0]?.content.text).toContain('lumen_audit_site');
+      expect(prompt[0]?.content.text).toContain('TOP 3');
+    },
+    30_000,
+  );
+});

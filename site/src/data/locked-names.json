@@ -32,7 +32,9 @@
     "--canonical-origin",
     "--baseline",
     "--update-baseline",
-    "--verbose"
+    "--verbose",
+    "--format",
+    "--source-map"
   ],
   "exitCodes": [
     {

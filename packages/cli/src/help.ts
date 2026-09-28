@@ -56,7 +56,10 @@ const USAGE_BY_COMMAND: Record<string, string> = {
       '--baseline <file>  Gate only on findings NOT in the baseline (adopt lumen on a noisy site)',
       "--update-baseline <file>  Write this run's fingerprints (sorted, versioned) and exit 0",
       '--verbose          List every affected URL per rule group (default: 3 samples)',
-      '--json             One JSON document on stdout',
+      '--format F         human (default) | json | sarif | md (--json = --format json);',
+      '                   sarif/md: --out writes the rendered artifact, stdout silent when --out given',
+      '--source-map <glob> sarif: best-effort page URL → source file (exactly one match wins; ambiguous stays URL-only)',
+      '--json             One JSON document on stdout (alias for --format json)',
     ],
     [
       'Exit codes: 0 under threshold; 1 issues at/above failThreshold or incomplete; 2 error.',

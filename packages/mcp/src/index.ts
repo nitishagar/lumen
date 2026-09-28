@@ -26,4 +26,6 @@ export {
 export type { ToolName } from './schemas.js';
 export type { McpDeps } from './server.js';
 export { buildMcpServer } from './server.js';
+export { RULES_CATALOG } from './rules-catalog.js';
+export type { RuleCatalogEntry } from './rules-catalog.js';
 export const packageName = '@lumen-seo/mcp';

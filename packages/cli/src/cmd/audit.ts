@@ -18,6 +18,9 @@ import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
 import type { RunnerScope } from '../composition/audit-adapter.js';
 import { jsonDocument } from '../io.js';
+import { renderSarif } from '../render/sarif.js';
+import { renderMarkdown } from '../render/markdown.js';
+import { buildRouteFileMap } from '../render/source-map.js';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
 import { ProviderUnconfiguredError, UsageError } from '../usage-error.js';
@@ -79,6 +82,20 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   let baseline: BaselineFile | undefined;
   if (baselinePath !== undefined) baseline = await readBaseline(baselinePath);
 
+  // E1.4: --format selects the renderer; --json stays an alias for json.
+  const FORMATS = ['human', 'json', 'sarif', 'md'] as const;
+  type Format = (typeof FORMATS)[number];
+  const formatFlag = ctx.flags.format === undefined ? undefined : String(ctx.flags.format);
+  if (formatFlag !== undefined && !(FORMATS as readonly string[]).includes(formatFlag)) {
+    throw new UsageError(`--format must be one of: ${FORMATS.join(', ')}`);
+  }
+  if (formatFlag !== undefined && formatFlag !== 'json' && ctx.flags.json === true) {
+    throw new UsageError('--json is an alias for --format json — pick one');
+  }
+  const format: Format = (formatFlag as Format | undefined) ?? (ctx.flags.json === true ? 'json' : 'human');
+  const sourceMap =
+    ctx.flags['source-map'] === undefined ? undefined : buildRouteFileMap(String(ctx.flags['source-map']));
+
   if (d.auditRunner === undefined) {
     throw new ProviderUnconfiguredError('audit', 'no audit engine wired in this build');
   }
@@ -93,16 +110,27 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   const gateFailed = report.incomplete || countIssuesAtOrAbove(gateIssues, threshold) > 0; // 'off' never counts
   const cancelled = ctx.signal.aborted || report.stopReason === 'aborted';
 
+  // E1.4: for sarif/md, --out writes the RENDERED document (the CI artifact);
+  // json/human keep the raw report. Cancelled sarif runs still write the
+  // rendered partial (valid — incomplete rides in properties), stdout silent.
+  const renderArtifact = (): string | undefined => {
+    if (format === 'sarif') return renderSarif(report, { sourceMap, ...(baselineDiff === undefined ? {} : { baseline: baselineDiff }) });
+    if (format === 'md') return renderMarkdown(report, baselineDiff === undefined ? {} : { baseline: { path: baselinePath!, diff: baselineDiff } });
+    return undefined;
+  };
   if (typeof ctx.flags.out === 'string') {
-    await writeFileAtomic(ctx.flags.out, `${JSON.stringify(report, null, 2)}\n`);
+    const artifact = renderArtifact();
+    await writeFileAtomic(ctx.flags.out, artifact ?? `${JSON.stringify(report, null, 2)}\n`);
   }
 
   // I2: cancellation/incomplete checks PRECEDE any baseline write — a SIGINT'd
   // run exits 2 with no write; an incomplete run never bakes a partial set.
   if (cancelled) {
     const { io } = ctx;
-    if (ctx.flags.json === true) io.out(jsonDocument(report));
-    else io.out(humanSummary(report, threshold, {}));
+    if (format === 'human') io.out(humanSummary(report, threshold, {}));
+    else if (format === 'json') io.out(jsonDocument(report));
+    // sarif/md with --out already wrote the artifact; without --out a cancelled
+    // CI render prints nothing (stdout contract) and the exit code says it.
     io.err('cancelled\n');
     return EXIT.CONFIG_ERROR; // E14: SIGINT -> 2 (no history write, no baseline write)
   }
@@ -116,7 +144,12 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   }
 
   const { io } = ctx;
-  if (ctx.flags.json === true) {
+  if (format === 'sarif') {
+    // CI renders print to stdout only without --out (artifact-only otherwise).
+    if (typeof ctx.flags.out !== 'string') io.out(renderSarif(report, { sourceMap, ...(baselineDiff === undefined ? {} : { baseline: baselineDiff }) }));
+  } else if (format === 'md') {
+    if (typeof ctx.flags.out !== 'string') io.out(renderMarkdown(report, baselineDiff === undefined ? {} : { baseline: { path: baselinePath!, diff: baselineDiff } }));
+  } else if (format === 'json') {
     // M2: the baseline section is stdout-only; --out keeps the raw report.
     io.out(
       jsonDocument(

@@ -18,6 +18,7 @@ export { BUILT_IN_RULE_IDS, builtInRuleMetadata, createRuleSet, helpUrlFor, RULE
 export { compareIssues, groupIssues, rankedIssues, SEVERITY_ORDER } from './ranking.js';
 export { fingerprintIssue } from './fingerprint.js';
 export { buildBaseline, diffAgainstBaseline, diffReports } from './baseline.js';
+export { resolveAuditConfig } from './config.js';
 export type { BaselineDiff, BaselineEntry, BaselineFile } from './baseline.js';
 
 /** Scorer (A7) and sanitizers (I13) — exported for P4 consumers and reuse. */
