@@ -19,6 +19,8 @@ Commands:
   authority <domain>   Authority signals from configured providers
   mcp                  MCP server over stdio (or --print onboarding payloads)
   config show          Resolved config (BYOK env NAMES + set-flag only)
+  init                 Write a defaults lumen.config.json + print next steps
+  doctor               Setup report: node, config, per-provider BYOK status
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -94,7 +96,7 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   ),
   mcp: usage(
     'lumen mcp — MCP server (stdio) and onboarding payloads',
-    'lumen mcp [--print json|claude|cursor|vscode] [--url <remote>] [--json]',
+    'lumen mcp [--print json|claude|cursor|vscode|mcpb|registry|claude-plugin] [--url <remote>] [--json]',
     [
       '--print <target>   Print the onboarding payload and exit 0 (no server)',
       '--url <remote>     Remote worker URL for --print payloads',
@@ -105,6 +107,30 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   config: usage('lumen config show — resolved config', 'lumen config show [--json]', [
     '--json              One JSON document on stdout',
   ]),
+  init: usage(
+    'lumen init — first-run config setup',
+    'lumen init [--yes] [--force]',
+    [
+      '--yes              Non-interactive (today: the write is non-interactive anyway)',
+      '--force            Overwrite an existing lumen.config.json',
+    ],
+    [
+      'Writes defaults (failThreshold, crawl budgets, byok env-var NAMES) and adds',
+      '.lumen/ to .gitignore in a git repo. Never writes or prints a key value.',
+    ],
+  ),
+  doctor: usage(
+    'lumen doctor — setup report',
+    'lumen doctor [--json] [--online]',
+    [
+      '--json             One JSON document on stdout',
+      '--online           One paced probe per ready provider (unconfigured are never called)',
+    ],
+    [
+      'Reports node vs engines, config validity, and per-provider BYOK status.',
+      'Unconfigured is not an error; a broken configured provider or invalid config exits 2.',
+    ],
+  ),
 };
 
 export const printRootHelp = (io: Io): void => {

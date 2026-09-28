@@ -13,6 +13,8 @@ import { interceptHelp, parseCommand } from './args.js';
 import { execute as audit } from './cmd/audit.js';
 import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
+import { execute as doctor } from './cmd/doctor.js';
+import { execute as init } from './cmd/init.js';
 import { execute as keywords } from './cmd/keywords.js';
 import { execute as mcp } from './cmd/mcp.js';
 import { execute as rank } from './cmd/rank.js';
@@ -104,6 +106,10 @@ const dispatch = (
       return report(ctx, deps);
     case 'mcp':
       return mcp(ctx, deps);
+    case 'init':
+      return init(ctx);
+    case 'doctor':
+      return doctor(ctx);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);

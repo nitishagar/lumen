@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CruxRecord, PageSpeedReport } from '@lumen-seo/core';
 import { LumenError, mkSource } from '@lumen-seo/core';
+import { NotConfiguredError } from '@lumen-seo/providers';
 import { execute as report } from './cmd/report.js';
 import type { CommandDeps } from './composition/node.js';
 import { MemoryIo } from './io.js';
@@ -157,5 +158,36 @@ describe('report command (I1/I3/E8)', () => {
     const text = c.io.stdout.join('');
     expect(text).toContain('unavailable');
     expect(text).not.toMatch(/performance null/);
+  });
+});
+
+describe('report first-run hint (PRD E0.4 FR-3 — human output only)', () => {
+  it('a wired provider failing with NotConfiguredError still gets the hint; --json does not', async () => {
+    const notConfigured = {
+      name: 'fixture-psi',
+      report: async (): Promise<PageSpeedReport> => {
+        throw new NotConfiguredError('pagespeed', 'LUMEN_PSI_KEY', 'https://console.cloud.google.com');
+      },
+    };
+    const human = ctx(['https://example.com'], {});
+    await report(human, depsWith({ pageSpeed: notConfigured }));
+    expect(human.io.stdout.join('')).toContain('run "lumen doctor" for key setup.');
+
+    const json = ctx(['https://example.com'], { json: true });
+    const code = await report(json, depsWith({ pageSpeed: notConfigured }));
+    expect(code).toBe(0);
+    expect(json.io.stdout.join('')).not.toContain('lumen doctor');
+    const doc = JSON.parse(json.io.stdout.join('')) as { lab: { status: string; reason: string } };
+    expect(doc.lab.status).toBe('unavailable'); // JSON payload shape untouched
+  });
+
+  it('hint fires when a leg is never wired, and stays silent when everything answers', async () => {
+    const unwired = ctx(['https://example.com'], {});
+    await report(unwired, depsWith({ pageSpeed: undefined }));
+    expect(unwired.io.stdout.join('')).toContain('run "lumen doctor" for key setup.');
+
+    const healthy = ctx(['https://example.com'], {});
+    await report(healthy, depsWith({ pageSpeed: fixturePageSpeed(), crux: fixtureCrux() }));
+    expect(healthy.io.stdout.join('')).not.toContain('lumen doctor');
   });
 });

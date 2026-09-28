@@ -5,6 +5,7 @@
  * Every signal carries attribution + retrievedAt (I3/I8).
  */
 import { EXIT, LumenError } from '@lumen-seo/core';
+import { NotConfiguredError } from '@lumen-seo/providers';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
 import { normalizeDomain } from '../domain.js';
@@ -28,6 +29,8 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
         for (const p of d.authorityUnconfigured) {
           ctx.io.out(`  ${clean(p)}: unconfigured (set its BYOK env var — see "lumen config show")\n`);
         }
+        // Human-output-only setup hint (PRD E0.4 FR-3) — JSON payload unchanged.
+        ctx.io.out('run "lumen doctor" for key setup.\n');
       }
       return EXIT.OK;
     }
@@ -39,12 +42,14 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
 
   const retrievedAt = d.clock();
   const unavailable: { provider: string; reason: string }[] = [];
+  let notConfiguredFailure = false; // a wired provider whose key turned out missing at call time
   const signals = (
     await Promise.all(
       d.authority.map(async (p) => {
         try {
           return await p.authority(domain, { signal: ctx.signal });
         } catch (err) {
+          if (err instanceof NotConfiguredError) notConfiguredFailure = true;
           const reason = err instanceof LumenError ? err.message : 'provider call failed';
           unavailable.push({ provider: p.name, reason });
           return [];
@@ -78,5 +83,9 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     io.out(`  ${clean(p)}: unconfigured (set its BYOK env var — see "lumen config show")\n`);
   }
   for (const u of unavailable) io.out(`  (unavailable: ${clean(u.provider)} — ${clean(u.reason, 120)})\n`);
+  // Human-output-only setup hint (PRD E0.4 FR-3) — the JSON payload is unchanged.
+  // Covers BOTH not-configured shapes: the composition skip rule (unconfigured)
+  // and a wired provider failing with NotConfiguredError at call time.
+  if (result.unconfigured.length > 0 || notConfiguredFailure) io.out('run "lumen doctor" for key setup.\n');
   return EXIT.OK;
 };

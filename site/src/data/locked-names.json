@@ -18,7 +18,9 @@
     "rank",
     "authority",
     "mcp",
-    "config show"
+    "config show",
+    "init",
+    "doctor"
   ],
   "cliFlags": ["--max-pages", "--out", "--json", "--domain"],
   "exitCodes": [

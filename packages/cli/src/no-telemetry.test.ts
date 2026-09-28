@@ -75,6 +75,8 @@ describe('outbound enumeration over every command (E12/I16)', () => {
       { args: ['authority', 'example.com', '--json'] },
       { args: ['config', 'show', '--json'] },
       { args: ['mcp', '--print', 'json'] },
+      { args: ['doctor'] },
+      { args: ['init', '--yes', '--config', join(dir, 'init-target.json')] },
     ];
     for (const c of cases) {
       const io = new MemoryIo();
@@ -117,6 +119,8 @@ describe('outbound enumeration over every command (E12/I16)', () => {
       ['audit', 'https://example.com', '--json'],
       ['authority', 'example.com', '--json'],
       ['mcp', '--print', 'json'],
+      ['doctor'],
+      ['init', '--yes', '--config', join(dir, 'init-target.json')], // E0.4 AC: sentinel covers both new commands
     ]) {
       const io = new MemoryIo();
       const code = await run(args, io, fullDeps());

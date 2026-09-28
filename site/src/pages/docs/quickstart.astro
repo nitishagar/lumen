@@ -21,6 +21,7 @@ const ciExample = [
   activeHref="/docs/quickstart/"
   toc={[
     { id: 'install', label: 'Install' },
+    { id: 'first-run', label: 'First run' },
     { id: 'first-audit', label: 'First audit' },
     { id: 'exit-codes', label: 'Exit codes' },
     { id: 'json', label: 'JSON output' },
@@ -45,6 +46,17 @@ const ciExample = [
       { kind: 'cmd', text: locked.snippets.npxAudit },
     ]}
   />
+
+  <h2 id="first-run">First run</h2>
+  <p>
+    Optional but handy: <code>lumen init</code> writes a starter{' '}
+    <code>{locked.configFile}</code> (defaults plus your key env-var <em>names</em> —
+    values stay in your environment) and prints the next steps, including the
+    MCP install line. Then <code>lumen doctor</code> checks node, the config
+    file, and which providers are ready — <code>--online</code> sends one
+    probe per ready provider. Both are covered in the{' '}
+    <a href={u('/docs/cli-reference/')}>CLI reference</a>.
+  </p>
 
   <h2 id="first-audit">First audit</h2>
   <p>

@@ -10,7 +10,7 @@ import type { Io } from './io.js';
 import { printCommandHelp, printRootHelp } from './help.js';
 import { UsageError } from './usage-error.js';
 
-export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config'] as const;
+export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor'] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];
 
 export const isCommandName = (v: string): v is CommandName =>
@@ -39,6 +39,8 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
   authority: { json: { type: 'boolean' } },
   mcp: { print: { type: 'string' }, url: { type: 'string' }, json: { type: 'boolean' } },
   config: { json: { type: 'boolean' } },
+  init: { yes: { type: 'boolean' }, force: { type: 'boolean' } },
+  doctor: { json: { type: 'boolean' }, online: { type: 'boolean' } },
 };
 
 const POSITIONALS: Record<CommandName, readonly string[]> = {
@@ -49,6 +51,8 @@ const POSITIONALS: Record<CommandName, readonly string[]> = {
   authority: ['domain'],
   mcp: [],
   config: ['subcommand'],
+  init: [],
+  doctor: [],
 };
 
 export interface Invocation {

@@ -9,6 +9,7 @@ import { EXIT, LumenError } from '@lumen-seo/core';
 import type { CruxRecord, PageSpeedReport } from '@lumen-seo/core';
 import type { PageMeta } from '@lumen-seo/mcp/ports';
 import { validatePublicHttpUrl } from '@lumen-seo/mcp/url-guard';
+import { NotConfiguredError } from '@lumen-seo/providers';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
 import { jsonDocument } from '../io.js';
@@ -38,6 +39,10 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
 
   const retrievedAt = d.clock();
   const reason = (r: string | undefined, fallback: string): string => r ?? fallback;
+  // A wired provider whose BYOK key turned out missing fails at call time with
+  // the typed not-configured signal (the composition skip rule can't see it
+  // when config.byok is empty — the defaults map is capability-keyed).
+  let notConfiguredFailure = false;
 
   const labP: Promise<Lab> =
     d.pageSpeed === undefined
@@ -45,14 +50,20 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
       : d.pageSpeed
           .report(url, { strategy: strategyFlag, signal: ctx.signal })
           .then((r) => ({ ...r, retrievedAt }))
-          .catch((err: unknown) => unavailable(legReason(err)));
+          .catch((err: unknown) => {
+            if (err instanceof NotConfiguredError) notConfiguredFailure = true;
+            return unavailable(legReason(err));
+          });
   const fieldP: Promise<Field> =
     d.crux === undefined
       ? Promise.resolve(unavailable(reason(d.cruxUnconfigured, 'crux provider not configured — set "providers.crux" in lumen.config.json (BYOK)')))
       : d.crux
           .record(url, { signal: ctx.signal })
           .then((r) => (r === null ? unavailable('no CrUX field data for this URL (insufficient coverage or key not accepted)') : r))
-          .catch((err: unknown) => unavailable(legReason(err)));
+          .catch((err: unknown) => {
+            if (err instanceof NotConfiguredError) notConfiguredFailure = true;
+            return unavailable(legReason(err));
+          });
   const metaP: Promise<Meta> =
     d.pageMeta === undefined
       ? Promise.resolve(unavailable('local page-meta fetch is not wired in this build'))
@@ -106,6 +117,12 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     io.out(
       `  meta: title: ${clean(meta.title ?? 'n/a', 120)}\n  h1: ${clean(meta.h1[0] ?? 'n/a', 120)} (${clean(meta.lang ?? 'n/a')})\n`,
     );
+  }
+  // Human-output-only setup hint (PRD E0.4 FR-3) — the JSON payload is unchanged.
+  // Covers BOTH not-configured shapes: the composition skip rule (leg never
+  // wired) and a wired provider failing with NotConfiguredError at call time.
+  if (d.pageSpeed === undefined || d.crux === undefined || notConfiguredFailure) {
+    io.out('run "lumen doctor" for key setup.\n');
   }
   return EXIT.OK;
 };
