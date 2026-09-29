@@ -10,7 +10,7 @@ import type { Io } from './io.js';
 import { printCommandHelp, printRootHelp } from './help.js';
 import { UsageError } from './usage-error.js';
 
-export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor', 'diff'] as const;
+export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor', 'diff', 'performance', 'indexnow'] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];
 
 export const isCommandName = (v: string): v is CommandName =>
@@ -32,8 +32,11 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
     format: { type: 'string' },
     'source-map': { type: 'string' },
     only: { type: 'string' },
+    'with-gsc': { type: 'boolean' },
   },
   diff: { json: { type: 'boolean' } },
+  performance: { days: { type: 'string' }, by: { type: 'string' }, json: { type: 'boolean' } },
+  indexnow: { key: { type: 'string' }, yes: { type: 'boolean' }, 'from-sitemap': { type: 'string' } },
   report: { strategy: { type: 'string' }, json: { type: 'boolean' }, 'allow-private': { type: 'boolean' } },
   keywords: { limit: { type: 'string' }, lang: { type: 'string' }, json: { type: 'boolean' } },
   rank: {
@@ -63,6 +66,8 @@ const POSITIONALS: Record<CommandName, readonly string[]> = {
   init: [],
   doctor: [],
   diff: ['a', 'b'],
+  performance: ['site'],
+  indexnow: ['subcommand'],
 };
 
 export interface Invocation {
@@ -149,12 +154,15 @@ export const parseCommand = (rawArgv: readonly string[]): Invocation => {
   const positionals = parsed.positionals;
   const want = POSITIONALS[name];
   // `lumen rank --history` reads history and takes no positional (E4/Stage 3);
-  // every other invocation keeps the exact positional count.
+  // `lumen indexnow submit` takes 1..N URLs (0 with --from-sitemap) — both
+  // have command-specific rules BELOW the generic exact-count check, so they
+  // are skipped here.
   const historyMode = name === 'rank' && values.history === true;
+  const indexnowMode = name === 'indexnow';
   if (historyMode && positionals.length !== 0) {
     throw new UsageError('lumen rank --history takes no positional arguments — run "lumen rank --help" for usage');
   }
-  if (!historyMode && positionals.length !== want.length) {
+  if (!historyMode && !indexnowMode && positionals.length !== want.length) {
     throw new UsageError(
       `lumen ${name} expects ${want.length === 0 ? 'no positional arguments' : want.map((w) => `<${w}>`).join(' ')}` +
         ` — run "lumen ${name} --help" for usage`,
@@ -162,6 +170,19 @@ export const parseCommand = (rawArgv: readonly string[]): Invocation => {
   }
   if (name === 'config' && positionals[0] !== 'show') {
     throw new UsageError(`unknown config subcommand "${positionals[0]}" — only "lumen config show" exists`);
+  }
+  if (name === 'indexnow') {
+    if (positionals[0] === undefined || positionals[0] !== 'submit') {
+      throw new UsageError(`unknown indexnow subcommand "${positionals[0] ?? ''}" — only "lumen indexnow submit" exists`);
+    }
+    const urls = positionals.slice(1);
+    const hasSitemap = values['from-sitemap'] !== undefined;
+    if (hasSitemap && urls.length > 0) {
+      throw new UsageError('lumen indexnow submit takes either URLs or --from-sitemap, not both');
+    }
+    if (!hasSitemap && urls.length === 0) {
+      throw new UsageError('lumen indexnow submit needs at least one URL (or --from-sitemap <url>)');
+    }
   }
   return { command: name, positionals, flags: values, configPathFlag: config };
 };

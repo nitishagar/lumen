@@ -14,6 +14,8 @@ const commands = [
   { cmd: 'lumen init', what: 'write a defaults lumen.config.json (BYOK env-var names, never values) and print next steps; --force overwrites' },
   { cmd: 'lumen doctor', what: 'setup report: node vs engines, config validity, per-provider BYOK status; --online probes ready providers once each' },
   { cmd: 'lumen diff <a.json> <b.json>', what: 'compare two saved audit reports — new/existing/fixed findings plus the score delta; exit 1 when the newer report has new findings' },
+  { cmd: 'lumen performance <site>', what: 'Google Search Console clicks/impressions/position rows (first-party) — set LUMEN_GSC_CREDENTIALS to a service-account JSON path; --days N, --by query|page' },
+  { cmd: 'lumen indexnow submit <urls…>', what: "submit URLs to IndexNow — dry run by default, --yes to send; the key file is verified at /<key>.txt on every host first; --from-sitemap to submit a sitemap's URLs" },
 ];
 const flags = [
   { flag: '--max-pages N', what: 'page budget for a crawl (default 100, hard ceiling 10,000)' },
@@ -27,7 +29,9 @@ const flags = [
   { flag: '--verbose', what: 'list every affected URL per rule group instead of 3 samples' },
   { flag: '--format F', what: 'audit output renderer: human (default) | json | sarif 2.1.0 | md job summary (--json is an alias for json); with --out, sarif/md write the rendered artifact and stdout stays silent' },
   { flag: '--source-map <glob>', what: 'with --format sarif: best-effort page-URL → source-file mapping for annotations; an ambiguous match stays URL-only, never guessed' },
-  { flag: '--only <list>', what: 'run only the comma-separated categories or rule ids (e.g. ai-search); an unknown token is a config error listing every valid one' }
+  { flag: '--only <list>', what: 'run only the comma-separated categories or rule ids (e.g. ai-search); an unknown token is a config error listing every valid one' },
+  { flag: '--with-gsc', what: 'annotate audit rule groups with GSC clicks/impressions (28 days) when LUMEN_GSC_CREDENTIALS is set; findings never depend on it' },
+  { flag: '--days N', what: 'lumen performance lookback window (default 28 days)' },
 ];
 const example = [
   { kind: 'cmd' as const, text: 'lumen audit https://example.com --max-pages 200 --out report.json' },
@@ -39,7 +43,7 @@ const example = [
 ---
 <DocsLayout
   title="CLI reference"
-  description="All ten lumen commands, the four shared flags, and the exit-code contract used as a CI gate."
+  description="All twelve lumen commands, the four shared flags, and the exit-code contract used as a CI gate."
   activeHref="/docs/cli-reference/"
   toc={[
     { id: 'commands', label: 'Commands' },
@@ -49,7 +53,7 @@ const example = [
   ]}
 >
   <p>
-    Ten commands, one binary. The data commands are the CLI face of the same
+    Twelve commands, one binary. The data commands are the CLI face of the same
     MCP tools — same engine, same provenance rules, same exit codes; init and
     doctor are CLI-only setup helpers.
   </p>

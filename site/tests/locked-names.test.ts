@@ -81,7 +81,7 @@ describe('G7 locked names', () => {
     }
   });
 
-  test('all seven locked providers appear on the providers page', () => {
+  test('all locked providers appear on the providers page', () => {
     const html = readDist('docs/providers-byok/index.html');
     for (const provider of locked.providers) {
       expect(html, `provider "${provider}" missing from providers page`).toContain(provider);

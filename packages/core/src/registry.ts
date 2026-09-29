@@ -18,6 +18,7 @@ import type {
   KeywordProvider,
   PageSpeedProvider,
   ProviderBoundary,
+  SearchPerformanceProvider,
   SerpProvider,
 } from './providers.js';
 import { PROVIDER_BOUNDARIES } from './providers.js';
@@ -45,6 +46,8 @@ const implementsBoundary = {
     typeof (p as Partial<CruxProvider>).record === 'function',
   authority: (p: AnyProvider): p is AuthorityProvider =>
     typeof (p as Partial<AuthorityProvider>).authority === 'function',
+  'search-performance': (p: AnyProvider): boolean =>
+    typeof (p as unknown as SearchPerformanceProvider).performance === 'function',
 } as const;
 
 export const createProviderRegistry = (

@@ -26,6 +26,7 @@ export const BYOK_ENV_VARS = {
   pagespeed: 'LUMEN_PSI_KEY',
   crux: 'LUMEN_CRUX_KEY',
   openpagerank: 'LUMEN_OPR_KEY',
+  'bing-webmaster': 'LUMEN_BING_KEY',
 } as const satisfies Record<string, string>;
 
 const SECRET_LIKE = /^(api[_-]?key|key|token|secret|password)$/i;

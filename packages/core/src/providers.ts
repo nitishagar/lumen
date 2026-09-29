@@ -3,9 +3,10 @@
  * their opts types. Every opts carries an optional `AbortSignal` (I14).
  * M1 providers refine internals only — signatures are the contract.
  */
+import type { Provenance } from './provenance.js';
 import type { AuthoritySignal, CruxRecord, KeywordIdea, PageSpeedReport, SerpResult } from './payloads.js';
 
-export type ProviderBoundary = 'keywords' | 'serp' | 'pagespeed' | 'crux' | 'authority';
+export type ProviderBoundary = 'keywords' | 'serp' | 'pagespeed' | 'crux' | 'authority' | 'search-performance';
 
 export const PROVIDER_BOUNDARIES: readonly ProviderBoundary[] = [
   'keywords',
@@ -13,6 +14,7 @@ export const PROVIDER_BOUNDARIES: readonly ProviderBoundary[] = [
   'pagespeed',
   'crux',
   'authority',
+  'search-performance',
 ];
 
 export const isProviderBoundary = (v: unknown): v is ProviderBoundary =>
@@ -21,6 +23,34 @@ export const isProviderBoundary = (v: unknown): v is ProviderBoundary =>
 export interface KeywordProvider {
   readonly name: string;
   ideas(seed: string, o: IdeasOpts): Promise<KeywordIdea[]>;
+}
+
+/** E2.1: first-party search-performance rows (GSC). `source` rides the Provenance convention. */
+export interface SearchPerformanceRow {
+  readonly key: string;
+  readonly clicks: number;
+  readonly impressions: number;
+  readonly position: number | null;
+  readonly source: Provenance;
+}
+
+export interface SearchPerformanceReport {
+  readonly site: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly by: 'query' | 'page';
+  readonly rows: readonly SearchPerformanceRow[];
+}
+
+export interface SearchPerformanceOpts {
+  readonly days: number;
+  readonly by: 'query' | 'page';
+  signal?: AbortSignal;
+}
+
+export interface SearchPerformanceProvider {
+  readonly name: string;
+  performance(site: URL, o: SearchPerformanceOpts): Promise<SearchPerformanceReport>;
 }
 
 export interface SerpProvider {

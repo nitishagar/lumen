@@ -19,8 +19,17 @@ All notable changes to lumen are documented here. The format follows
 - `--update-baseline` now exits 0 after the write (the adopt flow's first
   command no longer fails on existing findings).
 
-Nothing yet — add user-facing changes here as they land; the section is
-renamed at release time.
+- **Google Search Console provider (E2.1)**: first-party clicks/impressions/positions
+  via `lumen performance <site>` (service-account JSON PATH in
+  `LUMEN_GSC_CREDENTIALS`, contents never logged), `lumen audit --with-gsc`
+  traffic annotations on rule groups, and GSC-preferred `rank` (labeled
+  first-party; the SERP fallback stays labeled best-effort).
+- **Bing Webmaster keywords (E2.2)**: exact volumes via `LUMEN_BING_KEY`,
+  labeled `scope: bing-only` — the first real volume number lumen shows.
+- **`lumen indexnow submit` (E2.2)**: lumen's first write action — dry run by
+  default, `--yes` to send, key file verified at `/<key>.txt` on every host
+  first. CLI-only (never an MCP tool).
+
 
 ## [0.3.0] — 2026-09-28
 

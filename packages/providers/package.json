@@ -10,7 +10,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./worker": "./src/worker.ts"
+    "./worker": "./src/worker.ts",
+    "./node": "./src/node-gsc.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -55,7 +55,19 @@ afterEach(async () => {
 });
 
 /** Full fixture deps — every boundary live, zero network capability. */
+const gscFixture = (): CommandDeps['performanceProvider'] => ({
+  name: 'gsc-fixture',
+  performance: async () => ({
+    site: 'https://example.com/',
+    startDate: '2026-08-01',
+    endDate: '2026-08-29',
+    by: 'query',
+    rows: [{ key: 'k', clicks: 1, impressions: 2, position: 3, source: { provider: 'gsc', kind: 'official' } }],
+  }),
+});
+
 const fullDeps = (): CommandDeps => ({
+  performanceProvider: gscFixture(),
   clock: () => '2026-08-29T12:00:00Z',
   failThreshold: 'error',
   keywords: [fixtureKeywordProvider()],
@@ -87,6 +99,7 @@ describe('outbound enumeration over every command (E12/I16)', () => {
       { args: ['doctor'] },
       { args: ['init', '--yes', '--config', join(dir, 'init-target.json')] },
       { args: ['diff', join(dir, 'a.json'), join(dir, 'b.json')] },
+      { args: ['performance', 'https://example.com'] }, // fixture provider injected below
     ];
     for (const c of cases) {
       const io = new MemoryIo();

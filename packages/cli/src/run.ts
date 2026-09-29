@@ -14,6 +14,8 @@ import { execute as audit } from './cmd/audit.js';
 import { execute as authority } from './cmd/authority.js';
 import { execute as configShow } from './cmd/config-show.js';
 import { execute as diff } from './cmd/diff.js';
+import { execute as performance } from './cmd/performance.js';
+import { execute as indexnow } from './cmd/indexnow.js';
 import { execute as doctor } from './cmd/doctor.js';
 import { execute as init } from './cmd/init.js';
 import { execute as keywords } from './cmd/keywords.js';
@@ -113,6 +115,10 @@ const dispatch = (
       return doctor(ctx);
     case 'diff':
       return diff(ctx);
+    case 'performance':
+      return performance(ctx, deps);
+    case 'indexnow':
+      return indexnow(ctx, deps);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);

@@ -21,7 +21,9 @@
     "config show",
     "init",
     "doctor",
-    "diff"
+    "diff",
+    "performance",
+    "indexnow submit"
   ],
   "cliFlags": [
     "--max-pages",
@@ -35,7 +37,9 @@
     "--verbose",
     "--format",
     "--source-map",
-    "--only"
+    "--only",
+    "--with-gsc",
+    "--days"
   ],
   "exitCodes": [
     {
@@ -62,7 +66,9 @@
   "envVars": [
     "LUMEN_PSI_KEY",
     "LUMEN_CRUX_KEY",
-    "LUMEN_OPR_KEY"
+    "LUMEN_OPR_KEY",
+    "LUMEN_BING_KEY",
+    "LUMEN_GSC_CREDENTIALS"
   ],
   "configFile": "lumen.config.json",
   "configKeys": [
@@ -81,7 +87,8 @@
     "crux",
     "openpagerank",
     "tranco",
-    "ddg-serp"
+    "ddg-serp",
+    "bing-webmaster"
   ],
   "restRoutes": [
     "POST /mcp",

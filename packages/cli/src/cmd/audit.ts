@@ -13,6 +13,10 @@ import type { FailThreshold, SiteAuditReport, SsrfPolicy } from '@lumen-seo/core
 import type { BaselineDiff, BaselineFile } from '@lumen-seo/audit';
 import { buildBaseline, diffAgainstBaseline } from '@lumen-seo/audit';
 import { readBaseline, writeBaselineAtomic } from '../baseline.js';
+import { createGscProvider } from '@lumen-seo/providers/node';
+import { GSC_PACING } from '@lumen-seo/providers/node';
+import { GcraPacer, InMemoryCache } from '@lumen-seo/providers';
+import { createNodeFetcher } from '@lumen-seo/core/node';
 import { intFlag } from '../args.js';
 import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
@@ -149,6 +153,46 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     await writeBaselineAtomic(updatePath, buildBaseline(report, d.clock()));
   }
 
+  // E2.1 --with-gsc: annotate by-rule groups with clicks/impressions summed
+  // over the FULL distinct affected-URL set (stdout-only — --out stays raw, M2).
+  const gscIo = ctx.io;
+  let gscAnnotator: ((g: { ruleId: string }, urls: readonly string[]) => { clicks: number; impressions: number } | undefined) | undefined;
+  if (ctx.flags['with-gsc'] === true) {
+    const credPath = process.env.LUMEN_GSC_CREDENTIALS;
+    if (deps?.performanceProvider === undefined && (credPath === undefined || credPath === '')) {
+      gscIo.err('GSC not configured — audit ran without traffic annotations (set LUMEN_GSC_CREDENTIALS)\n');
+    } else {
+      const gsc = deps?.performanceProvider ?? createGscProvider({
+        credentialsPath: credPath ?? '',
+        fetcher: createNodeFetcher(),
+        cache: new InMemoryCache(),
+        pacer: new GcraPacer(GSC_PACING.rpm, GSC_PACING.burst, Date.now, () => new Promise((r) => setTimeout(r, 1))),
+        clock: Date.now,
+      });
+      try {
+        const perf = await gsc.performance(new URL(url.origin), { days: 28, by: 'page' });
+        const byPage = new Map(perf.rows.map((r) => [r.key, r]));
+        gscAnnotator = (g, urls) => {
+          void g;
+          let clicks = 0;
+          let impressions = 0;
+          let seen = false;
+          for (const u of urls) {
+            const row = byPage.get(u) ?? byPage.get(u.replace(/\/$/, ''));
+            if (row !== undefined) {
+              clicks += row.clicks;
+              impressions += row.impressions;
+              seen = true;
+            }
+          }
+          return seen ? { clicks, impressions } : undefined;
+        };
+      } catch (e) {
+        gscIo.err(`GSC annotation failed (${clean(e instanceof Error ? e.message : String(e), 160)}) — audit ran without traffic annotations\n`);
+      }
+    }
+  }
+
   const { io } = ctx;
   if (format === 'sarif') {
     // CI renders print to stdout only without --out (artifact-only otherwise).
@@ -157,17 +201,20 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     if (typeof ctx.flags.out !== 'string') io.out(renderMarkdown(report, baselineDiff === undefined ? {} : { baseline: { path: baselinePath!, diff: baselineDiff } }));
   } else if (format === 'json') {
     // M2: the baseline section is stdout-only; --out keeps the raw report.
+    const annotated = gscAnnotator === undefined ? report : annotateWithGsc(report, gscAnnotator);
     io.out(
       jsonDocument(
-        baselineDiff === undefined ? report : { ...report, baseline: baselineSection(baselinePath!, baselineDiff) },
+        baselineDiff === undefined ? annotated : { ...annotated, baseline: baselineSection(baselinePath!, baselineDiff) },
       ),
     );
   } else {
+    const annotated = gscAnnotator === undefined ? report : annotateWithGsc(report, gscAnnotator);
     io.out(
-      humanSummary(report, threshold, {
+      humanSummary(annotated, threshold, {
         baselinePath,
         diff: baselineDiff,
         verbose: ctx.flags.verbose === true,
+        gscNote: gscAnnotator !== undefined,
       }),
     );
   }
@@ -189,6 +236,23 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   return gateFailed ? EXIT.ISSUES : EXIT.OK;
 };
 
+/** Attaches {clicks, impressions} to each by-rule group (E2.1 --with-gsc). */
+const annotateWithGsc = (
+  report: SiteAuditReport,
+  annotator: (g: { ruleId: string }, urls: readonly string[]) => { clicks: number; impressions: number } | undefined,
+): SiteAuditReport => {
+  const groups = (report.summary.byRule ?? []).map((g) => {
+    const urls = [
+      ...new Set(
+        report.pages.flatMap((p) => p.issues.filter((i) => i.ruleId === g.ruleId).map((i) => i.url ?? p.url)),
+      ),
+    ];
+    const traffic = annotator(g, urls);
+    return traffic === undefined ? g : { ...g, traffic };
+  });
+  return { ...report, summary: { ...report.summary, byRule: groups } };
+};
+
 /** stdout-only baseline section (M2): --out keeps the raw report untouched. */
 const baselineSection = (path: string, diff: BaselineDiff): Record<string, unknown> => ({
   path,
@@ -202,6 +266,7 @@ interface HumanOptions {
   baselinePath?: string;
   diff?: BaselineDiff;
   verbose?: boolean;
+  gscNote?: boolean;
 }
 
 /**
@@ -219,9 +284,12 @@ export const humanSummary = (report: SiteAuditReport, threshold: FailThreshold, 
     `  issues: ${c.error} error / ${c.warning} warning / ${c.info} info`,
     `  failThreshold: ${threshold}${report.incomplete ? '  (report incomplete — gate fails, E1)' : ''}`,
   ];
+  if (o.gscNote === true) lines.push('  traffic: annotated with GSC clicks/impressions (28d)');
   const groups = report.summary.byRule ?? [];
   for (const g of groups) {
-    lines.push(`  [${g.severity}] ${g.ruleId} — ${g.affectedPages} page${g.affectedPages === 1 ? '' : 's'}`);
+    const traffic = (g as { traffic?: { clicks: number; impressions: number } }).traffic;
+    const trafficNote = traffic === undefined ? '' : ` · ${traffic.clicks} clicks/${traffic.impressions} imps (28d, gsc)`;
+    lines.push(`  [${g.severity}] ${g.ruleId} — ${g.affectedPages} page${g.affectedPages === 1 ? '' : 's'}${trafficNote}`);
     const fix = g.fixHint ?? `no fix hint provided (${g.ruleId})`;
     lines.push(`    → fix: ${clean(fix, 160)}${g.helpUrl !== undefined ? ` (${g.helpUrl})` : ''}`);
     const urls = o.verbose ? [...new Set(report.pages.flatMap((p) => p.issues.filter((i) => i.ruleId === g.ruleId).map((i) => i.url ?? p.url)))] : g.sampleUrls;

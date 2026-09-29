@@ -17,6 +17,8 @@ Commands:
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
   diff                 Compare two saved audit reports (new/existing/fixed)
+  performance          Google Search Console rows (first-party, BYOK service account)
+  indexnow submit      Submit URLs to IndexNow (dry run by default; --yes to send)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -49,6 +51,8 @@ Flags:
   --source-map <glob> sarif: best-effort page URL → source file (exactly one match wins; ambiguous stays URL-only)
   --only <list>     Comma-separated categories or rule ids to run (e.g. ai-search);
                      unknown tokens are a config error listing every valid one
+  --with-gsc         Annotate rule groups with GSC clicks/impressions (28d) when
+                     LUMEN_GSC_CREDENTIALS is set (needs a service-account path)
   --json             One JSON document on stdout (alias for --format json)
 
 Exit codes: 0 under threshold; 1 issues at/above failThreshold or incomplete; 2 error.
@@ -85,6 +89,8 @@ Commands:
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
   diff                 Compare two saved audit reports (new/existing/fixed)
+  performance          Google Search Console rows (first-party, BYOK service account)
+  indexnow submit      Submit URLs to IndexNow (dry run by default; --yes to send)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -133,6 +139,21 @@ Unconfigured is not an error; a broken configured provider or invalid config exi
 "
 `;
 
+exports[`help contract via the real bin (E15) > indexnow --help prints command usage, exit 0 > help-indexnow 1`] = `
+"lumen indexnow — IndexNow submissions (lumen's only write action)
+
+Usage: lumen indexnow submit <urls…> [--from-sitemap <url>] [--key <key>] [--yes]
+
+Flags:
+  --key <key>        IndexNow key (or LUMEN_INDEXNOW_KEY); must be hosted at /<key>.txt
+  --from-sitemap <url> Submit the sitemap's URLs instead of listing them
+  --yes              Actually submit (default is a dry run that prints the payload)
+
+The key file is VERIFIED on every host before anything is sent.
+CLI-only: indexnow is never exposed as an MCP tool.
+"
+`;
+
 exports[`help contract via the real bin (E15) > init --help prints command usage, exit 0 > help-init 1`] = `
 "lumen init — first-run config setup
 
@@ -172,6 +193,21 @@ Flags:
   --json             Accepted for uniformity; stdout is protocol-only while serving
 
 Serving mode: stdout carries JSON-RPC only. stdin close -> exit 0; SIGINT -> exit 2.
+"
+`;
+
+exports[`help contract via the real bin (E15) > performance --help prints command usage, exit 0 > help-performance 1`] = `
+"lumen performance — Google Search Console rows
+
+Usage: lumen performance <site> [--days N] [--by query|page] [--json]
+
+Flags:
+  --days N           Lookback window (default 28, max 500)
+  --by B             query (default) | page — the report dimension
+  --json             One JSON document on stdout
+
+First-party data: set LUMEN_GSC_CREDENTIALS to the PATH of a
+service-account JSON with Search Console access (contents never logged).
 "
 `;
 

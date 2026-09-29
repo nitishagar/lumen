@@ -10,6 +10,8 @@ export interface KeywordIdea {
   term: string;
   source: Provenance;
   estimateLabel?: string;
+  /** E2.2: EXACT monthly volume (Bing Webmaster) — the first real volume number lumen shows. */
+  volume?: number;
   lang?: string;
   /** ISO-8601 timestamp from the injected clock (providers A9 — optional, additive). */
   retrievedAt?: string;

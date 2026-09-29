@@ -2,7 +2,7 @@
  * @lumen-seo/providers/worker — the Worker-safe factory (R7/BA9): every
  * built-in EXCEPT ddg-serp (cheerio is Node-only; the Worker parses no
  * HTML). This module and its import graph never reach cheerio — asserted by
- * the module-graph test. All seven names still validate through the shared
+ * the module-graph test. All eight names still validate through the shared
  * constants in ./builtins.ts.
  */
 import type { AnyProvider } from '@lumen-seo/core';
@@ -18,6 +18,7 @@ import { PageSpeedProviderImpl } from './pagespeed.js';
 import { GcraPacer, resolvePacing } from './throttle.js';
 import { TrancoProvider } from './tranco.js';
 import { WikipediaDemandProvider } from './wikipedia-demand.js';
+import { BingWebmasterProvider } from './bing-webmaster.js';
 
 /** The six Worker-safe built-ins keyed by name (no `ddg-serp`). */
 export type WorkerSafeProviders = Omit<Record<BuiltinProviderName, AnyProvider>, 'ddg-serp'>;
@@ -40,6 +41,9 @@ export function createWorkerSafeProviders(config: ProvidersConfig, deps: Provide
     crux: new CruxProviderImpl(config.crux, deps, deps.clock, deps.sleep),
     openpagerank: new OpenPageRankProvider(config.openpagerank, deps, deps.clock, deps.sleep),
     tranco: new TrancoProvider(config.tranco, deps),
+    // E2.2: bundled in the Worker but UNEXPOSED (worker composition never
+    // selects it; no allowlist host) — the CLI exposes it.
+    'bing-webmaster': new BingWebmasterProvider({ ...deps, env: (name) => deps.env(name) }, pacerFor('bing-webmaster', config, deps)),
   };
 }
 

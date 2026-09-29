@@ -13,6 +13,7 @@ describe('TC-REG-1: the canonical name list (I2)', () => {
       'openpagerank',
       'tranco',
       'ddg-serp',
+      'bing-webmaster',
     ]);
   });
 });
@@ -27,6 +28,7 @@ describe('TC-REG-2: capability map declares each provider\'s core boundary', () 
       openpagerank: 'authority',
       tranco: 'authority',
       'ddg-serp': 'serp',
+      'bing-webmaster': 'keywords',
     });
   });
 

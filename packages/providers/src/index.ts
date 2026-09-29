@@ -1,5 +1,5 @@
 /**
- * @lumen-seo/providers — main (Node) entry: the seven built-in providers,
+ * @lumen-seo/providers — main (Node) entry: the eight built-in providers,
  * the shared plumbing, and the registry wiring. `ddg-serp` needs cheerio
  * (Node-only, R7/BA9) — Worker consumers import `@lumen-seo/providers/worker`
  * instead; that entry never reaches cheerio (asserted by the module-graph

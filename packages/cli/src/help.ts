@@ -22,6 +22,8 @@ Commands:
   init                 Write a defaults lumen.config.json + print next steps
   doctor               Setup report: node, config, per-provider BYOK status
   diff                 Compare two saved audit reports (new/existing/fixed)
+  performance          Google Search Console rows (first-party, BYOK service account)
+  indexnow submit      Submit URLs to IndexNow (dry run by default; --yes to send)
 
 Global flags:
   --config <path>      Config file (default ./lumen.config.json, env LUMEN_CONFIG)
@@ -61,6 +63,8 @@ const USAGE_BY_COMMAND: Record<string, string> = {
       '--source-map <glob> sarif: best-effort page URL → source file (exactly one match wins; ambiguous stays URL-only)',
       '--only <list>     Comma-separated categories or rule ids to run (e.g. ai-search);',
       '                   unknown tokens are a config error listing every valid one',
+      '--with-gsc         Annotate rule groups with GSC clicks/impressions (28d) when',
+      '                   LUMEN_GSC_CREDENTIALS is set (needs a service-account path)',
       '--json             One JSON document on stdout (alias for --format json)',
     ],
     [
@@ -132,6 +136,32 @@ const USAGE_BY_COMMAND: Record<string, string> = {
     [
       'Writes defaults (failThreshold, crawl budgets, byok env-var NAMES) and adds',
       '.lumen/ to .gitignore in a git repo. Never writes or prints a key value.',
+    ],
+  ),
+  performance: usage(
+    'lumen performance — Google Search Console rows',
+    'lumen performance <site> [--days N] [--by query|page] [--json]',
+    [
+      '--days N           Lookback window (default 28, max 500)',
+      '--by B             query (default) | page — the report dimension',
+      '--json             One JSON document on stdout',
+    ],
+    [
+      'First-party data: set LUMEN_GSC_CREDENTIALS to the PATH of a',
+      'service-account JSON with Search Console access (contents never logged).',
+    ],
+  ),
+  indexnow: usage(
+    'lumen indexnow — IndexNow submissions (lumen\'s only write action)',
+    'lumen indexnow submit <urls…> [--from-sitemap <url>] [--key <key>] [--yes]',
+    [
+      '--key <key>        IndexNow key (or LUMEN_INDEXNOW_KEY); must be hosted at /<key>.txt',
+      '--from-sitemap <url> Submit the sitemap\'s URLs instead of listing them',
+      '--yes              Actually submit (default is a dry run that prints the payload)',
+    ],
+    [
+      'The key file is VERIFIED on every host before anything is sent.',
+      'CLI-only: indexnow is never exposed as an MCP tool.',
     ],
   ),
   diff: usage(

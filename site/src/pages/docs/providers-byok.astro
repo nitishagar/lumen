@@ -69,6 +69,22 @@ const providers: readonly ProviderRow[] = [
     leaves: 'Your keyword, to DuckDuckGo’s HTML endpoint.',
     note: 'Default SERP provider, best-effort by nature: bot protection can degrade it at any time. Rank results are labeled gray and best-effort.',
   },
+  {
+    name: 'bing-webmaster',
+    kind: 'official',
+    boundary: 'keywords',
+    key: 'LUMEN_BING_KEY',
+    leaves: 'Your seed term, to the Bing Webmaster keyword API.',
+    note: 'The first EXACT volume number lumen shows — labeled scope: bing-only (nothing about Google). Also available in the Worker bundle but unexposed there (CLI-only today).',
+  },
+  {
+    name: 'gsc',
+    kind: 'official',
+    boundary: 'search-performance',
+    key: 'LUMEN_GSC_CREDENTIALS (a service-account JSON PATH — contents never logged)',
+    leaves: 'Your verified site, to the Google Search Console API.',
+    note: 'First-party clicks/impressions/positions via lumen performance, audit --with-gsc annotations, and rank’s preferred source. Node-only (never in the Worker).',
+  },
 ];
 
 const kindBadge: Record<ProviderRow['kind'], string> = {
@@ -79,7 +95,7 @@ const kindBadge: Record<ProviderRow['kind'], string> = {
 ---
 <DocsLayout
   title="Providers & BYOK"
-  description="lumen's seven built-in data providers: what kind of source each is, which need keys, and exactly what leaves your machine."
+  description="lumen's eight built-in CLI data providers: what kind of source each is, which need keys, and exactly what leaves your machine."
   activeHref="/docs/providers-byok/"
   toc={[
     { id: 'model', label: 'The model' },
@@ -90,7 +106,7 @@ const kindBadge: Record<ProviderRow['kind'], string> = {
 >
   <p>
     Every external number in lumen comes through the provider interface —
-    five boundaries (keywords, serp, pagespeed, crux, authority), seven
+    six boundaries (keywords, serp, pagespeed, crux, authority, search-performance), eight
     built-in sources, zero vendor calls anywhere else. Providers are selected
     per boundary in <code>{locked.configFile}</code>; an unknown name is a
     config error listing the valid options.
@@ -139,7 +155,9 @@ const kindBadge: Record<ProviderRow['kind'], string> = {
 
   <h2 id="byok">BYOK semantics</h2>
   <p>
-    Three providers take keys, via environment variables only:
+    Four providers take credentials, via environment variables only
+    (<code>LUMEN_GSC_CREDENTIALS</code> holds a service-account JSON <em>path</em>
+    for <code>lumen performance</code> — its contents are never read into logs):
   </p>
   <ul>
     {locked.envVars.map((name) => (

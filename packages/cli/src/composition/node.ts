@@ -42,6 +42,8 @@ export interface CommandDeps {
   pagespeedUnconfigured?: string;
   crux?: CruxProvider;
   cruxUnconfigured?: string;
+  /** E2.1: node-only GSC provider (tests inject a fixture). */
+  performanceProvider?: import('@lumen-seo/core').SearchPerformanceProvider;
 }
 
 export const realClock = (): string => new Date().toISOString();

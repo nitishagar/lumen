@@ -77,15 +77,16 @@ const failingProvider = (name: string, message: string): AnyProvider =>
   ({ name, report: async (): Promise<PageSpeedReport> => { throw new Error(message); } }) as unknown as AnyProvider;
 
 describe('provider status derivation (pure)', () => {
-  it('no keys: the 3 keyed providers are not-configured with env names + signup URLs, keyless are ready', () => {
+  it('no keys: the keyed providers are not-configured with env names, keyless are ready', () => {
     const statuses = deriveProviderStatuses({});
     expect(statuses).toHaveLength(BUILTIN_PROVIDER_NAMES.length);
     for (const s of statuses) {
       expect(s.boundary).toBe(PROVIDER_CAPABILITIES[s.name]);
-      if (['pagespeed', 'crux', 'openpagerank'].includes(s.name)) {
+      if (['pagespeed', 'crux', 'openpagerank', 'bing-webmaster'].includes(s.name)) {
         expect(s.status).toBe('not-configured');
-        expect(s.envVar).toMatch(/^LUMEN_[A-Z_]+_KEY$/);
-        expect(s.signupUrl).toMatch(/^https:\/\//);
+        expect(s.envVar).toMatch(/^LUMEN_[A-Z_]+_KEY$/); // (GSC's path-based var is not a doctor provider)
+        // bing has no public signup URL — only the three Google/OPR ones do
+        if (s.name !== 'bing-webmaster') expect(s.signupUrl).toMatch(/^https:\/\//);
       } else {
         expect(s.status).toBe('ready');
         expect(s.envVar).toBeUndefined();
@@ -183,7 +184,7 @@ describe('doctor plain mode (zero network)', () => {
     expect(payload.node).toBeTruthy();
     expect(payload.config.valid).toBe(true);
     expect(payload.online).toBe(false);
-    expect(payload.providers).toHaveLength(7);
+    expect(payload.providers).toHaveLength(8);
     expect(payload.providers.find((p) => p.name === 'pagespeed')?.status).toBe('ready');
     expect(payload.providers.find((p) => p.name === 'openpagerank')?.status).toBe('not-configured');
   });
@@ -283,7 +284,7 @@ describe('doctor spawn end-to-end (real bin)', () => {
       const json = await spawnCli(['doctor', '--json'], { cwd });
       expect(json.code).toBe(0);
       const payload = JSON.parse(json.stdout) as { providers: unknown[]; config: { valid: boolean } };
-      expect(payload.providers).toHaveLength(7);
+      expect(payload.providers).toHaveLength(8);
       expect(payload.config.valid).toBe(true);
     } finally {
       await rm(cwd, { recursive: true, force: true });

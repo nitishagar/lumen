@@ -45,6 +45,10 @@ export type {
   ProviderBoundary,
   SearchOpts,
   SerpProvider,
+  SearchPerformanceOpts,
+  SearchPerformanceProvider,
+  SearchPerformanceReport,
+  SearchPerformanceRow,
 } from './providers.js';
 export { PROVIDER_BOUNDARIES, isProviderBoundary } from './providers.js';
 export type { Metric, Provenance, ProvenanceKind } from './provenance.js';

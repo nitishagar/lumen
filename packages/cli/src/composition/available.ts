@@ -1,5 +1,5 @@
 /**
- * The CLI's available-provider map (I2) — the REAL seven built-ins from the
+ * The CLI's available-provider map (I2) — the REAL eight built-ins from the
  * @lumen-seo/providers barrel (Phase 6 rebase commit). Core's registry
  * validates the configured boundary selection against this map (unknown
  * names → ConfigError listing the built-ins) and applies the BYOK skip rule

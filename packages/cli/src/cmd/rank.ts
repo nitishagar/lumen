@@ -19,6 +19,10 @@ import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
 import { matchesDomain, normalizeDomain } from '../domain.js';
 import { jsonDocument } from '../io.js';
+import { createGscProvider } from '@lumen-seo/providers/node';
+import { GSC_PACING } from '@lumen-seo/providers/node';
+import { GcraPacer, InMemoryCache } from '@lumen-seo/providers';
+import { createNodeFetcher } from '@lumen-seo/core/node';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
 import { ProviderUnconfiguredError, UsageError } from '../usage-error.js';
@@ -134,6 +138,66 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
       'no serp provider configured — set "providers.serp" in lumen.config.json',
     );
   }
+  // E2.1: GSC average position is FIRST-PARTY when configured — preferred
+  // over the best-effort SERP scrape (never both for one check). The
+  // provenance says which source produced the number.
+  const gscProvider = d.performanceProvider;
+  const credPath = process.env.LUMEN_GSC_CREDENTIALS;
+  if (gscProvider !== undefined || (credPath !== undefined && credPath !== '')) {
+    const gsc =
+      gscProvider ??
+      createGscProvider({
+        credentialsPath: credPath!,
+        fetcher: createNodeFetcher(),
+        cache: new InMemoryCache(),
+        pacer: new GcraPacer(GSC_PACING.rpm, GSC_PACING.burst, Date.now, () => new Promise((r) => setTimeout(r, 1))),
+        clock: Date.now,
+      });
+    let perf;
+    try {
+      perf = await gsc.performance(new URL(`https://${domain}`), { days: 28, by: 'query' });
+    } catch (e) {
+      // GSC failure degrades to the labeled SERP path — rank never hard-fails
+      // on a first-party outage it can answer without.
+      ctx.io.err(`GSC unavailable (${clean(e instanceof Error ? e.message : String(e), 160)}) — falling back to the SERP provider\n`);
+      perf = undefined;
+    }
+    const row = perf?.rows.find((r) => r.key.toLowerCase() === keyword.toLowerCase());
+    if (row !== undefined) {
+      const retrievedAt = d.clock();
+      if (ctx.flags['no-save'] !== true) {
+        await d.history.append({
+          keyword,
+          domain,
+          position: row.position === null ? null : Math.round(row.position),
+          provider: 'gsc',
+          retrievedAt,
+        });
+      }
+      const { io } = ctx;
+      const result = {
+        keyword,
+        domain,
+        found: row.position !== null,
+        position: row.position === null ? null : Math.round(row.position),
+        matchedUrl: undefined,
+        provider: 'gsc',
+        source: 'first-party (Google Search Console average position, 28 days)',
+        retrievedAt,
+      };
+      if (ctx.flags.json === true) {
+        io.out(jsonDocument(result));
+        return EXIT.OK;
+      }
+      io.out(`rank: ${clean(keyword)} — ${clean(domain)}\n`);
+      io.out(`  position: ${result.position === null ? 'n/a' : result.position} (gsc average, 28d — first-party)\n`);
+      io.out(`  clicks: ${row.clicks} / impressions: ${row.impressions}\n`);
+      io.out('  note: queried the https:// URL-prefix property (sc-domain: domain properties are not supported by rank)\n');
+      return EXIT.OK;
+    }
+    // no GSC row for this keyword — fall through to the SERP path, labeled.
+  }
+
   const serp = d.serp;
   const retrievedAt = d.clock();
   const results = await serp.search(keyword, { limit, signal: ctx.signal });

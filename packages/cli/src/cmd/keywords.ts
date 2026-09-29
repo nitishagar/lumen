@@ -76,7 +76,9 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   io.out(`keyword ideas for "${clean(seed)}" (limit ${limit}${lang === undefined ? '' : `, lang ${clean(lang)}`})\n`);
   for (const idea of ideas) {
     const label = idea.estimateLabel === undefined ? '' : ` [${clean(idea.estimateLabel, 40)}]`;
-    io.out(`  ${clean(idea.term, 120)}${label} — ${clean(idea.source.provider)}/${clean(idea.source.kind)}\n`);
+    // E2.2: exact volumes (Bing) render as the headline number they are.
+    const volume = idea.volume === undefined ? '' : ` ${idea.volume.toLocaleString('en-US')} vol/mo (exact)`;
+    io.out(`  ${clean(idea.term, 120)}${volume}${label} — ${clean(idea.source.provider)}/${clean(idea.source.kind)}\n`);
   }
   for (const u of unavailable) io.out(`  (unavailable: ${clean(u.provider)} — ${clean(u.reason, 120)})\n`);
   return EXIT.OK;

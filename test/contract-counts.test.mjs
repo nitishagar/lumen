@@ -61,7 +61,8 @@ describe('contract counts — prose, locked-names, and registries agree (I4)', (
   });
 
   it('locked-names arrays equal the registries', () => {
-    expect(locked.cliCommands).toEqual(commands.map((c) => (c === 'config' ? 'config show' : c)));
+    const subcommandOf = { config: 'config show', indexnow: 'indexnow submit' };
+    expect(locked.cliCommands).toEqual(commands.map((c) => subcommandOf[c] ?? c));
     expect(locked.mcpTools).toEqual(tools);
   });
 

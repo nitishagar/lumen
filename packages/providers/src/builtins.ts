@@ -15,6 +15,7 @@ export const BUILTIN_PROVIDER_NAMES = [
   'openpagerank',
   'tranco',
   'ddg-serp',
+  'bing-webmaster',
 ] as const;
 
 export type BuiltinProviderName = (typeof BUILTIN_PROVIDER_NAMES)[number];
@@ -28,6 +29,7 @@ export const PROVIDER_CAPABILITIES: Readonly<Record<BuiltinProviderName, 'keywor
   openpagerank: 'authority',
   tranco: 'authority',
   'ddg-serp': 'serp',
+  'bing-webmaster': 'keywords',
 };
 
 /**
@@ -37,6 +39,7 @@ export const PROVIDER_CAPABILITIES: Readonly<Record<BuiltinProviderName, 'keywor
  * defaults are conservative by construction and overrides pass through.
  */
 export const DOCUMENTED_LIMITS: Readonly<Partial<Record<BuiltinProviderName, number>>> = {
+  'bing-webmaster': 60,
   'wikipedia-demand': 200,
   pagespeed: 240,
   crux: 150,
@@ -45,6 +48,7 @@ export const DOCUMENTED_LIMITS: Readonly<Partial<Record<BuiltinProviderName, num
 
 /** Default GCRA pacing (rate/min + burst → worst rolling 60 s window = rpm + burst). */
 export const PACING_DEFAULTS: Readonly<Record<BuiltinProviderName, { rpm: number; burst: number }>> = {
+  'bing-webmaster': { rpm: 50, burst: 5 }, // under Bing Webmaster's documented quota
   'google-suggest': { rpm: 30, burst: 5 }, // worst 35/min (undocumented endpoint, A5)
   'wikipedia-demand': { rpm: 60, burst: 10 }, // worst 70/min = 0.35× documented 200 (A3)
   pagespeed: { rpm: 60, burst: 10 }, // keyed worst 70/min = 0.29× documented 240 (A4); keyless 6+1 built into the provider
