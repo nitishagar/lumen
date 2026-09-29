@@ -32,6 +32,7 @@ export const docsNav: readonly NavGroup[] = [
       { href: '/docs/providers-byok/', title: 'Providers & BYOK' },
       { href: '/docs/configuration/', title: 'Configuration' },
       { href: '/docs/ci/', title: 'Lumen in CI' },
+      { href: '/docs/plugins/', title: 'Writing plugins' },
     ],
   },
   {

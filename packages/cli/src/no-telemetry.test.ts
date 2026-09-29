@@ -100,6 +100,7 @@ describe('outbound enumeration over every command (E12/I16)', () => {
       { args: ['init', '--yes', '--config', join(dir, 'init-target.json')] },
       { args: ['diff', join(dir, 'a.json'), join(dir, 'b.json')] },
       { args: ['performance', 'https://example.com'] }, // fixture provider injected below
+      { args: ['history', 'rank', '--domain', 'example.com'] },
     ];
     for (const c of cases) {
       const io = new MemoryIo();

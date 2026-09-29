@@ -16,6 +16,7 @@ import { execute as configShow } from './cmd/config-show.js';
 import { execute as diff } from './cmd/diff.js';
 import { execute as performance } from './cmd/performance.js';
 import { execute as indexnow } from './cmd/indexnow.js';
+import { execute as history } from './cmd/history.js';
 import { execute as doctor } from './cmd/doctor.js';
 import { execute as init } from './cmd/init.js';
 import { execute as keywords } from './cmd/keywords.js';
@@ -119,6 +120,8 @@ const dispatch = (
       return performance(ctx, deps);
     case 'indexnow':
       return indexnow(ctx, deps);
+    case 'history':
+      return history(ctx, deps);
     default: {
       const never: never = command;
       throw new Error(`unhandled command ${String(never)}`);

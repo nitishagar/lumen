@@ -24,6 +24,7 @@ import type { RunnerScope } from '../composition/audit-adapter.js';
 import { jsonDocument } from '../io.js';
 import { renderSarif } from '../render/sarif.js';
 import { renderMarkdown } from '../render/markdown.js';
+import { renderHtml } from '../render/html.js';
 import { buildRouteFileMap } from '../render/source-map.js';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
@@ -93,7 +94,7 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   if (baselinePath !== undefined) baseline = await readBaseline(baselinePath);
 
   // E1.4: --format selects the renderer; --json stays an alias for json.
-  const FORMATS = ['human', 'json', 'sarif', 'md'] as const;
+  const FORMATS = ['human', 'json', 'sarif', 'md', 'html'] as const;
   type Format = (typeof FORMATS)[number];
   const formatFlag = ctx.flags.format === undefined ? undefined : String(ctx.flags.format);
   if (formatFlag !== undefined && !(FORMATS as readonly string[]).includes(formatFlag)) {
@@ -126,6 +127,7 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   const renderArtifact = (): string | undefined => {
     if (format === 'sarif') return renderSarif(report, { sourceMap, ...(baselineDiff === undefined ? {} : { baseline: baselineDiff }) });
     if (format === 'md') return renderMarkdown(report, baselineDiff === undefined ? {} : { baseline: { path: baselinePath!, diff: baselineDiff } });
+    if (format === 'html') return renderHtml(report);
     return undefined;
   };
   if (typeof ctx.flags.out === 'string') {
@@ -199,6 +201,8 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
     if (typeof ctx.flags.out !== 'string') io.out(renderSarif(report, { sourceMap, ...(baselineDiff === undefined ? {} : { baseline: baselineDiff }) }));
   } else if (format === 'md') {
     if (typeof ctx.flags.out !== 'string') io.out(renderMarkdown(report, baselineDiff === undefined ? {} : { baseline: { path: baselinePath!, diff: baselineDiff } }));
+  } else if (format === 'html') {
+    if (typeof ctx.flags.out !== 'string') io.out(renderHtml(report));
   } else if (format === 'json') {
     // M2: the baseline section is stdout-only; --out keeps the raw report.
     const annotated = gscAnnotator === undefined ? report : annotateWithGsc(report, gscAnnotator);

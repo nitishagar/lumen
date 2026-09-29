@@ -23,7 +23,8 @@
     "doctor",
     "diff",
     "performance",
-    "indexnow submit"
+    "indexnow submit",
+    "history"
   ],
   "cliFlags": [
     "--max-pages",
@@ -39,7 +40,8 @@
     "--source-map",
     "--only",
     "--with-gsc",
-    "--days"
+    "--days",
+    "--since"
   ],
   "exitCodes": [
     {
@@ -77,7 +79,8 @@
     "crawl",
     "failThreshold",
     "byok",
-    "plugins"
+    "plugins",
+    "history"
   ],
   "historyDir": ".lumen",
   "providers": [

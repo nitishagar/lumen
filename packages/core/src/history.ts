@@ -48,6 +48,10 @@ export interface HistoryListQuery {
 export interface HistoryStore {
   append(e: HistoryEntry): Promise<void>;
   list(q?: HistoryListQuery): Promise<HistoryEntry[]>;
+  /** E2.3 (optional, additive — the locked {append,list} shape is unchanged):
+   *  trim rotated generations, keeping `keepGenerations` newest. Returns how
+   *  many generations were removed. Stores without rotation may omit it. */
+  prune?(o: { keepGenerations?: number }): Promise<number>;
 }
 
 /** Rank entries carry `keyword`; audit digests do not. */

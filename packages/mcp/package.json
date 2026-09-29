@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit && tsc -p worker/tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "test:evals": "SWARM_SKIP=1 evalite run --threshold 100",
-    "test:swarm": "evalite run swarm"
+    "test:swarm": "evalite run swarm --threshold 100"
   },
   "dependencies": {
     "@lumen-seo/core": "*",

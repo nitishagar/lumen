@@ -6,6 +6,23 @@ All notable changes to lumen are documented here. The format follows
 
 ## [Unreleased]
 
+- **Trends and shareable reports (E2.3)**: `lumen history audit|rank` (first-class:
+  `--domain`, `--since`, `--limit` applied after --since, `--format json|csv`) with
+  `lumen history prune` and `history.maxGenerations` config (default 2 — the old
+  `rank --history` alias still works, prints a deprecation note); `audit --format
+  html` renders ONE self-contained report file (inline CSS, no scripts/external
+  requests, attributions footer); a scheduled-monitoring recipe in the CI docs.
+- **Plugin ecosystem (E2.4)**: `@lumen-seo/audit/testing` is a supported export
+  (fake fetcher, deterministic deps, page factory); a plugin authoring guide
+  (docs/plugins); the optional `@lumen-seo/plugin-render` package (Playwright peer
+  dependency, rendered evidence labeled `renderer: "rendered"`).
+- **Gateway hardening (E2.5)**: optional `WORKER_AUTH_TOKEN` bearer auth
+  (constant-time compare; preflight and /healthz exempt) and
+  `WORKER_ALLOWED_ORIGINS` CORS allowlist (Vary: Origin).
+- Hygiene: redactUrl covers more secret params + userinfo; all third-party
+  Actions SHA-pinned; a weekly live gray-endpoint canary (opens an issue on
+  drift); the swarm suite now gates at 100% (`npm run test:swarm`).
+
 - **Rule pack v2 (E1.6) — 16 new rules (24 → 36 built-in rules)**: integrity rules
   (structured-data, canonical targets, sitemaps, robots, hreflang reciprocity,
   orphans, meta-refresh, security headers, twitter cards, thin content,

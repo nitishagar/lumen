@@ -6,6 +6,7 @@
  * allowlist assertions are active against real provider traffic.
  */
 import { SELF } from 'cloudflare:test';
+import workerDefault from './index.js';
 import { describe, expect, it } from 'vitest';
 import { OUTBOUND_HOST_ALLOWLIST } from './outbound-recorder.js';
 import { workerDeps, HEADER_FOR_ENV } from './composition.js';
@@ -355,5 +356,64 @@ describe('budget kill-switch (B10/E10)', () => {
     const body = (await res.json()) as { lab: { status: string; reason: string } };
     expect(body.lab.status).toBe('unavailable');
     expect(body.lab.reason).toContain('psi disabled');
+  });
+});
+
+describe('E2.5 gateway hardening: bearer auth + origin allowlist', () => {
+  // Direct default-export invocation so each test controls env (SELF.fetch
+  // uses the fixed wrangler-config env).
+  const call = (request: Request, env: Record<string, string>): Promise<Response> =>
+    Promise.resolve(
+      workerDefault.fetch(request as never, env as never, { waitUntil: () => undefined } as never),
+    ) as Promise<Response>;
+
+  const initBody = JSON.stringify({
+    jsonrpc: '2.0', id: 1, method: 'initialize',
+    params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } },
+  });
+  const post = (auth?: string, origin?: string): Request =>
+    new Request('https://x.example/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(auth === undefined ? {} : { authorization: auth }), ...(origin === undefined ? {} : { origin }) },
+      body: initBody,
+    });
+  const baseEnv = (): Record<string, string> => ({ WORKER_ENABLE_PSI: 'true' });
+
+  it('with WORKER_AUTH_TOKEN set: /mcp rejects missing/wrong bearer (401) and passes the right one', async () => {
+    const env = { ...baseEnv(), WORKER_AUTH_TOKEN: 'sekrit-token' };
+    const noAuth = await call(post(), env);
+    expect(noAuth.status).toBe(401);
+    expect(await noAuth.text()).toContain('UNAUTHORIZED');
+    const wrong = await call(post('Bearer nope'), env);
+    expect(wrong.status).toBe(401);
+    const right = await call(post('Bearer sekrit-token'), env);
+    expect(right.status).not.toBe(401); // auth passed (any handler response ≠ the auth rejection)
+  });
+
+  it('OPTIONS preflight and /healthz stay EXEMPT from auth (I6)', async () => {
+    const env = { ...baseEnv(), WORKER_AUTH_TOKEN: 'sekrit-token' };
+    const pre = await call(new Request('https://x.example/mcp', { method: 'OPTIONS' }), env);
+    expect(pre.status).toBe(204);
+    const health = await call(new Request('https://x.example/healthz'), env);
+    expect(health.status).toBe(200);
+  });
+
+  it('unset token keeps today\'s behavior (no auth required)', async () => {
+    const res = await call(new Request('https://x.example/healthz'), baseEnv());
+    expect(res.status).toBe(200);
+  });
+
+  it('WORKER_ALLOWED_ORIGINS: allowlisted origin reflected + Vary; unlisted origin gets NO Allow-Origin', async () => {
+    const env = { ...baseEnv(), WORKER_ALLOWED_ORIGINS: 'https://good.example' };
+    const preGood = await call(new Request('https://x.example/mcp', { method: 'OPTIONS', headers: { origin: 'https://good.example' } }), env);
+    expect(preGood.headers.get('access-control-allow-origin')).toBe('https://good.example');
+    expect(preGood.headers.get('vary')).toBe('Origin');
+    const preBad = await call(new Request('https://x.example/mcp', { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }), env);
+    expect(preBad.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('unset allowlist keeps the permissive * default', async () => {
+    const pre = await call(new Request('https://x.example/mcp', { method: 'OPTIONS', headers: { origin: 'https://any.example' } }), baseEnv());
+    expect(pre.headers.get('access-control-allow-origin')).toBe('*');
   });
 });

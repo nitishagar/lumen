@@ -103,7 +103,7 @@ export const nodeComposition = (config: ResolvedConfig, scope?: RunnerScope): Co
     serp,
     authority: authorityProviders,
     authorityUnconfigured,
-    history: new JsonlHistoryStore(resolveHistoryDir()),
+    history: new JsonlHistoryStore(resolveHistoryDir(), undefined, config.history.maxGenerations),
     // Real audit engine + page-meta adapter — see composition/audit-adapter.ts.
     auditRunner: createAuditRunner(config, effectiveScope),
     pageMeta: createPageMetaFetcher(effectiveScope.privateScope),

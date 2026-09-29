@@ -17,7 +17,8 @@ export type RestErrorCode =
   | 'NOT_FOUND'
   | 'PROVIDER_UNCONFIGURED'
   | 'UPSTREAM_FAILED'
-  | 'PAYLOAD_TOO_LARGE';
+  | 'PAYLOAD_TOO_LARGE'
+  | 'UNAUTHORIZED';
 
 export class RestError extends Error {
   constructor(

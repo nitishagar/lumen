@@ -43,6 +43,7 @@ export const VALID_TOP_LEVEL_KEYS = [
   'failThreshold',
   'byok',
   'plugins',
+  'history',
 ] as const;
 
 export type TopLevelKey = (typeof VALID_TOP_LEVEL_KEYS)[number];
@@ -62,6 +63,10 @@ type CrawlKey = (typeof CRAWL_KEYS)[number];
 /** The numeric budget keys — `allowPrivateHosts` is a validated string array, handled separately. */
 type NumericCrawlKey = Exclude<CrawlKey, 'allowPrivateHosts' | 'checkExternal' | 'externalLinkCap'>;
 
+const HISTORY_KEYS = ['maxGenerations'] as const;
+
+type HistoryKey = (typeof HISTORY_KEYS)[number];
+
 export interface ResolvedConfig {
   readonly providers: Readonly<Partial<Record<ProviderBoundary, string>>>;
   readonly severityOverrides: Readonly<Record<string, Severity>>;
@@ -69,6 +74,8 @@ export interface ResolvedConfig {
   readonly failThreshold: FailThreshold;
   readonly byok: Readonly<Record<string, string>>;
   readonly plugins: readonly string[];
+  /** E2.3: local history retention. */
+  readonly history: { maxGenerations: number };
 }
 
 /** Returns the file's text, or `null` when the file does not exist. */
@@ -91,6 +98,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = deepFreeze({
   failThreshold: 'error', // R2
   byok: {},
   plugins: [],
+  history: { maxGenerations: 2 }, // current + one rotated (R9)
 });
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
@@ -136,6 +144,7 @@ const resolveConfig = (root: Record<string, unknown>): ResolvedConfig => {
   const crawl: CrawlBudgets = { ...DEFAULT_BUDGETS };
   let failThreshold: FailThreshold = 'error';
   const byok: Record<string, string> = {};
+  const history: { maxGenerations: number } = { ...DEFAULT_CONFIG.history };
   const plugins: string[] = [];
 
   for (const [key, value] of Object.entries(root)) {
@@ -248,6 +257,24 @@ const resolveConfig = (root: Record<string, unknown>): ResolvedConfig => {
         }
         break;
       }
+      case 'history': {
+        if (!expectObject(details, 'history', value, 'history retention settings')) break;
+        for (const [k, n] of Object.entries(value)) {
+          if (!(HISTORY_KEYS as readonly string[]).includes(k)) {
+            details.push({
+              path: `history.${k}`,
+              message: `unknown key. Valid keys under "history": ${HISTORY_KEYS.join(', ')}`,
+            });
+            continue;
+          }
+          if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 100) {
+            details.push({ path: `history.${k}`, message: 'must be an integer 1..100' });
+          } else {
+            history[k as HistoryKey] = n;
+          }
+        }
+        break;
+      }
       case 'plugins': {
         if (!Array.isArray(value)) {
           details.push({ path: 'plugins', message: 'must be an array of local module paths' });
@@ -274,5 +301,5 @@ const resolveConfig = (root: Record<string, unknown>): ResolvedConfig => {
 
   if (details.length > 0) throw new ConfigError(details);
 
-  return deepFreeze({ providers, severityOverrides, crawl, failThreshold, byok, plugins });
+  return deepFreeze({ providers, severityOverrides, crawl, failThreshold, byok, plugins, history });
 };

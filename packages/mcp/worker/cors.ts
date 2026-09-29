@@ -25,13 +25,35 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Max-Age': '86400',
 };
 
-export const corsPreflight = (_pathname: string): Response =>
-  new Response(null, { status: 204, headers: CORS_HEADERS });
+export const corsPreflight = (pathname: string, origin?: string | null, allowedOrigins?: string): Response =>
+  new Response(null, { status: 204, headers: corsHeaders(pathname, origin, allowedOrigins) });
 
-/** Applies the CORS headers to a route response (E9). */
-export const withCors = (response: Response): Response => {
+/** E2.5: origin allowlist — when WORKER_ALLOWED_ORIGINS is set, only those
+ *  origins get an Allow-Origin header (reflected verbatim; Vary: Origin so
+ *  caches key correctly). Unset keeps the permissive `*` default. */
+const corsHeaders = (pathname: string, origin?: string | null, allowedOrigins?: string): Record<string, string> => {
+  const headers = { ...CORS_HEADERS };
+  const list = (allowedOrigins ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o !== '');
+  if (list.length > 0) {
+    if (origin !== undefined && origin !== null && list.includes(origin)) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Vary'] = 'Origin';
+    } else {
+      delete headers['Access-Control-Allow-Origin']; // not allowlisted — no CORS for this origin
+      headers['Vary'] = 'Origin';
+    }
+  }
+  void pathname;
+  return headers;
+};
+
+/** Applies the CORS headers to a route response (E9, E2.5). */
+export const withCors = (response: Response, origin?: string | null, allowedOrigins?: string): Response => {
   const headers = new Headers(response.headers);
-  for (const [name, value] of Object.entries(CORS_HEADERS)) headers.set(name, value);
+  for (const [name, value] of Object.entries(corsHeaders('', origin, allowedOrigins))) headers.set(name, value);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

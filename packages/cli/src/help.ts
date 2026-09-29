@@ -23,6 +23,7 @@ Commands:
   doctor               Setup report: node, config, per-provider BYOK status
   diff                 Compare two saved audit reports (new/existing/fixed)
   performance          Google Search Console rows (first-party, BYOK service account)
+  history audit|rank   Local history trends (--since, --format json|csv); history prune
   indexnow submit      Submit URLs to IndexNow (dry run by default; --yes to send)
 
 Global flags:
@@ -58,8 +59,8 @@ const USAGE_BY_COMMAND: Record<string, string> = {
       '--baseline <file>  Gate only on findings NOT in the baseline (adopt lumen on a noisy site)',
       "--update-baseline <file>  Write this run's fingerprints (sorted, versioned) and exit 0",
       '--verbose          List every affected URL per rule group (default: 3 samples)',
-      '--format F         human (default) | json | sarif | md (--json = --format json);',
-      '                   sarif/md: --out writes the rendered artifact, stdout silent when --out given',
+      '--format F         human (default) | json | sarif | md | html (--json = --format json);',
+      '                   sarif/md/html: --out writes the rendered artifact, stdout silent when --out given',
       '--source-map <glob> sarif: best-effort page URL → source file (exactly one match wins; ambiguous stays URL-only)',
       '--only <list>     Comma-separated categories or rule ids to run (e.g. ai-search);',
       '                   unknown tokens are a config error listing every valid one',
@@ -162,6 +163,22 @@ const USAGE_BY_COMMAND: Record<string, string> = {
     [
       'The key file is VERIFIED on every host before anything is sent.',
       'CLI-only: indexnow is never exposed as an MCP tool.',
+    ],
+  ),
+  history: usage(
+    'lumen history — local history trends and retention',
+    'lumen history audit|rank [--domain <d>] [--since <iso>] [--limit N] [--format json|csv]\n    lumen history prune [--keep N]',
+    [
+      '--domain <domain>  Filter to one domain',
+      '--since <iso>      Only entries at/after an ISO date/datetime',
+      '--limit N          Newest N entries (applied AFTER --since)',
+      '--format F         json (default) | csv (formula-neutralized)',
+      '--keep N           prune: keep N generations (default from history.maxGenerations)',
+      '--json             One JSON document on stdout',
+    ],
+    [
+      'Replaces the deprecated `lumen rank --history` alias (still works,',
+      'prints a deprecation note). Retention: history.maxGenerations in config.',
     ],
   ),
   diff: usage(

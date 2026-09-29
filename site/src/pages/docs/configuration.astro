@@ -35,6 +35,7 @@ const keys = [
   { key: 'failThreshold', what: 'lowest severity that fails a run: error | warning | info | off (default error)' },
   { key: 'byok', what: 'env-var NAMES for provider keys (values never enter the file)' },
   { key: 'plugins', what: 'local plugin files implementing extra audit rules (Node-only)' },
+  { key: 'history', what: 'local history retention: maxGenerations (default 2 — current + one rotated)' },
 ];
 ---
 <DocsLayout

@@ -19,6 +19,7 @@ import type { CommandDeps } from '../composition/node.js';
 import { buildDeps } from '../composition/node.js';
 import { matchesDomain, normalizeDomain } from '../domain.js';
 import { jsonDocument } from '../io.js';
+import { csvCell as sharedCsvCell } from '../csv.js';
 import { createGscProvider } from '@lumen-seo/providers/node';
 import { GSC_PACING } from '@lumen-seo/providers/node';
 import { GcraPacer, InMemoryCache } from '@lumen-seo/providers';
@@ -37,13 +38,7 @@ const RANK_CSV_HEADER = 'keyword,domain,position,provider,url,retrievedAt';
 const AUDIT_CSV_HEADER =
   'url,score,pagesAudited,countsError,countsWarning,countsInfo,incomplete,provider,retrievedAt';
 
-const csvCell = (v: string | number | boolean | null | undefined): string => {
-  const s = v === null || v === undefined ? '' : String(v);
-  // Neutralize spreadsheet-formula starters (= @); a leading '-' stays
-  // faithful (legit keywords) and cannot open a formula cell on its own.
-  const body = /^[=@]/.test(s) ? `'${s}` : s;
-  return /[",\n\r]/.test(body) ? `"${body.replace(/"/g, '""')}"` : body;
-};
+const csvCell = sharedCsvCell; // extracted to csv.ts (E2.3) — formula neutralization must not fork
 
 const rankRow = (e: HistoryEntry): string =>
   isRankEntry(e)
@@ -108,6 +103,9 @@ const readHistory = async (ctx: CliContext, d: CommandDeps): Promise<number> => 
   const limit = validateLimit(intFlag(ctx.flags, 'limit'));
   const entries = await d.history.list({ kind, ...(domain === undefined ? {} : { domain }), limit });
   const { io } = ctx;
+  // Deprecated alias (E2.3): kept for one minor version; stderr only — stdout
+  // carries exactly one document.
+  io.err('note: `lumen rank --history` is deprecated — use `lumen history rank`\n');
   if (format === 'csv') {
     const header = kind === 'rank' ? RANK_CSV_HEADER : AUDIT_CSV_HEADER;
     io.out(`${header}\n${entries.map(rankRow).join('\n')}${entries.length === 0 ? '' : '\n'}`);

@@ -20,20 +20,50 @@ import { corsPreflight, isCorsSurface, withCors } from './cors.js';
 import { errorJson, jsonResponse, keywordIdeasRoute, pageReportRoute } from './rest.js';
 import { restComposition } from './composition.js';
 
+/** E2.5: constant-time bearer check (no early-exit timing signal). */
+const bearerOk = async (request: Request, token: string): Promise<boolean> => {
+  const header = request.headers.get('authorization') ?? '';
+  const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (presented === '') return false;
+  // No length pre-check: hash BOTH sides unconditionally so the digest
+  // comparison surface is fixed-size (no length oracle by timing).
+  const a = new TextEncoder().encode(presented);
+  const b = new TextEncoder().encode(token);
+  // Constant-time compare via a hash of both sides.
+  const h = (x: Uint8Array): Promise<Uint8Array> => crypto.subtle.digest('SHA-256', x).then((d) => new Uint8Array(d));
+  const [ha, hb] = await Promise.all([h(a), h(b)]);
+  let diff = 0;
+  for (let i = 0; i < ha.length; i += 1) diff |= ha[i]! ^ hb[i]!;
+  return diff === 0;
+};
+
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
+    const origin = request.headers.get('origin');
+    const allowed = env.WORKER_ALLOWED_ORIGINS;
     if (request.method === 'OPTIONS') {
+      // Preflight never carries credentials — exempt from auth (I6).
       return isCorsSurface(url.pathname)
-        ? corsPreflight(url.pathname)
+        ? corsPreflight(url.pathname, origin, allowed)
         : errorJson('NOT_FOUND', 404, 'unknown route');
     }
-    if (url.pathname === '/healthz') return jsonResponse({ ok: true });
+    if (url.pathname === '/healthz') return jsonResponse({ ok: true }); // exempt (I6)
+    // E2.5: optional bearer auth — set WORKER_AUTH_TOKEN to require it.
+    if (env.WORKER_AUTH_TOKEN !== undefined && env.WORKER_AUTH_TOKEN !== '') {
+      if (!(await bearerOk(request, env.WORKER_AUTH_TOKEN))) {
+        return withCors(
+          errorJson('UNAUTHORIZED', 401, 'missing or invalid bearer token (WORKER_AUTH_TOKEN is set on this deployment)'),
+          origin,
+          allowed,
+        );
+      }
+    }
     if (url.pathname === '/api/v1/page-report') {
-      return withCors(await pageReportRoute(request, env, restComposition(request.headers, env)));
+      return withCors(await pageReportRoute(request, env, restComposition(request.headers, env)), origin, allowed);
     }
     if (url.pathname === '/api/v1/keyword-ideas') {
-      return withCors(await keywordIdeasRoute(request, env, restComposition(request.headers, env)));
+      return withCors(await keywordIdeasRoute(request, env, restComposition(request.headers, env)), origin, allowed);
     }
     if (url.pathname === '/mcp') {
       // Fresh per-request server over the per-request BYOK composition (E13);
@@ -48,7 +78,7 @@ export default {
         corsOptions: false, // this Worker applies its own permissive CORS (E9)
         allowedOriginHostnames: '*', // B9: authless, permissive v1
       });
-      return withCors(await handler(request, env, ctx));
+      return withCors(await handler(request, env, ctx), origin, allowed);
     }
     return errorJson('NOT_FOUND', 404, 'unknown route');
   },

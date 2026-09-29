@@ -9,7 +9,8 @@
     "node": ">=22.7"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "test": "vitest run",
@@ -21,7 +22,7 @@
     "cheerio": "^1.2.0"
   },
   "devDependencies": {},
-  "description": "lumen site-audit engine — bounded polite crawler, 36 built-in rules, scorer, report assembly",
+  "description": "lumen site-audit engine \u2014 bounded polite crawler, 36 built-in rules, scorer, report assembly",
   "files": [
     "dist"
   ]

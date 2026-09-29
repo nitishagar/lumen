@@ -36,6 +36,12 @@ import type { McpDeps } from '../src/server.js';
 export interface Env {
   /** Kill-switch (B10): set to "false" to disable PSI on CPU-constrained zones. */
   WORKER_ENABLE_PSI?: string;
+  /** E2.5: optional bearer auth — when set, every route (except OPTIONS and
+   *  /healthz) requires `Authorization: Bearer <token>`. */
+  WORKER_AUTH_TOKEN?: string;
+  /** E2.5: comma-separated origin allowlist — when set, CORS reflects only
+   *  these origins (Vary: Origin); unset keeps the permissive `*` default. */
+  WORKER_ALLOWED_ORIGINS?: string;
 }
 
 /** The real locked ProviderDeps (type-only import — erased before bundling). */

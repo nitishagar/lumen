@@ -45,9 +45,9 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # actions/checkout@v7
         if: steps.guard.outputs.skip != 'true'
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # actions/setup-node@v7
         if: steps.guard.outputs.skip != 'true'
         with: { node-version: 22, cache: npm }
       - run: npm ci
@@ -56,7 +56,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
       - name: wrangler deploy
         if: steps.guard.outputs.skip != 'true'
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0  # cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}   # required at deploy time: wrangler.jsonc intentionally carries no account_id

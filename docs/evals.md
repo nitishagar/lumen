@@ -105,3 +105,10 @@ SWARM_ONLY=psi-timeout-degrades npm run test:swarm   # run one adversary
   swarm directly any time: `npm run test:swarm`.
 - Adding a case: append an entry to `adversaries.json` (id slug
   `^[a-z0-9-]{1,64}$`, secret-free args) and run `npm run test:swarm`.
+
+## Live LLM-judge gate: NOT YET EXERCISED
+
+The live judge pass has never been run with a real key (recorded 2026-09-29).
+Until a first run happens and its result is recorded here, treat the judge
+gate as unverified infrastructure — the offline scorer gates remain the
+source of truth.

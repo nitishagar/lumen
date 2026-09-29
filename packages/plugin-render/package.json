@@ -1,0 +1,27 @@
+{
+  "name": "@lumen-seo/plugin-render",
+  "version": "0.0.0",
+  "description": "Optional rendered-DOM PageContext for lumen audits of SPA sites (Playwright peer dependency \u2014 explicitly outside core).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  },
+  "devDependencies": {},
+  "files": [
+    "dist"
+  ]
+}

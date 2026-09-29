@@ -29,7 +29,7 @@ import { normalizeDomain } from '../domain.js';
 
 export const DEFAULT_MAX_HISTORY_BYTES = 1_048_576; // 1 MiB (B4)
 const HISTORY_FILE = 'history.jsonl';
-const ROTATED_FILE = 'history.1.jsonl'; // literal name, single generation (R9)
+// Generation files are history.<N>.jsonl (E2.3 generalized R9's single .1).
 
 /** Storage subdir per kind (`rank` keeps the legacy unprefixed layout). */
 export const kindDir = (root: string, kind: 'rank' | 'audit'): string => join(root, kind);
@@ -99,11 +99,22 @@ const isEntry = (v: unknown): v is HistoryEntry => {
 export class JsonlHistoryStore implements HistoryStore {
   readonly #root: string;
   readonly #maxBytes: number;
+  readonly #maxGenerations: number;
   #queue: Promise<unknown> = Promise.resolve();
 
-  constructor(root: string, maxBytes: number = DEFAULT_MAX_HISTORY_BYTES) {
+  constructor(
+    root: string,
+    maxBytes: number = DEFAULT_MAX_HISTORY_BYTES,
+    maxGenerations: number = 2, // E2.3: current + one rotated (the pre-existing behavior)
+  ) {
     this.#root = root;
     this.#maxBytes = maxBytes;
+    this.#maxGenerations = Math.max(1, Math.floor(maxGenerations));
+  }
+
+  /** Generation file name: 0 = current, N = history.N.jsonl. */
+  #generationFile(dir: string, n: number): string {
+    return n === 0 ? join(dir, HISTORY_FILE) : join(dir, `history.${n}.jsonl`);
   }
 
   /** Serialized append (E13): rotation check + one O_APPEND write per entry. */
@@ -132,9 +143,7 @@ export class JsonlHistoryStore implements HistoryStore {
       entries = await this.#listAllDomains(kind);
     } else if (q?.domain !== undefined) {
       const dir = domainDir(this.#root, q.domain, kind);
-      entries = (await this.#readGeneration(join(dir, ROTATED_FILE))).concat(
-        await this.#readGeneration(join(dir, HISTORY_FILE)),
-      );
+      entries = await this.#readAllGenerations(dir);
     } else {
       // Audit-by-URL without a domain: fan out, then match the exact URL.
       entries = await this.#listAllDomains(kind);
@@ -156,9 +165,59 @@ export class JsonlHistoryStore implements HistoryStore {
     await mkdir(dir, { recursive: true });
     const file = join(dir, HISTORY_FILE);
     if ((await sizeOf(file)) >= this.#maxBytes) {
-      await rename(file, join(dir, ROTATED_FILE)).catch(() => undefined); // .1 overwritten (R9)
+      // E2.3: N-generation rotation — shift .N-1..1 up one, then current -> .1.
+      // The oldest generation falls off (maxGenerations total, R9 semantics
+      // generalized); failures are non-fatal (R9's tolerance preserved).
+      for (let n = this.#maxGenerations - 2; n >= 1; n -= 1) {
+        await rename(this.#generationFile(dir, n), this.#generationFile(dir, n + 1)).catch(() => undefined);
+      }
+      await rename(file, this.#generationFile(dir, 1)).catch(() => undefined);
     }
     await appendFile(file, `${JSON.stringify(e)}\n`, 'utf8');
+  }
+
+  /** Reads every generation oldest-first (.N .. .1, then current). */
+  async #readAllGenerations(dir: string): Promise<HistoryEntry[]> {
+    const out: HistoryEntry[] = [];
+    for (let n = this.#maxGenerations - 1; n >= 1; n -= 1) {
+      out.push(...(await this.#readGeneration(this.#generationFile(dir, n))));
+    }
+    out.push(...(await this.#readGeneration(this.#generationFile(dir, 0))));
+    return out;
+  }
+
+  /** E2.3: delete generations beyond `keep`, returning how many were removed. */
+  async prune(o: { keepGenerations?: number }): Promise<number> {
+    const { rm, readdir } = await import('node:fs/promises');
+    const keep = Math.max(1, Math.floor(o.keepGenerations ?? this.#maxGenerations));
+    const task = this.#queue.then(async () => {
+      let removed = 0;
+      const dirs = new Set<string>();
+      for (const kind of ['rank', 'audit'] as const) {
+        let domains: Dirent[];
+        try {
+          domains = await readdir(kindDir(this.#root, kind), { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const d of domains) {
+          if (d.isDirectory()) dirs.add(join(kindDir(this.#root, kind), d.name));
+        }
+      }
+      for (const dir of dirs) {
+        for (let n = this.#maxGenerations - 1; n >= 1; n -= 1) {
+          if (n <= keep - 1) break; // keep-1 rotated generations + the current file
+          const file = this.#generationFile(dir, n);
+          if ((await sizeOf(file)) > 0) { // generation files always have content; sizeOf resolves 0 for missing
+            await rm(file, { force: true }).catch(() => undefined);
+            removed += 1;
+          }
+        }
+      }
+      return removed;
+    });
+    this.#queue = task.catch(() => undefined);
+    return task;
   }
 
   /** Parses one generation file; a malformed/truncated FINAL line is skipped. */
@@ -200,8 +259,7 @@ export class JsonlHistoryStore implements HistoryStore {
     for (const d of entries) {
       if (!d.isDirectory()) continue;
       const dir = join(kindDir(this.#root, kind), d.name);
-      all.push(...(await this.#readGeneration(join(dir, ROTATED_FILE))));
-      all.push(...(await this.#readGeneration(join(dir, HISTORY_FILE))));
+      all.push(...(await this.#readAllGenerations(dir)));
     }
     return all.sort((a, b) => (a.retrievedAt < b.retrievedAt ? -1 : 1));
   }

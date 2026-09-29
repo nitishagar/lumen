@@ -82,8 +82,9 @@ const evaluate = (entry: AdversaryCase, outcome: SwarmOutcome): { verdict: 'pass
 };
 
 (GATED_OUT ? evalite.skip : evalite)('swarm-adversaries', {
-  // SWARM_SKIP=1 (the default gate): skipped — swarm is report-only, its
-  // findings never gate; run it via `npm run test:swarm` (no --threshold).
+  // SWARM_SKIP=1 skips under test:evals; the GATED lane is
+  // `npm run test:swarm` (evalite run swarm --threshold 100) — an `unscored`
+  // verdict scores 0 against the threshold (named per the PRD hygiene row).
   data: corpus.map((c) => ({ input: c, expected: c.expect })),
   task: async (input): Promise<SwarmEvalOutput> => {
     const entry = input as AdversaryCase;

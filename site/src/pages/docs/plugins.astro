@@ -1,0 +1,103 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import Code from '../../components/Code.astro';
+import { u } from '../../utils/site';
+
+const example = [
+  { kind: 'cmd' as const, text: 'npm i @lumen-seo/audit @lumen-seo/audit/testing' },
+];
+const configExample = [
+  { kind: 'out' as const, text: '{ "plugins": ["./lumen-rules.mjs"] }' },
+];
+---
+<DocsLayout
+  title="Writing lumen plugins"
+  description="Author extra audit rules for lumen: the AuditRule shape, the page/crawl/site kinds, fixHint expectations, severity overrides, and the official test kit."
+  activeHref="/docs/plugins/"
+  toc={[
+    { id: 'shape', label: 'The rule shape' },
+    { id: 'kinds', label: 'The three kinds' },
+    { id: 'hints', label: 'fixHint + helpUrl' },
+    { id: 'testing', label: 'The test kit' },
+    { id: 'render', label: 'Rendered DOM (SPA)' },
+    { id: 'honesty', label: 'Inherited honesty rules' },
+  ]}
+>
+  <p>
+    A lumen plugin is a local module exporting rules that run inside the audit
+    engine — same scoring, same gates, same provenance. Node-only (plugins
+    never load in the Worker).
+  </p>
+
+  <h2 id="shape">The rule shape</h2>
+  <Code lines={[
+    { kind: 'out', text: `// lumen-rules.mjs` },
+    { kind: 'out', text: `export const myRule = {` },
+    { kind: 'out', text: `  id: 'my-rule',            // unique, kebab-case` },
+    { kind: 'out', text: `  severity: 'warning',      // error | warning | info` },
+    { kind: 'out', text: `  categories: ['custom'],   // --only <category> runs it` },
+    { kind: 'out', text: `  async check(page, o) {    // page: url/status/headers/dom/bytes/timingMs` },
+    { kind: 'out', text: `    return page.dom('a[href]').length > 500` },
+    { kind: 'out', text: `      ? [{ ruleId: 'my-rule', severity: 'warning',` },
+    { kind: 'out', text: `          message: '500+ links on one page',` },
+    { kind: 'out', text: `          evidence: { selector: 'a[href]' },` },
+    { kind: 'out', text: `          fixHint: 'prune the link list to what users actually click' }]` },
+    { kind: 'out', text: `      : [];` },
+    { kind: 'out', text: `  },` },
+    { kind: 'out', text: `};` },
+  ]} />
+  <Code lines={configExample} />
+  <p>
+    <code>severityOverrides</code> in your config override any plugin's
+    severity, exactly like built-ins.
+  </p>
+
+  <h2 id="kinds">The three kinds</h2>
+  <p>
+    <strong>page</strong> rules run per fetched page (<code>check(page)</code>).
+    <strong>crawl</strong> and <strong>site</strong> rules are audit-local
+    extensions: crawl rules receive the post-crawl index
+    (<code>checkCrawl(index, o)</code>), site rules run once per audit against
+    retained robots/sitemap evidence (<code>checkSite(ctx)</code>). Every
+    crawl/site issue MUST carry <code>url</code> so it lands on an owning page.
+    Rules NEVER fetch — fetch loops belong to the engine.
+  </p>
+
+  <h2 id="hints">fixHint + helpUrl</h2>
+  <p>
+    Built-in rules ship a fixHint and a stable docs anchor; plugin rules get
+    whatever fixHint they emit (no anchor — helpUrl is engine-controlled).
+    Renderers print "no fix hint provided" for plugin issues without one, so
+    always include one.
+  </p>
+
+  <h2 id="testing">The test kit</h2>
+  <Code lines={example} />
+  <p>
+    <code>@lumen-seo/audit/testing</code> exports the fake fetcher (the
+    core-fetcher contract, zero network), deterministic crawl deps, and the
+    cheerio page factory — the same kit lumen's own suite uses.
+  </p>
+
+  <h2 id="render">Rendered DOM (SPA)</h2>
+  <p>
+    The optional{' '}
+    <code>@lumen-seo/plugin-render</code> (publishing with the next release){' '}
+    package wraps the engine with a Playwright transport (peer dependency,
+    explicitly outside core). Reports it produces carry the honesty label{' '}
+    <code>renderer: "rendered"</code> — rendered evidence is different
+    evidence.
+  </p>
+
+  <h2 id="honesty">Inherited honesty rules</h2>
+  <ul>
+    <li>Never fetched → never judged; report <em>unknown</em>, not a pass.</li>
+    <li>Sample sizes and thresholds belong in the message.</li>
+    <li>Heuristics are labeled as heuristics.</li>
+    <li>No page-derived text beyond the sanitize allowlist survives into reports.</li>
+  </ul>
+  <p>
+    A starter template lives at{' '}
+    a <code>lumen-plugin-template</code> starter repo (coming with the next release).
+  </p>
+</DocsLayout>

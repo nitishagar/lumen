@@ -55,7 +55,7 @@ Then just ask: *"audit my site and tell me what to fix first."*
 ## Documentation
 
 - [Quickstart](https://nitishagar.github.io/lumen/docs/quickstart/) — first audit, JSON output, CI usage
-- [CLI reference](https://nitishagar.github.io/lumen/docs/cli-reference/) — all twelve commands and flags
+- [CLI reference](https://nitishagar.github.io/lumen/docs/cli-reference/) — all thirteen commands and flags
 - [Rules reference](https://nitishagar.github.io/lumen/docs/rules-reference/) — the 36 rules, severities, scoring
 - [Providers & BYOK](https://nitishagar.github.io/lumen/docs/providers-byok/) — data sources, keys, rate-limit etiquette
 - [MCP onboarding](https://nitishagar.github.io/lumen/docs/mcp-onboarding/) — Claude, Cursor, VS Code, remote gateway

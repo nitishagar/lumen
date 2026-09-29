@@ -1,0 +1,37 @@
+name: 'gray-endpoint-canary'
+on:
+  schedule:
+    - cron: '0 9 * * 1' # weekly, Mondays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # actions/checkout@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Run the gray-endpoint canary (real provider parse paths)
+        id: canary
+        run: npx vitest run packages/providers/src/gray-canary.test.ts
+        env:
+          LIVE_CANARY: '1'
+        continue-on-error: true
+      - name: Open an issue on drift
+        if: ${{ steps.canary.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "gray-endpoint canary: drift detected ($(date -u +%F))" \
+            --body "The weekly canary found a gray endpoint drifting (parse/blocked). See the run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --label canary || true
+      - name: Fail the job on drift
+        if: ${{ steps.canary.outcome == 'failure' }}
+        run: exit 1

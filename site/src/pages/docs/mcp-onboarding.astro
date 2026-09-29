@@ -126,8 +126,14 @@ const toolTable = [
     <code>GET /api/v1/keyword-ideas?q=</code>, <code>GET /healthz</code>). It
     is deployable from the free Workers tier, but nothing in lumen requires
     it: stdio is the primary path and the Worker is not deployed by default.
-    BYOK keys pass per-request via headers and are never logged.
+    BYOK keys pass per-request via headers and are never logged. Treat a
+    self-deployed Worker as <strong>personal use</strong> — add hardening
+    before sharing the URL:
   </p>
+  <ul>
+    <li><code>WORKER_AUTH_TOKEN</code> (secret) — when set, every route except preflight and <code>/healthz</code> requires <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+    <li><code>WORKER_ALLOWED_ORIGINS</code> (comma list) — when set, CORS reflects only those origins instead of the default <code>*</code>.</li>
+  </ul>
 
   <h2 id="local-only">The audit stays local</h2>
   <p>

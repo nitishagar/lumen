@@ -32,6 +32,7 @@ const summary = [
   activeHref="/docs/ci/"
   toc={[
     { id: 'github', label: 'GitHub Actions' },
+    { id: 'monitoring', label: 'Monitoring recipe' },
     { id: 'sarif', label: 'SARIF' },
     { id: 'summary', label: 'Job summary' },
     { id: 'baseline', label: 'Baseline gate' },
@@ -60,6 +61,37 @@ const summary = [
     with <code>github/codeql-action/upload-sarif@v3</code> — see the{' '}
     <a href="https://github.com/nitishagar/lumen/tree/main/action">action README</a>{' '}
     for the full snippet and the pinning note.
+  </p>
+
+  <h2 id="monitoring">Scheduled monitoring (recipe)</h2>
+  <p>
+    lumen has no daemon — the recipe is a cron workflow that commits audit
+    history to a dedicated branch. It's yours to own (copy, adjust the
+    schedule, pin the version):
+  </p>
+  <Code lines={[
+    { kind: 'out', text: '# .github/workflows/lumen-monitor.yml (your repo)' },
+    { kind: 'out', text: 'on:' },
+    { kind: 'out', text: '  schedule: [{ cron: "0 6 * * 1" }]  # weekly' },
+    { kind: 'out', text: 'permissions: { contents: write }' },
+    { kind: 'out', text: 'jobs:' },
+    { kind: 'out', text: '  audit:' },
+    { kind: 'out', text: '    runs-on: ubuntu-latest' },
+    { kind: 'out', text: '    steps:' },
+    { kind: 'out', text: '      - uses: actions/checkout@<pinned-sha>' },
+    { kind: 'out', text: '      - run: npx -y @lumen-seo/cli@0 audit https://example.com \\' },
+    { kind: 'out', text: '          --max-pages 100 --fail-threshold off \\' },
+    { kind: 'out', text: '          && npx -y @lumen-seo/cli@0 history audit --json > trend.json' },
+    { kind: 'out', text: '      - run: |' },
+    { kind: 'out', text: '          git config user.name lumen-monitor && git config user.email bot@users.noreply.github.com' },
+    { kind: 'out', text: '          git checkout -B lumen-history' },
+    { kind: 'out', text: '          git add trend.json && git commit -m "audit $(date -u +%F)" || true' },
+    { kind: 'out', text: '          git push origin lumen-history' },
+  ]} />
+  <p>
+    Trend lines come from <code>lumen history audit</code> — and the branch
+    history doubles as a shareable record. (<code>--fail-threshold off</code>{' '}
+    keeps monitoring non-gating; drop it if you want the cron to alarm.)
   </p>
 
   <h2 id="sarif">SARIF</h2>

@@ -23,6 +23,7 @@ export const execute = async (ctx: CliContext): Promise<number> => {
       set: process.env[envVar] !== undefined,
     })),
     historyDir: resolveHistoryDir(),
+    history: { ...config.history },
   };
   const { io } = ctx;
   if (ctx.flags.json === true) {
@@ -31,7 +32,7 @@ export const execute = async (ctx: CliContext): Promise<number> => {
   }
   io.out(`config: ${clean(payload.configPath)}\n`);
   io.out(`failThreshold: ${clean(String(payload.failThreshold))}\n`);
-  io.out(`history: ${clean(payload.historyDir)}\n`);
+  io.out(`history: ${clean(payload.historyDir)} (maxGenerations ${payload.history.maxGenerations})\n`);
   io.out('providers:\n');
   const entries = Object.entries(payload.providers);
   if (entries.length === 0) io.out('  (defaults — none selected)\n');

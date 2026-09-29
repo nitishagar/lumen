@@ -8,5 +8,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "WORKER_ENABLE_PSI": "true"
+    // E2.5 hardening (both OPTIONAL — unset keeps the permissive defaults):
+    //   WORKER_AUTH_TOKEN: set via `wrangler secret put WORKER_AUTH_TOKEN`
+    //     (NOT here — secrets never live in this file) to require bearer auth.
+    //   WORKER_ALLOWED_ORIGINS: comma-separated origin allowlist for CORS.
   }
 }

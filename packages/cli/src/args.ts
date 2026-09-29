@@ -10,7 +10,7 @@ import type { Io } from './io.js';
 import { printCommandHelp, printRootHelp } from './help.js';
 import { UsageError } from './usage-error.js';
 
-export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor', 'diff', 'performance', 'indexnow'] as const;
+export const COMMAND_NAMES = ['audit', 'report', 'keywords', 'rank', 'authority', 'mcp', 'config', 'init', 'doctor', 'diff', 'performance', 'indexnow', 'history'] as const;
 export type CommandName = (typeof COMMAND_NAMES)[number];
 
 export const isCommandName = (v: string): v is CommandName =>
@@ -37,6 +37,14 @@ const OPTIONS: Record<CommandName, OptionSpec> = {
   diff: { json: { type: 'boolean' } },
   performance: { days: { type: 'string' }, by: { type: 'string' }, json: { type: 'boolean' } },
   indexnow: { key: { type: 'string' }, yes: { type: 'boolean' }, 'from-sitemap': { type: 'string' } },
+  history: {
+    domain: { type: 'string' },
+    since: { type: 'string' },
+    limit: { type: 'string' },
+    format: { type: 'string' },
+    keep: { type: 'string' },
+    json: { type: 'boolean' },
+  },
   report: { strategy: { type: 'string' }, json: { type: 'boolean' }, 'allow-private': { type: 'boolean' } },
   keywords: { limit: { type: 'string' }, lang: { type: 'string' }, json: { type: 'boolean' } },
   rank: {
@@ -68,6 +76,7 @@ const POSITIONALS: Record<CommandName, readonly string[]> = {
   diff: ['a', 'b'],
   performance: ['site'],
   indexnow: ['subcommand'],
+  history: ['subcommand'],
 };
 
 export interface Invocation {
