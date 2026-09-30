@@ -226,6 +226,17 @@ export function classifyFailure(res) {
   return { kind: 'publish-failed', status: m !== null ? m[1] : res.status };
 }
 
+/**
+ * The telling line of a failed npm run: npm's real error (`npm error …`)
+ * sorts AFTER progress notices on stderr, so the first line is usually
+ * `npm notice …` — useless in CI. Prefer the first error line; fall back
+ * to the first non-empty line.
+ */
+export function firstErrorLine(output) {
+  const lines = String(output ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  return lines.find((l) => /npm error|ERR!/i.test(l)) ?? lines[0] ?? 'no output';
+}
+
 async function publishOne(name, publishFn, sleep, log) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await publishFn(name);
@@ -244,7 +255,7 @@ async function publishOne(name, publishFn, sleep, log) {
       await sleep(RETRY_DELAY_MS);
       continue;
     }
-    throw new PublishScriptError(`npm publish failed for ${name}${cls.status !== undefined ? ` (status ${cls.status})` : ''}: ${String(res.stderr ?? res.stdout ?? '').trim().split('\n')[0] || 'no output'}`, { kind: cls.kind, pkg: name });
+    throw new PublishScriptError(`npm publish failed for ${name}${cls.status !== undefined ? ` (status ${cls.status})` : ''}: ${firstErrorLine(res.stderr ?? res.stdout ?? '')}`, { kind: cls.kind, pkg: name });
   }
   /* unreachable — the loop either returns or throws */
   throw new PublishScriptError(`npm publish failed for ${name}`, { kind: 'publish-failed', pkg: name });
@@ -323,7 +334,7 @@ export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun
     for (const entry of planned) {
       const res = await build(entry.name);
       if (res === null || res.status !== 0) {
-        throw new PublishScriptError(`build failed for ${entry.name}: ${String(res?.stderr ?? res?.stdout ?? '').trim().split('\n')[0] || 'no output'}`, { kind: 'build-failed', pkg: entry.name });
+        throw new PublishScriptError(`build failed for ${entry.name}: ${firstErrorLine(res?.stderr ?? res?.stdout ?? '')}`, { kind: 'build-failed', pkg: entry.name });
       }
     }
     for (const entry of planned) {

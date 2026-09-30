@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PublishScriptError,
   classifyFailure,
+  firstErrorLine,
   loadPublishableWorkspaces,
   npmPublishArgs,
   parseTag,
@@ -266,6 +267,19 @@ describe('classifyFailure — registry response semantics (I14)', () => {
   it('is driven by the combined output, not just stderr', () => {
     const res = { status: 1, stdout: 'npm error 403 You cannot publish over the previously published versions: 0.1.0.', stderr: '' };
     expect(classifyFailure(res).kind).toBe('duplicate');
+  });
+});
+
+describe('firstErrorLine — the telling line of a failed npm run', () => {
+  it('prefers the npm error line over leading progress notices (the v0.3.0 EOTP shape)', () => {
+    const stderr = 'npm notice Publishing to https://registry.npmjs.org/\nnpm error code EOTP\nnpm error This operation requires a one-time password from your authenticator.';
+    expect(firstErrorLine(stderr)).toBe('npm error code EOTP');
+  });
+
+  it('falls back to the first non-empty line when no error line exists', () => {
+    expect(firstErrorLine('\nnpm notice something\n')).toBe('npm notice something');
+    expect(firstErrorLine('')).toBe('no output');
+    expect(firstErrorLine(undefined)).toBe('no output');
   });
 });
 
