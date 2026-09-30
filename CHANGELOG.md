@@ -6,6 +6,10 @@ All notable changes to lumen are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-30
+
+### Added
+
 - **Trends and shareable reports (E2.3)**: `lumen history audit|rank` (first-class:
   `--domain`, `--since`, `--limit` applied after --since, `--format json|csv`) with
   `lumen history prune` and `history.maxGenerations` config (default 2 — the old
@@ -47,13 +51,6 @@ All notable changes to lumen are documented here. The format follows
   default, `--yes` to send, key file verified at `/<key>.txt` on every host
   first. CLI-only (never an MCP tool).
 
-
-## [0.3.0] — 2026-09-28
-
-Not yet released on npm: this section records what ships when the `v0.3.0`
-tag is pushed (see `docs/distribution.md` for the release runbook).
-
-### Added
 
 - **Two new audit rules (part of the 36 built-in rules this release ships)**: `hreflang-present`
   (info) and `duplicate-content` (warning, sha256 body-hash grouping)
@@ -169,7 +166,8 @@ First tagged cut. Monorepo scaffold through working end-to-end system.
 - **Visual e2e screenshots** — live site vs design reference
   ([#22](https://github.com/nitishagar/lumen/pull/22)).
 
-[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/nitishagar/lumen/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nitishagar/lumen/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/nitishagar/lumen/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/nitishagar/lumen/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nitishagar/lumen/releases/tag/v0.1.0

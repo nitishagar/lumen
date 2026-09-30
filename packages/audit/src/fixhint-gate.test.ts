@@ -1,9 +1,9 @@
 /**
  * The fixHint coverage GATE (PRD E1.2 FR-4): every built-in rule's every
- * emitted issue carries a non-empty fixHint — 20/20. A new rule without one
- * fails this gate the moment its issues are triggered. Page rules are driven
+ * emitted issue carries a non-empty fixHint. A new rule without one fails
+ * this gate the moment its issues are triggered. Page rules are driven
  * directly over a violating-page battery (both branches where they differ);
- * the 3 crawl rules run over synthetic indexes.
+ * crawl rules run over synthetic indexes.
  */
 import { describe, expect, it } from 'vitest';
 import type { AuditRule, Issue } from '@lumen-seo/core';

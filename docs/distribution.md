@@ -14,18 +14,13 @@
    - the `registry` payload constant in `packages/mcp/src/onboard.ts`
 2. Rename the CHANGELOG `[Unreleased]` section to the tag version.
 
-## 1. Repo visibility (PRD D1)
+## 1. Repo visibility (PRD D1) — done 2026-09-30
 
-The repo is currently **private**; the docs site, badges, and the SECURITY
-advisory URL 404 as a result. Make it public:
-
-```
-gh repo edit nitishagar/lumen --visibility public
-```
-
-The weekly **Link Check** workflow going green on `workflow_dispatch` is the
-acceptance signal for "every public link resolves". Until the flip, it fails
-honestly listing those URLs.
+The repo is **public** (`gh repo edit nitishagar/lumen --visibility public`)
+with GitHub Pages enabled (`build_type: workflow`); the docs site returns
+200. The weekly **Link Check** workflow going green on
+`workflow_dispatch` is the standing acceptance signal for "every public
+link resolves".
 
 ## 2. Tag the release
 
@@ -37,7 +32,7 @@ The Release workflow then:
 
 1. runs the full validation gate (`npm run validate`),
 2. creates the GitHub Release,
-3. publishes the five `@lumen-seo/*` packages to npm in dependency order
+3. publishes the six `@lumen-seo/*` packages to npm in dependency order
    (requires the `NODE_AUTH_TOKEN` repository secret — **npm credentials are
    owner-gated**; without it the job skips cleanly and only the GitHub
    Release is produced),
