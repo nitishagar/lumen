@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { collectUrls, checkUrl, runCheck, main } from '../scripts/ci/link-check.mjs';
+import { collectUrls, checkUrl, checkableUrl, runCheck, main } from '../scripts/ci/link-check.mjs';
 
 const makeRepo = (files) => {
   const root = mkdtempSync(join(tmpdir(), 'lumen-linkcheck-'));
@@ -160,6 +160,32 @@ describe('runCheck — concurrency cap + failure report shape', () => {
     expect(failures[0].url).toBe('https://fail.test/x');
     expect(failures[0].status).toBe(500);
     expect(failures[0].sources).toContain('README.md');
+  });
+});
+
+describe('checkableUrl — npm page → registry translation (bot-blocked www)', () => {
+  it('translates page URLs to the registry packument, strips query/trailing slash, passes the rest through', () => {
+    expect(checkableUrl('https://www.npmjs.com/package/@lumen-seo/cli')).toBe('https://registry.npmjs.org/@lumen-seo/cli');
+    expect(checkableUrl('https://www.npmjs.com/package/express/')).toBe('https://registry.npmjs.org/express');
+    expect(checkableUrl('https://www.npmjs.com/package/express?activeTab=readme')).toBe('https://registry.npmjs.org/express');
+    expect(checkableUrl('https://www.npmjs.com/package/')).toBe('https://www.npmjs.com/package/');
+    expect(checkableUrl('https://example.com/x')).toBe('https://example.com/x');
+  });
+
+  it('runCheck fetches the registry URL but reports the original page URL on failure', async () => {
+    const seen = [];
+    const root = makeRepo({ 'README.md': 'badge: https://www.npmjs.com/package/@lumen-seo/cli' });
+    const { checked, failures } = await runCheck({
+      root,
+      fetchImpl: async (url) => {
+        seen.push(url);
+        return { ok: false, status: 404, body: { cancel: async () => {} } };
+      },
+    });
+    expect(checked).toBe(1);
+    expect(seen).toEqual(['https://registry.npmjs.org/@lumen-seo/cli']);
+    expect(failures).toHaveLength(1);
+    expect(failures[0].url).toBe('https://www.npmjs.com/package/@lumen-seo/cli');
   });
 });
 

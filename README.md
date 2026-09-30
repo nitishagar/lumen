@@ -28,7 +28,7 @@ npx -y @lumen-seo/cli audit https://example.com
 
 # Install globally
 npm install -g @lumen-seo/cli
-lumen audit https://your-site.dev --max-pages 50
+lumen audit https://example.com --max-pages 50
 ```
 
 Wire it into Claude Code (or Cursor / VS Code — [MCP onboarding](https://nitishagar.github.io/lumen/docs/mcp-onboarding/)):

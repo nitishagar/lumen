@@ -66,6 +66,24 @@ export function collectUrls(root = ROOT) {
     .sort((a, b) => a.url.localeCompare(b.url));
 }
 
+const NPM_PAGE_PREFIX = 'https://www.npmjs.com/package/';
+const NPM_REGISTRY = 'https://registry.npmjs.org/';
+
+/**
+ * npm's www site bot-blocks script clients (403 even with a browser UA, for
+ * published packages too), so a package page can never be verified by fetch.
+ * The registry packument is the source of truth for "this package exists":
+ * translate page URLs to their registry equivalent for the check. The
+ * failure report still names the original URL.
+ */
+export function checkableUrl(url) {
+  if (url.startsWith(NPM_PAGE_PREFIX)) {
+    const rest = url.slice(NPM_PAGE_PREFIX.length).split(/[?#]/)[0].replace(/\/+$/, '');
+    if (rest) return NPM_REGISTRY + rest;
+  }
+  return url;
+}
+
 const HEAD_ONLY_FALLBACK = [403, 405, 501]; // method-restricted servers — a GET is justified
 
 const handle = (res) => {
@@ -113,7 +131,7 @@ export async function runCheck({ fetchImpl = fetch, log = console.log, root = RO
   const worker = async () => {
     while (cursor < targets.length) {
       const t = targets[cursor++];
-      const result = await checkUrl(t.url, fetchImpl);
+      const result = await checkUrl(checkableUrl(t.url), fetchImpl);
       if (!result.ok) failures.push({ ...t, ...result });
     }
   };
