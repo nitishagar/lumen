@@ -4,6 +4,11 @@
  * extension set — resolved against the files matched by the user's glob.
  * EXACTLY ONE candidate wins; zero or many → undefined (the result stays
  * URL-only, never guessed — P-Honest).
+ *
+ * Sites served under a subpath (Astro `base: '/lumen'`) report page paths
+ * like `/lumen/docs/x`: the caller passes the audit seed's own base
+ * (`seedBase`), which is stripped before matching. URLs outside the base
+ * are matched full-path — never force-fit to the site root.
  */
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -51,11 +56,24 @@ const walkFiles = (root: string): string[] => {
 export type RouteFileMap = (url: string) => string | undefined;
 
 /**
- * Builds the mapper: `glob` is relative to `root` (default cwd). Returns a
- * function mapping a page URL to a repo-relative file path when EXACTLY ONE
- * candidate exists.
+ * The audited site's base path: the seed URL's pathname with trailing
+ * slashes removed (`http://host/lumen` → `/lumen`; bare hosts → '').
+ * Unparseable seeds yield '' (no stripping).
  */
-export const buildRouteFileMap = (glob: string, root = process.cwd()): RouteFileMap => {
+export const seedBase = (target: string | URL): string => {
+  try {
+    return new URL(target).pathname.replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Builds the mapper: `glob` is relative to `root` (default cwd); `base` is
+ * the site's served subpath (see `seedBase`). Returns a function mapping a
+ * page URL to a repo-relative file path when EXACTLY ONE candidate exists.
+ */
+export const buildRouteFileMap = (glob: string, root = process.cwd(), base = ''): RouteFileMap => {
   const re = globToRegExp(glob.startsWith('/') ? glob.slice(1) : glob);
   const files = walkFiles(root).map((p) => relative(root, p).split('\\').join('/'));
   // Route paths are route-relative while files are glob-relative — candidates
@@ -74,7 +92,10 @@ export const buildRouteFileMap = (glob: string, root = process.cwd()): RouteFile
   };
   return (url: string): string | undefined => {
     try {
-      const routePath = new URL(url).pathname;
+      let routePath = new URL(url).pathname;
+      if (base !== '' && (routePath === base || routePath.startsWith(`${base}/`))) {
+        routePath = routePath.slice(base.length) || '/';
+      }
       const candidates = candidatesFor(routePath);
       return candidates.length === 1 ? candidates[0] : undefined;
     } catch {

@@ -12,7 +12,7 @@ import { buildBaseline, diffAgainstBaseline } from '@lumen-seo/audit';
 import type { Issue, SiteAuditReport } from '@lumen-seo/core';
 import { renderSarif } from './render/sarif.js';
 import { renderMarkdown } from './render/markdown.js';
-import { buildRouteFileMap, globToRegExp } from './render/source-map.js';
+import { buildRouteFileMap, globToRegExp, seedBase } from './render/source-map.js';
 
 const report = (issues: Issue[], over: Partial<SiteAuditReport> = {}): SiteAuditReport => ({
   id: 'test',
@@ -163,6 +163,35 @@ describe('source-map', () => {
     const root = setup({ 'src/pages/index.astro': 'i' });
     const map = buildRouteFileMap('src/pages/**', root);
     expect(map('https://example.com/')).toBe('src/pages/index.astro');
+  });
+
+  it('seedBase reads the served subpath from the audit seed', () => {
+    expect(seedBase('http://localhost:4321/lumen')).toBe('/lumen');
+    expect(seedBase('http://localhost:4321/lumen/')).toBe('/lumen');
+    expect(seedBase('https://example.com')).toBe('');
+    expect(seedBase('https://example.com/')).toBe('');
+    expect(seedBase('not a url')).toBe('');
+  });
+
+  it('served-base sites: base strips before matching; outside-base stays URL-only', () => {
+    const root = setup({
+      'src/pages/index.astro': 'i',
+      'src/pages/docs/quickstart.astro': 'q',
+    });
+    const map = buildRouteFileMap('src/pages/**', root, '/lumen');
+    // homepage in both recorded forms
+    expect(map('http://localhost:4321/lumen')).toBe('src/pages/index.astro');
+    expect(map('http://localhost:4321/lumen/')).toBe('src/pages/index.astro');
+    expect(map('http://localhost:4321/lumen/docs/quickstart/')).toBe('src/pages/docs/quickstart.astro');
+    // outside the base: full-path match attempted, never force-fit to root
+    expect(map('http://localhost:4321/other')).toBeUndefined();
+    expect(map('https://example.com/')).toBe('src/pages/index.astro'); // base does not apply, root matches
+  });
+
+  it('without a base, based paths match only when the tree really holds them', () => {
+    const root = setup({ 'src/pages/index.astro': 'i' });
+    const map = buildRouteFileMap('src/pages/**', root);
+    expect(map('http://localhost:4321/lumen/')).toBeUndefined(); // no lumen/ dir — stays URL-only
   });
 
   it('glob translator supports ** and * segments', () => {

@@ -28,6 +28,9 @@ inputs:
     description: 'Write the SARIF artifact (true/false, default true).'
     required: false
     default: 'true'
+  source-map:
+    description: 'Optional: source glob for SARIF page-URL → file mapping (e.g. site/src/pages/**/*.astro) — code scanning needs file URIs.'
+    required: false
 runs:
   using: 'composite'
   steps:
@@ -57,6 +60,7 @@ runs:
         LUMEN_BASELINE: ${{ inputs.baseline }}
         LUMEN_FAIL_THRESHOLD: ${{ inputs.fail-threshold }}
         LUMEN_MAX_PAGES: ${{ inputs.max-pages }}
+        LUMEN_SOURCE_MAP: ${{ inputs.source-map }}
       run: |
         # Inputs arrive via env (never interpolated into the script body).
         # Loopback URLs imply --allow-private (the preview server is the
@@ -67,9 +71,12 @@ runs:
         fi
         BASELINE=""
         if [ -n "$LUMEN_BASELINE" ]; then BASELINE="--baseline $LUMEN_BASELINE"; fi
+        SOURCE_MAP=""
+        if [ -n "$LUMEN_SOURCE_MAP" ]; then SOURCE_MAP="--source-map $LUMEN_SOURCE_MAP"; fi
         npx -y @lumen-seo/cli@0 audit "$LUMEN_URL" \
           $ALLOW_PRIVATE \
           $BASELINE \
+          $SOURCE_MAP \
           --fail-threshold "$LUMEN_FAIL_THRESHOLD" \
           --max-pages "$LUMEN_MAX_PAGES" \
           --format sarif --out lumen.sarif

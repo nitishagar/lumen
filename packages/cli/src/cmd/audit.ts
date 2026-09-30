@@ -25,7 +25,7 @@ import { jsonDocument } from '../io.js';
 import { renderSarif } from '../render/sarif.js';
 import { renderMarkdown } from '../render/markdown.js';
 import { renderHtml } from '../render/html.js';
-import { buildRouteFileMap } from '../render/source-map.js';
+import { buildRouteFileMap, seedBase } from '../render/source-map.js';
 import type { CliContext } from '../run.js';
 import { clean } from '../term.js';
 import { ProviderUnconfiguredError, UsageError } from '../usage-error.js';
@@ -105,7 +105,9 @@ export const execute = async (ctx: CliContext, deps?: CommandDeps): Promise<numb
   }
   const format: Format = (formatFlag as Format | undefined) ?? (ctx.flags.json === true ? 'json' : 'human');
   const sourceMap =
-    ctx.flags['source-map'] === undefined ? undefined : buildRouteFileMap(String(ctx.flags['source-map']));
+    ctx.flags['source-map'] === undefined
+      ? undefined
+      : buildRouteFileMap(String(ctx.flags['source-map']), process.cwd(), seedBase(url));
 
   if (d.auditRunner === undefined) {
     throw new ProviderUnconfiguredError('audit', 'no audit engine wired in this build');

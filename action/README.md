@@ -52,6 +52,7 @@ Uploading the SARIF to code scanning:
 | `fail-threshold` | `error` | lowest severity that fails the job |
 | `max-pages` | `100` | crawl page budget |
 | `upload-sarif` | `true` | write the `lumen-sarif` artifact |
+| `source-map` | — | source glob for SARIF page-URL → file mapping — code scanning rejects `http` locations, so set this (e.g. `site/src/pages/**/*.astro`) when uploading to code scanning |
 
 ## Pinning note (honest limitation)
 

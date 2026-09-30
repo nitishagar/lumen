@@ -109,7 +109,11 @@ const summary = [
   <p>
     <code>--source-map site/src/pages/**</code> adds a best-effort page-URL →
     source-file mapping for annotations; when the mapping is ambiguous the
-    result stays URL-only — never guessed.
+    result stays URL-only — never guessed. The audit seed's own subpath is
+    stripped first, so previews served under a base (Astro{' '}
+    <code>base: '/lumen'</code>) map to the same files; GitHub code scanning
+    rejects <code>http</code> locations, so a source map is required for
+    annotation uploads.
   </p>
 
   <h2 id="summary">Job summary</h2>

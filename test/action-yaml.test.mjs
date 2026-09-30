@@ -16,10 +16,13 @@ describe('action + workflow YAML (E1.4)', () => {
   it('action/action.yml parses with the required inputs and composite runner', () => {
     const action = read('action/action.yml');
     expect(action.runs.using).toBe('composite');
-    for (const input of ['url', 'baseline', 'fail-threshold', 'max-pages', 'upload-sarif', 'start-command', 'wait-on']) {
+    for (const input of ['url', 'baseline', 'fail-threshold', 'max-pages', 'upload-sarif', 'start-command', 'wait-on', 'source-map']) {
       expect(action.inputs[input], `input ${input}`).toBeDefined();
     }
     expect(action.inputs.url.required).toBe(true);
+    const sarifStep = action.runs.steps.find((s) => String(s.name).includes('SARIF artifact'));
+    expect(String(sarifStep.run)).toContain('--source-map');
+    expect(String(sarifStep.env.LUMEN_SOURCE_MAP)).toContain('inputs.source-map');
   });
 
   it('the e2e workflow parses and references the action by its real path', () => {

@@ -72,6 +72,7 @@ jobs:
           url: http://localhost:4321/lumen
           fail-threshold: error
           max-pages: 20
+          source-map: 'site/src/pages/**/*.astro'
 
       - name: Assert the audit outcome
         if: ${{ inputs.seed_regression == true }}
