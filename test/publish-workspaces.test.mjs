@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 import {
   PublishScriptError,
   classifyFailure,
+  distEmitted,
   firstErrorLine,
   loadPublishableWorkspaces,
   npmPublishArgs,
@@ -283,6 +284,20 @@ describe('firstErrorLine — the telling line of a failed npm run', () => {
   });
 });
 
+describe('distEmitted — refuse to publish a silent no-emit build', () => {
+  it('is true only when dist/ holds compiled JS (nested counts; missing dir is false)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lumen-dist-'));
+    onTestFinished(() => rmSync(root, { recursive: true, force: true }));
+    expect(distEmitted(root, 'pkg')).toBe(false);
+    mkdirSync(join(root, 'pkg', 'dist', 'cmd'), { recursive: true });
+    writeFileSync(join(root, 'pkg', 'dist', 'cmd', 'a.js'), 'x');
+    writeFileSync(join(root, 'pkg', 'dist', 'a.d.ts'), 'x');
+    expect(distEmitted(root, 'pkg')).toBe(true);
+    rmSync(join(root, 'pkg', 'dist', 'cmd', 'a.js'));
+    expect(distEmitted(root, 'pkg')).toBe(false); // .d.ts alone is not runnable output
+  });
+});
+
 describe('publishWorkspaces — ordered publish with injected runner (no registry)', () => {
   const ARCH_MANIFESTS = {
     'packages/core': { name: '@lumen-seo/core', version: '0.0.0', private: true },
@@ -335,6 +350,17 @@ const BUILD_OK = async () => ({ status: 0 });
     expect(diskDuringPublish['@lumen-seo/audit'].dependencies['@lumen-seo/core']).toBe('0.1.0');
     expect(diskDuringPublish['@lumen-seo/audit'].dependencies.cheerio).toBe('^1.2.0');
     expect('private' in diskDuringPublish['@lumen-seo/core']).toBe(false);
+  });
+
+  it('refuses to publish when a build script exits 0 but emits no dist/ JS (silent noEmit leak)', async (t) => {
+    const manifests = {
+      ...ARCH_MANIFESTS,
+      'packages/core': { ...ARCH_MANIFESTS['packages/core'], scripts: { build: 'tsc -p tsconfig.build.json' } },
+    };
+    const root = makeRoot(t, ARCH_GRAPH, manifests);
+    await expect(
+      publishWorkspaces({ tag: 'v0.1.0', lock: ARCH_GRAPH, root, publishFn: async () => RESULT_OK, buildFn: BUILD_OK }),
+    ).rejects.toThrow(/emitted no dist\/ JS/);
   });
 
   it('restores the original checkout byte-for-byte after the run (E5: nothing to commit)', async (t) => {

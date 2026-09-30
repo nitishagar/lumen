@@ -44,7 +44,7 @@
  * Zero runtime dependencies; deterministic; no network in dry-run mode.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -237,6 +237,20 @@ export function firstErrorLine(output) {
   return lines.find((l) => /npm error|ERR!/i.test(l)) ?? lines[0] ?? 'no output';
 }
 
+/**
+ * True when the workspace actually emitted compiled output: tsc exits 0
+ * with no output when `noEmit` leaks in from a base config (the v0.3.0
+ * plugin-render shape) — without this check we would publish a package
+ * whose rewritten exports point at a dist/ that does not exist.
+ */
+export function distEmitted(root, dir) {
+  try {
+    return readdirSync(join(root, dir, 'dist'), { recursive: true }).some((f) => String(f).endsWith('.js'));
+  } catch {
+    return false;
+  }
+}
+
 async function publishOne(name, publishFn, sleep, log) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const res = await publishFn(name);
@@ -313,7 +327,7 @@ export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun
   const order = topoOrder([...workspaces.keys()], new Map(entries.map((entry) => [entry.name, workspaces.get(entry.name).deps])));
   const planned = order.map((name) => {
     const entry = entries.find((candidate) => candidate.name === name);
-    return { name: entry.name, dir: entry.dir, manifestPath: entry.manifestPath, rewritten: rewriteManifest(entry.manifest, version, internalNames) };
+    return { name: entry.name, dir: entry.dir, manifestPath: entry.manifestPath, manifest: entry.manifest, rewritten: rewriteManifest(entry.manifest, version, internalNames) };
   });
 
   if (dryRun) {
@@ -335,6 +349,9 @@ export async function publishWorkspaces({ tag, lock, root = DEFAULT_ROOT, dryRun
       const res = await build(entry.name);
       if (res === null || res.status !== 0) {
         throw new PublishScriptError(`build failed for ${entry.name}: ${firstErrorLine(res?.stderr ?? res?.stdout ?? '')}`, { kind: 'build-failed', pkg: entry.name });
+      }
+      if (entry.manifest.scripts?.build !== undefined && !distEmitted(root, entry.dir)) {
+        throw new PublishScriptError(`build for ${entry.name} exited 0 but emitted no dist/ JS — refusing to publish a package whose exports point at missing files`, { kind: 'build-failed', pkg: entry.name });
       }
     }
     for (const entry of planned) {
