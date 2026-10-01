@@ -97,7 +97,19 @@ export class PageSpeedProviderImpl implements PageSpeedProvider {
       });
       if (res.status === 429) throw new RateLimitedError(this.name, retryAfterMs(res, this.deps.clock));
       if (res.status >= 500) throw new UpstreamError(this.name, res.status);
-      if (res.status >= 400) throw new UpstreamError(this.name, res.status, `HTTP ${res.status} from PSI`);
+      if (res.status >= 400) {
+        // Google explains 4xx in a JSON envelope — surface its message
+        // (truncated) instead of a bare status, best-effort.
+        let detail = `HTTP ${res.status} from PSI`;
+        try {
+          const errBody = (await res.json()) as { error?: { message?: unknown } };
+          const msg = errBody?.error?.message;
+          if (typeof msg === 'string' && msg !== '') detail += `: ${msg.slice(0, 200)}`;
+        } catch {
+          // non-JSON error body — keep the bare status
+        }
+        throw new UpstreamError(this.name, res.status, detail);
+      }
       const body = (await json(res, this.name)) as PsiBody;
 
       // Google error envelope (can arrive on 200/4xx): 429/403-quota → rate_limited
