@@ -48,11 +48,11 @@ describe('TC-PSI-1: lab mapping from the PSI fixture', () => {
     expect((call.init?.headers as Record<string, string>)['x-goog-api-key']).toBe(KEY);
   });
 
-  it('request carries a 60s per-attempt deadline (PSI runs full Lighthouse, not the 10s default)', async () => {
+  it('request carries a 120s per-attempt deadline (PSI runs full Lighthouse, not the 10s default)', async () => {
     const clock = new FakeClock(NOW);
     const { p, fetcher } = psiProvider(clock, () => jsonResponse(psiReport), { LUMEN_PSI_KEY: KEY });
     await p.report(URL_, {});
-    expect((fetcher.calls[0]!.init as { timeoutMs?: number } | undefined)?.timeoutMs).toBe(60_000);
+    expect((fetcher.calls[0]!.init as { timeoutMs?: number } | undefined)?.timeoutMs).toBe(120_000);
   });
 });
 

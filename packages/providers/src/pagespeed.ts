@@ -26,9 +26,12 @@ const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as 
 
 const PSI_KEYED = { rpm: 60, burst: 10 }; // worst 70 = 0.29x documented 240/min (A4)
 const PSI_KEYLESS = { rpm: 6, burst: 1 }; // undocumented unauthenticated bounds — stay far below
-// PSI runs a full remote Lighthouse pass (p99 ~45s): the 10s fetcher default
-// would time out every keyed call, so each attempt gets its own deadline.
-const PSI_TIMEOUT_MS = 60_000;
+// PSI runs a full remote Lighthouse pass on Google's queue: light pages
+// answer in ~10s, heavy ones (resend.com desktop) need 60-120s. The 10s
+// fetcher default would time out every keyed call, so each attempt gets a
+// generous deadline; a timed-out attempt usually warms Google's cache and
+// the retry lands fast.
+const PSI_TIMEOUT_MS = 120_000;
 
 const score100 = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) ? Math.round(raw * 100) : null;
