@@ -105,11 +105,10 @@ describe('TC-PSI-3: PSI failure matrix', () => {
     await expect(withEnvelope.p.report(URL_, {})).rejects.toMatchObject({
       code: 'upstream_error',
       status: 400,
+      message: expect.stringContaining('HTTP 400 from PSI: Request contains an invalid argument.'),
     });
-    const err = await withEnvelope.p.report(URL_, {}).catch((e: unknown) => e as Error);
-    expect(err.message).toContain('HTTP 400 from PSI: Request contains an invalid argument.');
     const bare = psiProvider(new FakeClock(NOW), () => new Response('nope', { status: 400 }), { LUMEN_PSI_KEY: KEY });
-    const bareErr = await bare.p.report(URL_, {}).catch((e: unknown) => e as Error);
+    const bareErr = (await bare.p.report(URL_, {}).catch((e: unknown) => e)) as Error;
     expect(bareErr.message).toContain('HTTP 400 from PSI');
     expect(bareErr.message).not.toContain('nope');
   });
