@@ -22,4 +22,6 @@ jobs:
       - name: Build the image
         run: docker build -t lumen-mcp .
       - name: Smoke the image (repo's own CLI/stdio-MCP assertions)
-        run: docker run --rm lumen-mcp node scripts/ci/cli-smoke.mjs
+        # --skip-build: the image runs from workspace sources (type-stripping)
+        # with production deps only — there is no tsc inside to rebuild with.
+        run: docker run --rm lumen-mcp node scripts/ci/cli-smoke.mjs --skip-build
