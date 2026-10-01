@@ -76,7 +76,7 @@ export class CruxProviderImpl implements CruxProvider {
       );
 
       await this.pacer.acquire();
-      const res = await this.deps.fetcher.fetch(new URL('https://chromeuxreport.googleapis.com/v4/records:queryRecord'), {
+      const res = await this.deps.fetcher.fetch(new URL('https://chromeuxreport.googleapis.com/v1/records:queryRecord'), {
         method: 'POST',
         headers: { 'user-agent': this.deps.userAgent, 'content-type': 'application/json', 'x-goog-api-key': key },
         body,

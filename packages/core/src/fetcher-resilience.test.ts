@@ -64,6 +64,26 @@ describe('per-attempt timeout (SC-11)', () => {
     expect(calls).toBe(3);
     expect((err as RetryExhaustedError).attempts).toBe(3);
   });
+
+  it('per-call timeoutMs overrides the constructed default and is stripped before the delegate', async () => {
+    vi.useFakeTimers();
+    let seenInit: RequestInit | undefined;
+    const delegate: FetchTransport = async (_url, init) => {
+      seenInit = init;
+      await new Promise((r) => setTimeout(r, 150));
+      return new Response(null, { status: 200 });
+    };
+    const fetcher = createFetcher({ delegate, timeoutMs: 100, maxRetries: 0 });
+    const p1 = fetcher.fetch(URL_, { timeoutMs: 1000 });
+    await vi.advanceTimersByTimeAsync(150);
+    await expect(p1).resolves.toBeInstanceOf(Response); // override beat the 100ms default
+    expect(seenInit).not.toHaveProperty('timeoutMs');
+
+    const p2 = fetcher.fetch(URL_, { timeoutMs: -5 }); // invalid override → default wins
+    const assertion = expect(p2).rejects.toBeInstanceOf(TimeoutError);
+    await vi.advanceTimersByTimeAsync(100);
+    await assertion;
+  });
 });
 
 describe('exponential backoff with full jitter (SC-11, BA-4)', () => {

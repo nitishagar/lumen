@@ -92,7 +92,7 @@ export {
   TimeoutError,
   UnsupportedSchemeError,
 } from './errors.js';
-export type { FetchTransport, Fetcher, FetcherOptions } from './fetcher.js';
+export type { FetchCallInit, FetchTransport, Fetcher, FetcherOptions } from './fetcher.js';
 export { createFetcher, RETRY_AFTER_CAP_MS } from './fetcher.js';
 export { isAllowedScheme, isBlockedHost, isBlockedIpAddress, isBlockedTarget, isIpLiteral } from './ssrf.js';
 export type { SsrfPolicy } from './private-scope.js';

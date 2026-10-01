@@ -26,6 +26,9 @@ const CATEGORIES = ['performance', 'accessibility', 'best-practices', 'seo'] as 
 
 const PSI_KEYED = { rpm: 60, burst: 10 }; // worst 70 = 0.29x documented 240/min (A4)
 const PSI_KEYLESS = { rpm: 6, burst: 1 }; // undocumented unauthenticated bounds — stay far below
+// PSI runs a full remote Lighthouse pass (p99 ~45s): the 10s fetcher default
+// would time out every keyed call, so each attempt gets its own deadline.
+const PSI_TIMEOUT_MS = 60_000;
 
 const score100 = (raw: unknown): number | null =>
   typeof raw === 'number' && Number.isFinite(raw) ? Math.round(raw * 100) : null;
@@ -87,6 +90,7 @@ export class PageSpeedProviderImpl implements PageSpeedProvider {
           ...(key !== undefined ? { 'x-goog-api-key': key } : {}), // key in a header, never the URL (I16)
         },
         signal: o.signal,
+        timeoutMs: PSI_TIMEOUT_MS,
       });
       if (res.status === 429) throw new RateLimitedError(this.name, retryAfterMs(res, this.deps.clock));
       if (res.status >= 500) throw new UpstreamError(this.name, res.status);

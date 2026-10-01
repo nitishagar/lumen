@@ -47,6 +47,13 @@ describe('TC-PSI-1: lab mapping from the PSI fixture', () => {
     expect(call.url.searchParams.get('key')).toBeNull(); // I16: key never in URL
     expect((call.init?.headers as Record<string, string>)['x-goog-api-key']).toBe(KEY);
   });
+
+  it('request carries a 60s per-attempt deadline (PSI runs full Lighthouse, not the 10s default)', async () => {
+    const clock = new FakeClock(NOW);
+    const { p, fetcher } = psiProvider(clock, () => jsonResponse(psiReport), { LUMEN_PSI_KEY: KEY });
+    await p.report(URL_, {});
+    expect((fetcher.calls[0]!.init as { timeoutMs?: number } | undefined)?.timeoutMs).toBe(60_000);
+  });
 });
 
 describe('TC-PSI-2 (R5 + BA5): key policy', () => {
@@ -222,6 +229,13 @@ describe('TC-CRUX-2: record mapping + verbatim attribution', () => {
     expect(JSON.parse(String(init.body))).toEqual({ origin: 'https://example.com', formFactor: 'PHONE' });
     expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe(KEY);
     expect(fetcher.calls[0]!.url.searchParams.get('key')).toBeNull(); // key not in URL (I16)
+  });
+
+  it('requests the v1 queryRecord endpoint (v4 does not exist — every call 404s)', async () => {
+    const clock = new FakeClock(NOW);
+    const { p, fetcher } = cruxProvider(clock, () => jsonResponse(cruxRecord));
+    await p.record(URL_, {});
+    expect(fetcher.calls[0]!.url.href).toBe('https://chromeuxreport.googleapis.com/v1/records:queryRecord');
   });
 });
 

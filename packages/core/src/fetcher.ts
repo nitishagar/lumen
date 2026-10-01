@@ -21,8 +21,18 @@ import type { SsrfPolicy } from './private-scope.js';
 import { isAllowedScheme, isBlockedHost, isBlockedIpAddress, isIpLiteral } from './ssrf.js';
 import { USER_AGENT } from './ua.js';
 
+/**
+ * Per-request overrides carried on the fetch init. `timeoutMs` raises the
+ * per-attempt deadline for slow upstreams (PageSpeed runs full Lighthouse —
+ * minutes, not the 10s default); unknown fields are stripped before the
+ * transport call, so fakes and narrow transports keep working untouched.
+ */
+export interface FetchCallInit extends RequestInit {
+  timeoutMs?: number;
+}
+
 export interface Fetcher {
-  fetch(url: URL, init?: RequestInit): Promise<Response>;
+  fetch(url: URL, init?: FetchCallInit): Promise<Response>;
 }
 
 /** Narrow transport seam — the fetcher always calls it with a parsed URL. */
@@ -118,7 +128,13 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
   };
 
   /** One transport call: UA applied, deadline + caller-abort raced, typed classification. */
-  const attemptOnce = async (url: URL, method: string, init: RequestInit, signal: AbortSignal | undefined): Promise<Response> => {
+  const attemptOnce = async (
+    url: URL,
+    method: string,
+    init: RequestInit,
+    signal: AbortSignal | undefined,
+    attemptTimeoutMs: number,
+  ): Promise<Response> => {
     const controller = new AbortController();
     let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -128,8 +144,8 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
       timer = setTimeout(() => {
         timedOut = true;
         controller.abort();
-        reject(new TimeoutError(url.href, timeoutMs, label));
-      }, timeoutMs);
+        reject(new TimeoutError(url.href, attemptTimeoutMs, label));
+      }, attemptTimeoutMs);
     });
 
     let abortPromise: Promise<never> | undefined;
@@ -145,7 +161,9 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
 
     const headers = new Headers(init.headers);
     headers.set('user-agent', USER_AGENT); // fixed, unsuppressible (SC-12)
-    const composedInit: RequestInit = { ...init, method, headers, signal: controller.signal };
+    const { timeoutMs: _perCallTimeout, ...transportInit } = init as FetchCallInit;
+    void _perCallTimeout;
+    const composedInit: RequestInit = { ...transportInit, method, headers, signal: controller.signal };
 
     try {
       const racers: Promise<Response | never>[] = [delegate(url, composedInit), timeoutPromise];
@@ -154,7 +172,7 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
     } catch (e) {
       if (e instanceof TimeoutError) throw e;
       if (signal?.aborted) throw new AbortedError(label);
-      if (timedOut) throw new TimeoutError(url.href, timeoutMs, label);
+      if (timedOut) throw new TimeoutError(url.href, attemptTimeoutMs, label);
       throw e; // raw transport error — classified by the retry loop
     } finally {
       clearTimeout(timer);
@@ -183,13 +201,19 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
     return rng() * baseBackoffMs * 2 ** attempt; // full jitter: uniform [0, base × 2^attempt]
   };
 
-  const attemptWithRetries = async (url: URL, method: string, init: RequestInit, signal: AbortSignal | undefined): Promise<Response> => {
+  const attemptWithRetries = async (
+    url: URL,
+    method: string,
+    init: RequestInit,
+    signal: AbortSignal | undefined,
+    attemptTimeoutMs: number,
+  ): Promise<Response> => {
     const retryableMethod = method === 'GET' || method === 'HEAD';
     for (let attempt = 0; ; attempt++) {
       if (signal?.aborted) throw new AbortedError(label);
       let outcome: Response | Error;
       try {
-        outcome = await attemptOnce(url, method, init, signal);
+        outcome = await attemptOnce(url, method, init, signal, attemptTimeoutMs);
       } catch (e) {
         outcome = e instanceof Error ? e : new Error(String(e));
       }
@@ -237,7 +261,12 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
     return { ...src, headers };
   };
 
-  const fetchWithRedirects = async (url: URL, init: RequestInit, signal: AbortSignal | undefined): Promise<Response> => {
+  const fetchWithRedirects = async (
+    url: URL,
+    init: RequestInit,
+    signal: AbortSignal | undefined,
+    attemptTimeoutMs: number,
+  ): Promise<Response> => {
     let current = url;
     let method = (init.method ?? 'GET').toUpperCase();
     let body = init.body;
@@ -248,7 +277,7 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
       await assertHopAllowed(current, hop > 0); // scheme + SSRF re-validated EVERY hop (I12)
 
       const perHopInit: RequestInit = body === undefined ? { ...hopInit, body: undefined } : { ...hopInit, body };
-      const res = await attemptWithRetries(current, method, perHopInit, signal);
+      const res = await attemptWithRetries(current, method, perHopInit, signal, attemptTimeoutMs);
 
       if (!isRedirectStatus(res.status)) return res;
       const location = res.headers.get('location');
@@ -280,10 +309,14 @@ export const createFetcher = (opts: FetcherOptions = {}): Fetcher => {
   };
 
   return {
-    async fetch(url: URL, init: RequestInit = {}): Promise<Response> {
+    async fetch(url: URL, init: FetchCallInit = {}): Promise<Response> {
       const signal = init.signal ?? undefined;
       if (signal?.aborted) throw new AbortedError(label);
-      return fetchWithRedirects(url, init, signal);
+      // Per-call deadline override (positive finite only — anything else
+      // falls back to the constructed default); it survives redirect hops.
+      const override = (init as FetchCallInit).timeoutMs;
+      const attemptTimeoutMs = typeof override === 'number' && Number.isFinite(override) && override > 0 ? override : timeoutMs;
+      return fetchWithRedirects(url, init, signal, attemptTimeoutMs);
     },
   };
 };

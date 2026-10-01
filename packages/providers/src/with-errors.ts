@@ -24,12 +24,14 @@ export async function withProviderErrors<T>(name: string, op: () => Promise<T>):
     if (e instanceof RetryExhaustedError) {
       // Type-based (I17): exhaustion carries the numeric status — 429 keeps
       // its rate_limited identity instead of collapsing to status-0 upstream
-      // noise, and the rebuilt message drops the internal request URL.
+      // noise, and the rebuilt message drops the internal request URL. The
+      // last error's NAME (not its message) survives so timeouts stay visible.
       if (e.status === 429) throw new RateLimitedError(name, undefined, { attempts: e.attempts });
+      const last = e.cause instanceof Error ? ` (last error: ${e.cause.name})` : '';
       throw new UpstreamError(
         name,
         e.status ?? 0,
-        `request failed after ${e.attempts} attempt${e.attempts === 1 ? '' : 's'}${e.status === undefined ? '' : ` (HTTP ${e.status})`}`,
+        `request failed after ${e.attempts} attempt${e.attempts === 1 ? '' : 's'}${e.status === undefined ? '' : ` (HTTP ${e.status})`}${last}`,
       );
     }
     throw new UpstreamError(name, 0, String((e as Error)?.message ?? e)); // network/other — never classified by text
