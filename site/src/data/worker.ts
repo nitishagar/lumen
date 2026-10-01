@@ -5,4 +5,4 @@
  * widget ships with an empty default and the visitor pastes an endpoint
  * (e.g. a local `wrangler dev` URL) into the field instead.
  */
-export const WORKER_BASE_URL = '';
+export const WORKER_BASE_URL = 'https://lumen-mcp.nitishagar.workers.dev';
