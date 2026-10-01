@@ -46,7 +46,7 @@ runs:
         LUMEN_WAIT_ON: ${{ inputs.wait-on }}
       run: |
         # Waits up to 60s for the target to answer (no extra dependency).
-        for i in $(seq 1 60); do
+        for _ in $(seq 1 60); do
           if curl -fsS --max-time 2 "$LUMEN_WAIT_ON" >/dev/null 2>&1; then exit 0; fi
           sleep 1
         done
@@ -65,18 +65,16 @@ runs:
         # Inputs arrive via env (never interpolated into the script body).
         # Loopback URLs imply --allow-private (the preview server is the
         # user's own); any other private target still requires config opt-in.
-        ALLOW_PRIVATE=""
+        # Optional args accumulate in an ARRAY — never flat strings: an
+        # unquoted glob (source-map) would expand against the checkout.
+        ARGS=()
         if printf '%s' "$LUMEN_URL" | grep -Eq '^(https?://)?(localhost|127\.0\.0\.1|\[::1\])(:|/|$)'; then
-          ALLOW_PRIVATE="--allow-private"
+          ARGS+=(--allow-private)
         fi
-        BASELINE=""
-        if [ -n "$LUMEN_BASELINE" ]; then BASELINE="--baseline $LUMEN_BASELINE"; fi
-        SOURCE_MAP=""
-        if [ -n "$LUMEN_SOURCE_MAP" ]; then SOURCE_MAP="--source-map $LUMEN_SOURCE_MAP"; fi
+        if [ -n "$LUMEN_BASELINE" ]; then ARGS+=(--baseline "$LUMEN_BASELINE"); fi
+        if [ -n "$LUMEN_SOURCE_MAP" ]; then ARGS+=(--source-map "$LUMEN_SOURCE_MAP"); fi
         npx -y @lumen-seo/cli@0 audit "$LUMEN_URL" \
-          $ALLOW_PRIVATE \
-          $BASELINE \
-          $SOURCE_MAP \
+          "${ARGS[@]}" \
           --fail-threshold "$LUMEN_FAIL_THRESHOLD" \
           --max-pages "$LUMEN_MAX_PAGES" \
           --format sarif --out lumen.sarif
@@ -91,16 +89,14 @@ runs:
       run: |
         # The CLI renders ONE format per run; the summary re-runs the (bounded,
         # user-owned preview) audit with --fail-threshold off so only the SARIF
-        # run above gates the job.
-        ALLOW_PRIVATE=""
+        # run above gates the job. Array accumulation, as above — no flat strings.
+        ARGS=()
         if printf '%s' "$LUMEN_URL" | grep -Eq '^(https?://)?(localhost|127\.0\.0\.1|\[::1\])(:|/|$)'; then
-          ALLOW_PRIVATE="--allow-private"
+          ARGS+=(--allow-private)
         fi
-        BASELINE=""
-        if [ -n "$LUMEN_BASELINE" ]; then BASELINE="--baseline $LUMEN_BASELINE"; fi
+        if [ -n "$LUMEN_BASELINE" ]; then ARGS+=(--baseline "$LUMEN_BASELINE"); fi
         npx -y @lumen-seo/cli@0 audit "$LUMEN_URL" \
-          $ALLOW_PRIVATE \
-          $BASELINE \
+          "${ARGS[@]}" \
           --fail-threshold off \
           --max-pages "$LUMEN_MAX_PAGES" \
           --format md --out lumen-summary.md || true

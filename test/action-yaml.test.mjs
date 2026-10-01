@@ -23,6 +23,11 @@ describe('action + workflow YAML (E1.4)', () => {
     const sarifStep = action.runs.steps.find((s) => String(s.name).includes('SARIF artifact'));
     expect(String(sarifStep.run)).toContain('--source-map');
     expect(String(sarifStep.env.LUMEN_SOURCE_MAP)).toContain('inputs.source-map');
+    // Optional args accumulate in ARGS[@] — a flat unquoted $SOURCE_MAP would
+    // glob-expand against the checkout (v0.3.0 e2e: "expects <url>" exit 2).
+    for (const step of action.runs.steps.filter((s) => String(s.run ?? '').includes('npx -y @lumen-seo/cli'))) {
+      expect(String(step.run)).toContain('"${ARGS[@]}"');
+    }
   });
 
   it('the e2e workflow parses and references the action by its real path', () => {
