@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # actions/checkout@v7
+      - name: Lint the Dockerfile (hadolint, pinned by digest)
+        run: docker run --rm -v "$PWD:/work" -w /work hadolint/hadolint@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e hadolint Dockerfile  # v2.14.0
       - name: Build the image
         run: docker build -t lumen-mcp .
       - name: Smoke the image (repo's own CLI/stdio-MCP assertions)
