@@ -1,0 +1,661 @@
+---
+// Try-it widget — the one runtime-fetching surface on the site. Two tabs
+// (page report / keyword ideas) over the Worker's locked REST subset
+// (GET /api/v1/page-report + /api/v1/keyword-ideas). Vanilla DOM script,
+// textContent-only rendering (never innerHTML), honest states: every
+// outcome — result, typed error envelope, unreachable worker, missing
+// endpoint — renders as itself, never as a fake success.
+import { WORKER_BASE_URL } from '../data/worker';
+---
+<div class="tryit" data-try-root data-worker-base={WORKER_BASE_URL}>
+  <div class="tryit-endpoint">
+    <label for="try-endpoint">Worker endpoint</label>
+    <input
+      id="try-endpoint"
+      data-try-endpoint
+      type="url"
+      inputmode="url"
+      spellcheck="false"
+      autocomplete="off"
+      placeholder="https://lumen-mcp.<subdomain>.workers.dev"
+    />
+    <span class="tryit-status" data-try-status role="status">Not checked</span>
+  </div>
+  <p class="tryit-note">
+    Runs against the live Cloudflare Worker — the same REST API your own
+    tooling can call. <a data-try-healthz href="https://nitishagar.github.io/lumen/docs/mcp-onboarding/" target="_blank" rel="noreferrer">Worker health</a>
+    opens <code>/healthz</code> in a new tab.
+  </p>
+
+  <div class="tryit-tabs" role="tablist" aria-label="Try lumen" data-try-tabs>
+    <button
+      type="button"
+      role="tab"
+      id="try-tab-report"
+      aria-controls="try-panel-report"
+      aria-selected="true"
+    >
+      Page report
+    </button>
+    <button
+      type="button"
+      role="tab"
+      id="try-tab-ideas"
+      aria-controls="try-panel-ideas"
+      aria-selected="false"
+      tabindex="-1"
+    >
+      Keyword ideas
+    </button>
+  </div>
+
+  <div role="tabpanel" id="try-panel-report" aria-labelledby="try-tab-report" tabindex="0">
+    <form data-try-form="report">
+      <div class="tryit-field">
+        <label for="try-url">Page URL</label>
+        <input
+          id="try-url"
+          name="url"
+          type="url"
+          inputmode="url"
+          required
+          placeholder="https://example.com/pricing"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <fieldset class="tryit-field">
+        <legend>Strategy</legend>
+        <label><input type="radio" name="strategy" value="mobile" checked /> mobile</label>
+        <label><input type="radio" name="strategy" value="desktop" /> desktop</label>
+      </fieldset>
+      <details class="tryit-field">
+        <summary>BYOK keys (optional — CrUX field data needs one)</summary>
+        <p class="tryit-note">
+          Keys stay in your browser: they ride <code>x-lumen-*</code> headers on
+          this request only and are never stored or logged.
+        </p>
+        <div class="tryit-field">
+          <label for="try-psi-key">PageSpeed key</label>
+          <input id="try-psi-key" name="psiKey" type="password" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="tryit-field">
+          <label for="try-crux-key">CrUX key</label>
+          <input id="try-crux-key" name="cruxKey" type="password" autocomplete="off" spellcheck="false" />
+        </div>
+      </details>
+      <button type="submit" class="tryit-submit">Run page report</button>
+    </form>
+    <div class="tryit-result" data-try-result="report" aria-live="polite"></div>
+  </div>
+
+  <div role="tabpanel" id="try-panel-ideas" aria-labelledby="try-tab-ideas" tabindex="0" hidden>
+    <form data-try-form="ideas">
+      <div class="tryit-field">
+        <label for="try-q">Seed keyword</label>
+        <input
+          id="try-q"
+          name="q"
+          type="text"
+          required
+          maxlength="120"
+          placeholder="headless cms pricing"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <div class="tryit-row">
+        <div class="tryit-field">
+          <label for="try-limit">Limit (1–50)</label>
+          <input id="try-limit" name="limit" type="number" min="1" max="50" value="20" />
+        </div>
+        <div class="tryit-field">
+          <label for="try-lang">Language (optional)</label>
+          <input id="try-lang" name="lang" type="text" placeholder="en" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <button type="submit" class="tryit-submit">Get keyword ideas</button>
+    </form>
+    <div class="tryit-result" data-try-result="ideas" aria-live="polite"></div>
+  </div>
+</div>
+
+<style>
+  .tryit {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+    padding: 1.25rem;
+    margin-block: 1.5rem;
+  }
+  .tryit-endpoint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+  }
+  .tryit-endpoint label {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--dim);
+  }
+  .tryit-endpoint input {
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+  .tryit input,
+  .tryit button.tryit-submit {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    padding: 0.45rem 0.65rem;
+  }
+  .tryit button.tryit-submit {
+    cursor: pointer;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #09090b;
+    font-weight: 600;
+  }
+  .tryit button.tryit-submit:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .tryit-status {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--badge-amber-bg);
+    color: var(--badge-amber);
+    white-space: nowrap;
+  }
+  .tryit-status[data-state='live'] {
+    background: var(--badge-green-bg);
+    color: var(--badge-green);
+  }
+  .tryit-status[data-state='down'] {
+    background: var(--badge-red-bg);
+    color: var(--badge-red);
+  }
+  .tryit-note {
+    font-size: 0.85rem;
+    color: var(--dim);
+  }
+  .tryit-note code {
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+  }
+  .tryit-tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--border);
+    margin-top: 1rem;
+  }
+  .tryit-tabs [role='tab'] {
+    font: inherit;
+    color: var(--dim);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+  }
+  .tryit-tabs [role='tab'][aria-selected='true'] {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+  .tryit form {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 1rem;
+  }
+  .tryit-field {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+  fieldset.tryit-field {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  fieldset.tryit-field legend {
+    float: left;
+    margin-right: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--dim);
+  }
+  fieldset.tryit-field label {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .tryit-field > label {
+    font-size: 0.85rem;
+    color: var(--dim);
+  }
+  details.tryit-field {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    padding: 0.6rem 0.8rem;
+  }
+  details.tryit-field summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .tryit-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+  }
+  .tryit-row .tryit-field {
+    flex: 1 1 8rem;
+  }
+  .tryit-result {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .tryit-result:empty {
+    display: none;
+  }
+  .tryit-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-btn);
+    padding: 0.8rem 1rem;
+    background: var(--bg);
+  }
+  .tryit-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+  }
+  .tryit-card p {
+    margin: 0.3rem 0;
+    font-size: 0.9rem;
+  }
+  .tryit-scores,
+  .tryit-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+    font-size: 0.9rem;
+  }
+  .tryit-scores li,
+  .tryit-metrics li {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+  }
+  .tryit-ideas {
+    list-style: none;
+    margin: 0.5rem 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+    font-size: 0.9rem;
+  }
+  .tryit-ideas small {
+    color: var(--dim);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  .tryit-error {
+    border-color: var(--badge-red);
+  }
+  .tryit-dim {
+    color: var(--dim);
+  }
+  .tryit-src {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+</style>
+
+<script>
+  // Widget behavior — vanilla DOM, fetch the Worker REST subset directly.
+  const root = document.querySelector('[data-try-root]');
+  if (root instanceof HTMLElement) {
+    const bakedBase = (root.dataset.workerBase ?? '').replace(/\/+$/, '');
+    const endpointInput = root.querySelector<HTMLInputElement>('[data-try-endpoint]');
+    const statusEl = root.querySelector('[data-try-status]');
+    const healthzLink = root.querySelector<HTMLAnchorElement>('[data-try-healthz]');
+    const STORE_KEY = 'lumen-worker-base';
+
+    const storedBase = (() => {
+      try {
+        return (localStorage.getItem(STORE_KEY) ?? '').trim().replace(/\/+$/, '');
+      } catch {
+        return '';
+      }
+    })();
+    if (endpointInput) endpointInput.value = storedBase || bakedBase;
+
+    const baseOf = (): string => (endpointInput?.value ?? '').trim().replace(/\/+$/, '');
+
+    const setStatus = (state: 'idle' | 'live' | 'down' | 'working', text: string): void => {
+      if (!statusEl) return;
+      statusEl.setAttribute('data-state', state === 'idle' ? 'idle' : state);
+      statusEl.textContent = text;
+    };
+
+    const syncHealthz = (): void => {
+      if (!healthzLink) return;
+      const base = baseOf();
+      healthzLink.href = base === '' ? healthzLink.href : `${base}/healthz`;
+      healthzLink.textContent = base === '' ? 'Worker health' : 'Worker health (opens /healthz)';
+    };
+    endpointInput?.addEventListener('input', () => {
+      const base = baseOf();
+      try {
+        if (base === '') localStorage.removeItem(STORE_KEY);
+        else localStorage.setItem(STORE_KEY, base);
+      } catch {}
+      setStatus('idle', 'Not checked');
+      syncHealthz();
+    });
+    syncHealthz();
+
+    // --- ARIA tabs (same keyboard pattern as the install tabs) ------------
+    const tablist = root.querySelector('[data-try-tabs]');
+    if (tablist instanceof HTMLElement) {
+      const tabs = [...tablist.querySelectorAll('[role="tab"]')] as HTMLElement[];
+      const select = (tab: HTMLElement): void => {
+        tabs.forEach((t) => {
+          const on = t === tab;
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+          t.tabIndex = on ? 0 : -1;
+          document.getElementById(t.getAttribute('aria-controls') ?? '')?.toggleAttribute('hidden', !on);
+        });
+      };
+      tabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => select(tab));
+        tab.addEventListener('keydown', (ev) => {
+          const dir =
+            ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : ev.key === 'Home' ? -i : ev.key === 'End' ? tabs.length - 1 - i : 0;
+          if (dir === 0) return;
+          ev.preventDefault();
+          const next = tabs[(i + dir + tabs.length) % tabs.length];
+          if (next) {
+            select(next);
+            next.focus();
+          }
+        });
+      });
+    }
+
+    // --- result rendering (textContent only — API payloads are untrusted) --
+    const el = (tag: string, text?: string, cls?: string): HTMLElement => {
+      const node = document.createElement(tag);
+      if (text !== undefined) node.textContent = text;
+      if (cls !== undefined) node.className = cls;
+      return node;
+    };
+
+    const resultBox = (kind: 'report' | 'ideas'): HTMLElement | null =>
+      root.querySelector(`[data-try-result="${kind}"]`);
+
+    const showWorking = (kind: 'report' | 'ideas'): void => {
+      const box = resultBox(kind);
+      if (!box) return;
+      box.textContent = '';
+      const card = el('div', undefined, 'tryit-card');
+      card.appendChild(el('p', 'Asking the Worker…', 'tryit-dim'));
+      box.appendChild(card);
+    };
+
+    const showMessage = (kind: 'report' | 'ideas', title: string, body: string, isError: boolean): void => {
+      const box = resultBox(kind);
+      if (!box) return;
+      box.textContent = '';
+      const card = el('div', undefined, isError ? 'tryit-card tryit-error' : 'tryit-card');
+      card.appendChild(el('h3', title));
+      card.appendChild(el('p', body));
+      box.appendChild(card);
+    };
+
+    const srcLine = (source: unknown): HTMLElement | null => {
+      if (typeof source !== 'object' || source === null) return null;
+      const s = source as { provider?: unknown; attribution?: unknown; kind?: unknown };
+      if (typeof s.provider !== 'string') return null;
+      const extra = typeof s.attribution === 'string' ? s.attribution : typeof s.kind === 'string' ? s.kind : '';
+      return el('p', `source: ${s.provider}${extra === '' ? '' : ` — ${extra}`}`, 'tryit-src');
+    };
+
+    const fmtScore = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${v}/100` : '—');
+    const fmtMs = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)} ms` : '—');
+    const fmtCls = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${v}` : '—');
+
+    const renderReport = (payload: unknown): void => {
+      const box = resultBox('report');
+      if (!box || typeof payload !== 'object' || payload === null) return;
+      box.textContent = '';
+      const p = payload as Record<string, unknown>;
+
+      const head = el('div', undefined, 'tryit-card');
+      head.appendChild(el('h3', typeof p['url'] === 'string' ? p['url'] : 'Page report'));
+      if (typeof p['strategy'] === 'string') head.appendChild(el('p', `strategy: ${p['strategy']}`, 'tryit-dim'));
+      box.appendChild(head);
+
+      const lab = p['lab'] as Record<string, unknown> | undefined;
+      const labCard = el('div', undefined, 'tryit-card');
+      labCard.appendChild(el('h3', 'Lab (PageSpeed Insights)'));
+      if (lab === undefined || lab === null || typeof lab !== 'object') {
+        labCard.appendChild(el('p', 'No lab leg in this response.', 'tryit-dim'));
+      } else if (lab['status'] === 'unavailable') {
+        labCard.appendChild(el('p', `Unavailable: ${typeof lab['reason'] === 'string' ? lab['reason'] : 'no reason given'}`));
+      } else {
+        const scores = (lab['scores'] ?? {}) as Record<string, unknown>;
+        const metrics = (lab['metrics'] ?? {}) as Record<string, unknown>;
+        const ul = el('ul', undefined, 'tryit-scores');
+        const scoreItems: [string, unknown][] = [
+          ['Performance', scores['performance']],
+          ['SEO', scores['seo']],
+          ['Accessibility', scores['accessibility']],
+          ['Best practices', scores['bestPractices']],
+        ];
+        for (const [label, v] of scoreItems) ul.appendChild(el('li', `${label} ${fmtScore(v)}`));
+        labCard.appendChild(ul);
+        const ml = el('ul', undefined, 'tryit-metrics');
+        const metricItems: [string, string][] = [
+          ['LCP', fmtMs(metrics['lcp'])],
+          ['CLS', fmtCls(metrics['cls'])],
+          ['TBT', fmtMs(metrics['tbt'])],
+          ['FCP', fmtMs(metrics['fcn'])],
+        ];
+        for (const [label, v] of metricItems) ml.appendChild(el('li', `${label} ${v}`));
+        labCard.appendChild(ml);
+        const src = srcLine(lab['source']);
+        if (src) labCard.appendChild(src);
+        const field = lab['field'] as Record<string, unknown> | undefined;
+        if (field !== undefined && field !== null && typeof field === 'object') {
+          const foverall = typeof field['overall'] === 'string' ? field['overall'] : 'unknown';
+          labCard.appendChild(el('p', `Field experience inside PSI: ${foverall}`, 'tryit-dim'));
+          const fsrc = srcLine(field['source']);
+          if (fsrc) labCard.appendChild(fsrc);
+        }
+      }
+      box.appendChild(labCard);
+
+      const crux = p['field'] as Record<string, unknown> | undefined;
+      const cruxCard = el('div', undefined, 'tryit-card');
+      cruxCard.appendChild(el('h3', 'Field (CrUX)'));
+      if (crux === undefined || crux === null || typeof crux !== 'object') {
+        cruxCard.appendChild(el('p', 'No field leg in this response.', 'tryit-dim'));
+      } else if (crux['status'] === 'unavailable') {
+        cruxCard.appendChild(el('p', `Unavailable: ${typeof crux['reason'] === 'string' ? crux['reason'] : 'no reason given'}`));
+        cruxCard.appendChild(el('p', 'CrUX needs a key: paste one under “BYOK keys” above.', 'tryit-dim'));
+      } else {
+        const metrics = (crux['metrics'] ?? {}) as Record<string, unknown>;
+        const names = Object.keys(metrics);
+        if (names.length === 0) cruxCard.appendChild(el('p', 'No metrics in this record.', 'tryit-dim'));
+        const ul = el('ul', undefined, 'tryit-metrics');
+        for (const name of names) {
+          const m = metrics[name] as { p75?: unknown } | null;
+          const p75 = m !== null && typeof m === 'object' && typeof m['p75'] === 'number' ? `${m['p75']}` : 'insufficient data';
+          ul.appendChild(el('li', `${name} p75: ${p75}`));
+        }
+        cruxCard.appendChild(ul);
+        const src = srcLine(crux['source']);
+        if (src) cruxCard.appendChild(src);
+      }
+      box.appendChild(cruxCard);
+
+      if (Array.isArray(p['limitations']) && p['limitations'].length > 0) {
+        const lim = el('div', undefined, 'tryit-card');
+        lim.appendChild(el('h3', 'Limitations'));
+        for (const item of p['limitations']) {
+          if (typeof item === 'string') lim.appendChild(el('p', item, 'tryit-dim'));
+        }
+        box.appendChild(lim);
+      }
+    };
+
+    const renderIdeas = (payload: unknown): void => {
+      const box = resultBox('ideas');
+      if (!box || typeof payload !== 'object' || payload === null) return;
+      box.textContent = '';
+      const p = payload as { query?: unknown; ideas?: unknown; attribution?: unknown };
+      const card = el('div', undefined, 'tryit-card');
+      card.appendChild(el('h3', typeof p['query'] === 'string' ? `Ideas for “${p['query']}”` : 'Keyword ideas'));
+      const ideas = Array.isArray(p['ideas']) ? p['ideas'] : [];
+      if (ideas.length === 0) {
+        card.appendChild(el('p', 'No ideas returned.', 'tryit-dim'));
+      } else {
+        const ul = el('ul', undefined, 'tryit-ideas');
+        for (const raw of ideas) {
+          if (typeof raw !== 'object' || raw === null) continue;
+          const idea = raw as { term?: unknown; source?: unknown; volume?: unknown; lang?: unknown; estimateLabel?: unknown };
+          if (typeof idea['term'] !== 'string') continue;
+          const li = el('li', idea['term']);
+          const bits: string[] = [];
+          const src = idea['source'] as { provider?: unknown } | null;
+          if (src !== null && typeof src === 'object' && typeof src['provider'] === 'string') bits.push(src['provider']);
+          if (typeof idea['volume'] === 'number') bits.push(`vol ${idea['volume']}`);
+          if (typeof idea['lang'] === 'string') bits.push(idea['lang']);
+          if (typeof idea['estimateLabel'] === 'string') bits.push(idea['estimateLabel']);
+          if (bits.length > 0) {
+            li.appendChild(document.createTextNode(' '));
+            li.appendChild(el('small', bits.join(' · ')));
+          }
+          ul.appendChild(li);
+        }
+        card.appendChild(ul);
+      }
+      if (Array.isArray(p['attribution'])) {
+        for (const raw of p['attribution']) {
+          const a = raw as { provider?: unknown; attribution?: unknown };
+          if (typeof a?.provider === 'string') {
+            card.appendChild(
+              el(
+                'p',
+                `source: ${a['provider']}${typeof a['attribution'] === 'string' ? ` — ${a['attribution']}` : ''}`,
+                'tryit-src',
+              ),
+            );
+          }
+        }
+      }
+      box.appendChild(card);
+    };
+
+    // --- requests ------------------------------------------------------
+    const requestJson = async (path: string, headers: Record<string, string>): Promise<{ status: number; json: unknown }> => {
+      const started = performance.now();
+      const res = await fetch(`${baseOf()}${path}`, { headers });
+      const ms = Math.round(performance.now() - started);
+      setStatus('live', `Live · ${ms} ms`);
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+      return { status: res.status, json };
+    };
+
+    const errorText = (json: unknown): string | null => {
+      if (typeof json !== 'object' || json === null) return null;
+      const err = (json as { error?: unknown })['error'];
+      if (typeof err !== 'object' || err === null) return null;
+      const e = err as { code?: unknown; message?: unknown; provider?: unknown };
+      if (typeof e['code'] !== 'string' || typeof e['message'] !== 'string') return null;
+      return typeof e['provider'] === 'string' ? `${e['code']} (${e['provider']}): ${e['message']}` : `${e['code']}: ${e['message']}`;
+    };
+
+    root.querySelectorAll('form[data-try-form]').forEach((form) => {
+      if (!(form instanceof HTMLFormElement)) return;
+      const kind = form.dataset.tryForm === 'ideas' ? 'ideas' : 'report';
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const base = baseOf();
+        if (base === '') {
+          showMessage(kind, 'No worker endpoint', 'Paste your Worker URL above first — it looks like https://lumen-mcp.<subdomain>.workers.dev.', true);
+          return;
+        }
+        const data = new FormData(form);
+        const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        const headers: Record<string, string> = {};
+        let path: string;
+        if (kind === 'report') {
+          const url = String(data.get('url') ?? '').trim();
+          if (url === '') {
+            showMessage(kind, 'URL required', 'Enter the page URL to analyze.', true);
+            return;
+          }
+          const strategy = data.get('strategy') === 'desktop' ? 'desktop' : 'mobile';
+          path = `/api/v1/page-report?url=${encodeURIComponent(url)}&strategy=${strategy}`;
+          const psiKey = String(data.get('psiKey') ?? '').trim();
+          const cruxKey = String(data.get('cruxKey') ?? '').trim();
+          if (psiKey !== '') headers['x-lumen-psi-key'] = psiKey;
+          if (cruxKey !== '') headers['x-lumen-crux-key'] = cruxKey;
+        } else {
+          const q = String(data.get('q') ?? '').trim();
+          if (q === '') {
+            showMessage(kind, 'Seed keyword required', 'Enter a seed keyword to expand.', true);
+            return;
+          }
+          const limit = Math.min(50, Math.max(1, Number(data.get('limit')) || 20));
+          const lang = String(data.get('lang') ?? '').trim();
+          path = `/api/v1/keyword-ideas?q=${encodeURIComponent(q)}&limit=${limit}${lang === '' ? '' : `&lang=${encodeURIComponent(lang)}`}`;
+        }
+        if (submit) submit.disabled = true;
+        setStatus('working', 'Working…');
+        showWorking(kind);
+        void (async () => {
+          try {
+            const { status, json } = await requestJson(path, headers);
+            const err = errorText(json);
+            if (err !== null) {
+              showMessage(kind, `Worker answered HTTP ${status}`, err, true);
+            } else if (json === null) {
+              showMessage(kind, `Worker answered HTTP ${status}`, 'The response was not JSON — nothing to show.', true);
+            } else if (kind === 'report') {
+              renderReport(json);
+            } else {
+              renderIdeas(json);
+            }
+          } catch (e) {
+            setStatus('down', 'Unreachable');
+            showMessage(
+              kind,
+              'Worker unreachable',
+              `No response from ${base} (${e instanceof Error ? e.message : 'fetch failed'}). Check the endpoint — the Worker may not be deployed yet.`,
+              true,
+            );
+          } finally {
+            if (submit) submit.disabled = false;
+          }
+        })();
+      });
+    });
+  }
+</script>

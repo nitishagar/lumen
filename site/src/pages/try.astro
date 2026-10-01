@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+import TryIt from '../components/TryIt.astro';
+import { u } from '../utils/site';
+---
+<Base
+  title="Try lumen live in your browser"
+  description="Run a real lumen page report or expand a seed keyword against the hosted Cloudflare Worker — no install, no account, provenance on every number."
+>
+  <div class="wrap">
+    <section class="section" data-pagefind-body>
+      <p class="mono-label">live demo</p>
+      <h1>Try lumen, right here</h1>
+      <p class="lede">
+        This widget talks to the hosted lumen Worker over its public REST API —
+        the same endpoints your own tooling can call. Page reports run
+        PageSpeed Insights lab data (CrUX field data needs your own key, which
+        never leaves your browser); keyword ideas come from keyless sources.
+        Everything arrives with its provenance attached, and unavailability
+        says so instead of faking a number.
+      </p>
+      <TryIt />
+      <p>
+        Want the full audit — 36 rules over your whole site, rank checks, your
+        own keys and pacing? That runs locally:
+        <a href={u('/docs/quickstart/')}>quickstart</a>.
+      </p>
+    </section>
+  </div>
+</Base>
