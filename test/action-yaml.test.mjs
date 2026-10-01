@@ -38,5 +38,12 @@ describe('action + workflow YAML (E1.4)', () => {
     expect(wf.permissions['security-events']).toBe('write');
     const seed = steps.find((s) => s.name && String(s.name).startsWith('Seed a regression'));
     expect(String(seed.run)).toContain('subn');
+    // Verdict ownership: the audit never fails the job directly; both
+    // asserts are always()-qualified so they run even after an audit failure.
+    expect(auditStep['continue-on-error']).toBe(true);
+    for (const name of ['Assert the audit outcome', 'Assert the green path succeeded (default runs)']) {
+      const assert = steps.find((s) => s.name === name);
+      expect(String(assert.if)).toContain('always()');
+    }
   });
 });

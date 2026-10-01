@@ -67,7 +67,9 @@ jobs:
       - name: Audit the preview via the local action
         id: audit
         uses: ./action
-        continue-on-error: ${{ inputs.seed_regression == true }}
+        # Unconditional: the assert steps below own the verdict per path
+        # (an expression here proved unreliable across runners).
+        continue-on-error: true
         with:
           url: http://localhost:4321/lumen
           fail-threshold: error
@@ -75,7 +77,9 @@ jobs:
           source-map: 'site/src/pages/**/*.astro'
 
       - name: Assert the audit outcome
-        if: ${{ inputs.seed_regression == true }}
+        # always(): a bare `if` implies success(), which a red-path audit
+        # failure would skip — the assert IS the red-path verdict.
+        if: ${{ always() && inputs.seed_regression == true }}
         run: |
           if [ "${{ steps.audit.outcome }}" != "failure" ]; then
             echo "expected failure, got ${{ steps.audit.outcome }}" >&2
@@ -84,7 +88,9 @@ jobs:
           echo "seeded red path confirmed; the SARIF below carries the annotation source"
 
       - name: Assert the green path succeeded (default runs)
-        if: ${{ inputs.seed_regression != true }}
+        # always(): with continue-on-error above, a green-path audit failure
+        # must still reach this assert to fail the job honestly.
+        if: ${{ always() && inputs.seed_regression != true }}
         run: |
           if [ "${{ steps.audit.outcome }}" != "success" ]; then
             echo "expected success, got ${{ steps.audit.outcome }}" >&2
