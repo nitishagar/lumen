@@ -10,7 +10,7 @@ import workerDefault from './index.js';
 import { describe, expect, it } from 'vitest';
 import { OUTBOUND_HOST_ALLOWLIST } from './outbound-recorder.js';
 import { workerDeps, HEADER_FOR_ENV } from './composition.js';
-import type { Env } from './providers.js';
+import type { Env, WorkerRestDeps } from './providers.js';
 import { pageReportRoute } from './rest.js';
 import { restComposition } from './composition.js';
 
@@ -257,6 +257,22 @@ describe('BYOK header pass-through (E5/I16)', () => {
     );
   });
 
+  it('workerDeps().env falls back to server-side secrets; visitor header wins; unknown names stay undefined', () => {
+    const env: Env = { LUMEN_PSI_KEY: 'server-psi', LUMEN_CRUX_KEY: 'server-crux' };
+    const empty = workerDeps(new Headers(), env);
+    expect(empty.env('LUMEN_PSI_KEY')).toBe('server-psi');
+    expect(empty.env('LUMEN_CRUX_KEY')).toBe('server-crux');
+    expect(empty.env('LUMEN_OPR_KEY')).toBeUndefined(); // no server default for OPR
+    expect(empty.env('SOMETHING_ELSE')).toBeUndefined();
+
+    const withHeader = workerDeps(new Headers({ 'x-lumen-psi-key': 'visitor-psi', 'x-lumen-crux-key': '' }), env);
+    expect(withHeader.env('LUMEN_PSI_KEY')).toBe('visitor-psi'); // header wins (visitor quota)
+    expect(withHeader.env('LUMEN_CRUX_KEY')).toBe('server-crux'); // empty header counts as absent
+
+    const noEnv = workerDeps(new Headers());
+    expect(noEnv.env('LUMEN_PSI_KEY')).toBeUndefined(); // unset keeps header-only BYOK
+  });
+
   it('BYOK header values never appear in any response body (E5/I16)', async () => {
     const sentinel = 'sentinel-key-value-MUST-NOT-ECHO';
     const res = await SELF.fetch('http://example.com/api/v1/page-report?url=https://example.com/page', {
@@ -283,6 +299,64 @@ describe('BYOK header pass-through (E5/I16)', () => {
       }),
     });
     expect(await mcpRes.text()).not.toContain(sentinel);
+  });
+});
+
+describe('visitor-facing leg reasons (REST)', () => {
+  const throwingDeps = (err: unknown): WorkerRestDeps => ({
+    clock: () => '2026-10-01T00:00:00.000Z',
+    pageSpeed: {
+      report: async () => {
+        throw err;
+      },
+    } as unknown as NonNullable<WorkerRestDeps['pageSpeed']>,
+    crux: {
+      record: async () => {
+        throw err;
+      },
+    } as unknown as NonNullable<WorkerRestDeps['crux']>,
+    keyword: [],
+  });
+  const reportReq = (url: string): Request =>
+    new Request(`http://example.com/api/v1/page-report?url=${encodeURIComponent(url)}&strategy=mobile`);
+
+  it('rate_limited legs guide the visitor (retry + BYOK) instead of leaking the upstream URL', async () => {
+    // Plain-object throw: rest.ts matches the ProviderError shape
+    // structurally (no providers-barrel value import in the bundle).
+    const res = await pageReportRoute(
+      reportReq('https://example.com/'),
+      {},
+      throwingDeps({ code: 'rate_limited', provider: 'pagespeed', retryAfterMs: 45000 }),
+    );
+    const body = (await res.json()) as { lab: { status: string; reason: string } };
+    expect(body.lab.status).toBe('unavailable');
+    expect(body.lab.reason).toContain('rate-limited');
+    expect(body.lab.reason).toContain('BYOK keys');
+    expect(body.lab.reason).toContain('45s');
+    expect(body.lab.reason).not.toContain('googleapis.com');
+  });
+
+  it('not_configured legs name the key and the API to enable', async () => {
+    const res = await pageReportRoute(
+      reportReq('https://example.com/'),
+      {},
+      throwingDeps({ code: 'not_configured', provider: 'crux', envVar: 'LUMEN_CRUX_KEY' }),
+    );
+    const body = (await res.json()) as { field: { status: string; reason: string } };
+    expect(body.field.status).toBe('unavailable');
+    expect(body.field.reason).toContain('crux');
+    expect(body.field.reason).toContain('BYOK keys');
+    expect(body.field.reason).toContain('Chrome UX Report API');
+  });
+
+  it('unknown failures still surface the provider message (no silent empty legs)', async () => {
+    const res = await pageReportRoute(
+      reportReq('https://example.com/'),
+      {},
+      throwingDeps(new Error('something exploded upstream')),
+    );
+    const body = (await res.json()) as { lab: { status: string; reason: string } };
+    expect(body.lab.reason).toContain('something exploded upstream');
   });
 });
 

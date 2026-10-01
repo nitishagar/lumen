@@ -30,15 +30,26 @@ export const nullCache = {
  * The locked ProviderDeps shape for the Worker (plan Phase 5). The capping
  * fetcher wraps core's real Fetcher so every upstream read is size-capped;
  * outbound requests flow through it exclusively (I16).
+ *
+ * Key precedence per name: visitor `x-lumen-*` header first (their key,
+ * their quota), then the owner's server-side default from `env` (a wrangler
+ * secret — served from the owner's quota so the /try demo returns numbers
+ * instead of 429s). An empty header counts as absent. Secrets are still
+ * never logged, stored, cached, or echoed — they only leave in the
+ * `x-goog-api-key` outbound header (I16).
  */
-export const workerDeps = (headers: Headers): WorkerProviderDeps => ({
+export const workerDeps = (headers: Headers, env?: Env): WorkerProviderDeps => ({
   fetcher: cappingFetcher,
   cache: nullCache,
   clock: () => Date.now(),
   sleep: (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)),
   env: (name: string): string | undefined => {
     const header = HEADER_FOR_ENV[name];
-    return header === undefined ? undefined : (headers.get(header) ?? undefined);
+    if (header === undefined) return undefined;
+    const fromHeader = headers.get(header);
+    if (fromHeader !== null && fromHeader !== '') return fromHeader;
+    const fromEnv = (env as Record<string, string | undefined> | undefined)?.[name];
+    return fromEnv === undefined || fromEnv === '' ? undefined : fromEnv;
   },
   userAgent: USER_AGENT,
 });
@@ -50,8 +61,8 @@ export const cappingFetcher = createCappingFetcher(createFetcher({ label: 'worke
 
 /** Stable seam consumed by worker/index.ts (identical in both rebase states). */
 export const mcpComposition = (headers: Headers, env: Env): McpDeps =>
-  workerMcpDeps(headers, env, workerDeps(headers));
+  workerMcpDeps(headers, env, workerDeps(headers, env));
 
 /** Stable REST seam consumed by worker/rest.ts via index.ts. */
 export const restComposition = (headers: Headers, env: Env): WorkerRestDeps =>
-  workerRestDeps(headers, env, workerDeps(headers));
+  workerRestDeps(headers, env, workerDeps(headers, env));

@@ -45,8 +45,32 @@ export const errorJson = (
 
 const unavailable = (reason: string) => ({ status: 'unavailable' as const, reason });
 
-const legReason = (e: unknown): string =>
-  e instanceof Error ? e.message : 'provider call failed';
+/**
+ * Visitor-facing leg reason. Classified on the typed `code` field (I17 —
+ * never message text, and minify-proof, unlike `name`), so the /try widget
+ * shows guidance instead of internal provider chatter. No value imports
+ * from `@lumen-seo/providers` here — the worker bundle may only touch the
+ * /worker subpath (R7/BA9), so the ProviderError shape is matched
+ * structurally.
+ */
+const legReason = (e: unknown, providerHint: string): string => {
+  if (typeof e === 'object' && e !== null) {
+    const f = e as { code?: unknown; provider?: unknown; retryAfterMs?: unknown };
+    const provider = typeof f.provider === 'string' ? f.provider : providerHint;
+    if (f.code === 'rate_limited') {
+      const wait =
+        typeof f.retryAfterMs === 'number' && Number.isFinite(f.retryAfterMs)
+          ? ` (retry in ~${Math.max(1, Math.ceil(f.retryAfterMs / 1000))}s)`
+          : '';
+      return `[${provider}] Google rate-limited this request on the shared demo quota${wait}. Wait a minute and retry, or paste your own free API key under "BYOK keys" for your own quota.`;
+    }
+    if (f.code === 'not_configured') {
+      const api = provider === 'crux' ? 'the Chrome UX Report API' : 'the PageSpeed Insights API';
+      return `[${provider}] needs a Google API key — paste one under "BYOK keys" (enable ${api} on the key).`;
+    }
+  }
+  return e instanceof Error ? e.message : 'provider call failed';
+};
 
 export const jsonResponse = (payload: unknown, status = 200): Response => Response.json(payload, { status });
 
@@ -83,9 +107,9 @@ export const pageReportRoute = async (
             .then((r) => ({ ...r, retrievedAt }))
             .catch((e: unknown) => {
               if (e instanceof Error && e.name === 'UpstreamTooLargeError') {
-                throw new RestError('PAYLOAD_TOO_LARGE', 413, legReason(e));
+                throw new RestError('PAYLOAD_TOO_LARGE', 413, legReason(e, 'pagespeed'));
               }
-              return unavailable(legReason(e));
+              return unavailable(legReason(e, 'pagespeed'));
             });
   const fieldP: Promise<ReturnType<typeof unavailable> | CruxRecord> =
     deps.crux === undefined
@@ -95,9 +119,9 @@ export const pageReportRoute = async (
           .then((r) => (r === null ? unavailable('no CrUX field data (insufficient coverage or key not accepted)') : r))
           .catch((e: unknown) => {
             if (e instanceof Error && e.name === 'UpstreamTooLargeError') {
-              throw new RestError('PAYLOAD_TOO_LARGE', 413, legReason(e));
+              throw new RestError('PAYLOAD_TOO_LARGE', 413, legReason(e, 'crux'));
             }
-            return unavailable(legReason(e));
+            return unavailable(legReason(e, 'crux'));
           });
 
   let lab: Awaited<typeof labP>;
@@ -106,7 +130,7 @@ export const pageReportRoute = async (
     [lab, field] = await Promise.all([labP, fieldP]);
   } catch (e) {
     if (e instanceof RestError) return errorJson(e.code, e.status, e.message);
-    return errorJson('UPSTREAM_FAILED', 502, legReason(e));
+    return errorJson('UPSTREAM_FAILED', 502, legReason(e, 'worker'));
   }
 
   const attribution: { provider: string; attribution: string }[] = [];
@@ -166,7 +190,7 @@ export const keywordIdeasRoute = async (
     try {
       result = await p.ideas(q, { lang, limit, signal: request.signal });
     } catch (e) {
-      return errorJson('UPSTREAM_FAILED', 502, legReason(e), p.name);
+      return errorJson('UPSTREAM_FAILED', 502, legReason(e, p.name), p.name);
     }
     for (const idea of result) {
       if (seen.has(idea.term)) continue; // dedupe across providers, first wins

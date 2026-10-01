@@ -1,3 +1,4 @@
+import { RetryExhaustedError } from '@lumen-seo/core';
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from './cache.js';
 import { BlockedError, NotConfiguredError, ParseError, ProviderError, RateLimitedError, UpstreamError } from './errors.js';
@@ -259,6 +260,30 @@ describe('TC-SHARED-10: type-based timeout classification (never message sniffin
     await expect(withProviderErrors('x', async () => 7)).resolves.toBe(7);
     expect(isTimeoutLike(new Error('nope'))).toBe(false);
     expect(isTimeoutLike('string')).toBe(false);
+  });
+
+  it('retry exhaustion on 429 keeps its rate_limited identity (typed, never message-sniffed)', async () => {
+    const exhausted = new RetryExhaustedError('worker to https://example.com/x still failing with status 429 after 3 attempts', {
+      attempts: 3,
+      status: 429,
+      label: 'worker',
+    });
+    await expect(withProviderErrors('pagespeed', async () => Promise.reject(exhausted))).rejects.toMatchObject({
+      code: 'rate_limited',
+      provider: 'pagespeed',
+    });
+  });
+
+  it('retry exhaustion on 5xx becomes upstream_error with the real status and no internal URL', async () => {
+    const exhausted = new RetryExhaustedError('worker to https://example.com/secret-path still failing with status 503 after 3 attempts', {
+      attempts: 3,
+      status: 503,
+      label: 'worker',
+    });
+    const err = await withProviderErrors('pagespeed', async () => Promise.reject(exhausted)).catch((e: unknown) => e);
+    expect(err).toMatchObject({ code: 'upstream_error', provider: 'pagespeed', status: 503 });
+    expect((err as Error).message).not.toContain('secret-path');
+    expect((err as Error).message).toContain('503');
   });
 });
 

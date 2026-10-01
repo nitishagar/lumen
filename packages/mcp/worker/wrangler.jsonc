@@ -12,5 +12,9 @@
     //   WORKER_AUTH_TOKEN: set via `wrangler secret put WORKER_AUTH_TOKEN`
     //     (NOT here — secrets never live in this file) to require bearer auth.
     //   WORKER_ALLOWED_ORIGINS: comma-separated origin allowlist for CORS.
+    // Demo keys (OPTIONAL — unset keeps header-only BYOK): `wrangler secret
+    // put LUMEN_PSI_KEY` / `wrangler secret put LUMEN_CRUX_KEY` (deploy-worker
+    // provisions both from the GOOGLE_API_KEY repo secret when set) so the
+    // /try demo serves from the owner's quota instead of keyless 429s.
   }
 }

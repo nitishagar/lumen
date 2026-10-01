@@ -17,9 +17,10 @@
  *   settings → the providers' R5 default env-var names and GCRA pacing.
  * - No serp/auditRunner/pageMeta/history in McpDeps → audit_site +
  *   rank_check stay LOCAL_ONLY_CAPABILITY (E6/I6).
- * - BYOK keys ride in through `workerDeps(headers).env(name)` at call time
- *   (E5); an absent key degrades to honest unavailability — never a keyless
- *   CrUX/OPR call (I1). Google-suggest/wikipedia need no key.
+ * - BYOK keys ride in through `workerDeps(headers, env).env(name)` at call
+ *   time (E5): visitor header first, owner's `LUMEN_*_KEY` wrangler secret as
+ *   the server-side default. An absent key degrades to honest unavailability
+ *   — never a keyless CrUX/OPR call (I1). Google-suggest/wikipedia need no key.
  */
 import { createWorkerSafeProviders } from '@lumen-seo/providers/worker';
 import type { WorkerSafeProviders } from '@lumen-seo/providers/worker';
@@ -34,6 +35,15 @@ import type {
 import type { McpDeps } from '../src/server.js';
 
 export interface Env {
+  /** Owner's Google API key (PageSpeed Insights API enabled) as a wrangler
+   *  SECRET (`wrangler secret put LUMEN_PSI_KEY` — never a var, never in
+   *  this file): the server-side default when the visitor sends no
+   *  `x-lumen-psi-key` header. Served from the owner's quota. */
+  LUMEN_PSI_KEY?: string;
+  /** Owner's Google API key (Chrome UX Report API enabled) as a wrangler
+   *  SECRET: the server-side default when the visitor sends no
+   *  `x-lumen-crux-key` header. The same Cloud key usually covers both. */
+  LUMEN_CRUX_KEY?: string;
   /** Kill-switch (B10): set to "false" to disable PSI on CPU-constrained zones. */
   WORKER_ENABLE_PSI?: string;
   /** E2.5: optional bearer auth — when set, every route (except OPTIONS and
