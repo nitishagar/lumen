@@ -349,6 +349,18 @@ describe('visitor-facing leg reasons (REST)', () => {
     expect(body.field.reason).toContain('Chrome UX Report API');
   });
 
+  it('timeout legs advise retry / mobile strategy instead of attempt counts', async () => {
+    const res = await pageReportRoute(
+      reportReq('https://example.com/'),
+      {},
+      throwingDeps({ code: 'timeout', provider: 'pagespeed', detail: { attempts: 3, aborted: false } }),
+    );
+    const body = (await res.json()) as { lab: { status: string; reason: string } };
+    expect(body.lab.status).toBe('unavailable');
+    expect(body.lab.reason).toContain('took too long');
+    expect(body.lab.reason).toContain('mobile strategy');
+  });
+
   it('unknown failures still surface the provider message (no silent empty legs)', async () => {
     const res = await pageReportRoute(
       reportReq('https://example.com/'),

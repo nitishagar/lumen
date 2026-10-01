@@ -27,6 +27,12 @@ export async function withProviderErrors<T>(name: string, op: () => Promise<T>):
       // noise, and the rebuilt message drops the internal request URL. The
       // last error's NAME (not its message) survives so timeouts stay visible.
       if (e.status === 429) throw new RateLimitedError(name, undefined, { attempts: e.attempts });
+      if (isTimeoutLike(e.cause)) {
+        throw new ProviderError('timeout', name, `upstream timed out after ${e.attempts} attempts`, {
+          attempts: e.attempts,
+          aborted: false,
+        });
+      }
       const last = e.cause instanceof Error ? ` (last error: ${e.cause.name})` : '';
       throw new UpstreamError(
         name,

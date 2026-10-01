@@ -1,4 +1,4 @@
-import { RetryExhaustedError } from '@lumen-seo/core';
+import { RetryExhaustedError, TimeoutError } from '@lumen-seo/core';
 import { describe, expect, it } from 'vitest';
 import { InMemoryCache } from './cache.js';
 import { BlockedError, NotConfiguredError, ParseError, ProviderError, RateLimitedError, UpstreamError } from './errors.js';
@@ -284,6 +284,20 @@ describe('TC-SHARED-10: type-based timeout classification (never message sniffin
     expect(err).toMatchObject({ code: 'upstream_error', provider: 'pagespeed', status: 503 });
     expect((err as Error).message).not.toContain('secret-path');
     expect((err as Error).message).toContain('503');
+  });
+
+  it('retry exhaustion on timeouts keeps its timeout identity (typed cause, never message-sniffed)', async () => {
+    const lastTimeout = new TimeoutError('https://example.com/x', 120_000, 'worker');
+    const exhausted = new RetryExhaustedError('worker to https://example.com/x failed after 3 attempts', {
+      attempts: 3,
+      label: 'worker',
+      cause: lastTimeout,
+    });
+    await expect(withProviderErrors('pagespeed', async () => Promise.reject(exhausted))).rejects.toMatchObject({
+      code: 'timeout',
+      provider: 'pagespeed',
+      detail: { attempts: 3, aborted: false },
+    });
   });
 });
 

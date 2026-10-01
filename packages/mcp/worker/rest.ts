@@ -62,7 +62,10 @@ const legReason = (e: unknown, providerHint: string): string => {
         typeof f.retryAfterMs === 'number' && Number.isFinite(f.retryAfterMs)
           ? ` (retry in ~${Math.max(1, Math.ceil(f.retryAfterMs / 1000))}s)`
           : '';
-      return `[${provider}] Google rate-limited this request on the shared demo quota${wait}. Wait a minute and retry, or paste your own free API key under "BYOK keys" for your own quota.`;
+      return `[${provider}] Google rate-limited this request${wait}. Wait a minute and retry, or paste your own free API key under "BYOK keys" for your own quota.`;
+    }
+    if (f.code === 'timeout') {
+      return `[${provider}] Google took too long to audit this page (gave up after repeated attempts). Heavy pages sometimes stall PSI's queue — retry in a few minutes, or try the mobile strategy.`;
     }
     if (f.code === 'not_configured') {
       const api = provider === 'crux' ? 'the Chrome UX Report API' : 'the PageSpeed Insights API';
