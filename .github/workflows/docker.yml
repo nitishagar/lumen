@@ -1,0 +1,25 @@
+name: Docker
+
+# Build-only gate for the "runs from source" container image (Glama safety
+# checks build this Dockerfile themselves): proves the image builds and that
+# the built image passes the repo's own CLI/stdio-MCP smoke. No registry
+# push — publishing the image anywhere is a separate, owner-gated decision.
+
+on:
+  push:
+    paths: ['Dockerfile', '.dockerignore', '.github/workflows/docker.yml']
+  pull_request:
+    paths: ['Dockerfile', '.dockerignore', '.github/workflows/docker.yml']
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # actions/checkout@v7
+      - name: Build the image
+        run: docker build -t lumen-mcp .
+      - name: Smoke the image (repo's own CLI/stdio-MCP assertions)
+        run: docker run --rm lumen-mcp node scripts/ci/cli-smoke.mjs
