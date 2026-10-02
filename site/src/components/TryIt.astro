@@ -304,10 +304,64 @@ import { WORKER_BASE_URL } from '../data/worker';
     font-family: var(--font-mono);
     font-size: 0.82rem;
   }
+  .tryit-scores {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tryit-score {
+    display: grid;
+    grid-template-columns: 8rem 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+    width: 100%;
+  }
+  .tryit-score-label {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--dim);
+  }
+  .tryit-bar-track {
+    display: block;
+    height: 0.6rem;
+    background: var(--border);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+  }
+  .tryit-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--dim);
+  }
+  .tryit-bar-fill[data-band='good'] {
+    background: var(--badge-green);
+  }
+  .tryit-bar-fill[data-band='ok'] {
+    background: var(--badge-amber);
+  }
+  .tryit-bar-fill[data-band='bad'] {
+    background: var(--badge-red);
+  }
+  .tryit-score-value {
+    min-width: 3.5rem;
+    text-align: right;
+  }
+  .tryit-spark {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 1.1rem;
+    vertical-align: -0.2rem;
+  }
+  .tryit-spark-bar {
+    display: block;
+    width: 5px;
+    background: var(--badge-blue);
+    border-radius: 1px;
+  }
   .tryit-ideas {
-    list-style: none;
     margin: 0.5rem 0;
-    padding: 0;
+    padding-left: 1.4rem;
     display: grid;
     gap: 0.3rem;
     font-size: 0.9rem;
@@ -449,7 +503,51 @@ import { WORKER_BASE_URL } from '../data/worker';
 
     const fmtScore = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${v}/100` : '—');
     const fmtMs = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)} ms` : '—');
-    const fmtCls = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? `${v}` : '—');
+    const fmtCls = (v: unknown): string =>
+      typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v * 1000) / 1000}` : '—';
+
+    // PSI's own color bands (green 90–100, orange 50–89, red 0–49). Bars are
+    // decorative (aria-hidden) — the adjacent numeric text carries meaning.
+    const scoreBand = (v: unknown): 'good' | 'ok' | 'bad' | 'na' =>
+      typeof v !== 'number' || !Number.isFinite(v) ? 'na' : v >= 90 ? 'good' : v >= 50 ? 'ok' : 'bad';
+
+    const scoreRow = (label: string, v: unknown): HTMLElement => {
+      const li = el('li', undefined, 'tryit-score');
+      li.appendChild(el('span', label, 'tryit-score-label'));
+      const track = el('span', undefined, 'tryit-bar-track');
+      track.setAttribute('aria-hidden', 'true');
+      const fill = el('span', undefined, 'tryit-bar-fill');
+      const pct = typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
+      fill.style.width = `${pct}%`;
+      fill.dataset.band = scoreBand(v);
+      track.appendChild(fill);
+      li.appendChild(track);
+      li.appendChild(el('span', fmtScore(v), 'tryit-score-value'));
+      return li;
+    };
+
+    // CrUX histogram sparkline: one vertical bar per bin, height = density.
+    // Decorative distribution shape; the p75 text carries the reading.
+    const sparkline = (metric: unknown): HTMLElement | null => {
+      const bins = (metric as { histogramBins?: unknown } | null)?.histogramBins;
+      if (!Array.isArray(bins) || bins.length === 0) return null;
+      const densities: number[] = [];
+      for (const b of bins) {
+        const d = (b as { density?: unknown } | null)?.density;
+        densities.push(typeof d === 'number' && Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0);
+      }
+      if (densities.every((d) => d === 0)) return null;
+      const spark = el('span', undefined, 'tryit-spark');
+      spark.setAttribute('role', 'img');
+      spark.setAttribute('aria-label', `distribution: ${densities.map((d) => `${Math.round(d * 100)}%`).join(' / ')}`);
+      for (const d of densities) {
+        const bar = el('span', undefined, 'tryit-spark-bar');
+        bar.setAttribute('aria-hidden', 'true');
+        bar.style.height = `${Math.max(4, Math.round(d * 100))}%`;
+        spark.appendChild(bar);
+      }
+      return spark;
+    };
 
     const renderReport = (payload: unknown): void => {
       const box = resultBox('report');
@@ -488,7 +586,7 @@ import { WORKER_BASE_URL } from '../data/worker';
           ['Accessibility', scores['accessibility']],
           ['Best practices', scores['bestPractices']],
         ];
-        for (const [label, v] of scoreItems) ul.appendChild(el('li', `${label} ${fmtScore(v)}`));
+        for (const [label, v] of scoreItems) ul.appendChild(scoreRow(label, v));
         labCard.appendChild(ul);
         const ml = el('ul', undefined, 'tryit-metrics');
         const metricItems: [string, string][] = [
@@ -527,7 +625,13 @@ import { WORKER_BASE_URL } from '../data/worker';
         for (const name of names) {
           const m = metrics[name] as { p75?: unknown } | null;
           const p75 = m !== null && typeof m === 'object' && typeof m['p75'] === 'number' ? `${m['p75']}` : 'insufficient data';
-          ul.appendChild(el('li', `${name} p75: ${p75}`));
+          const li = el('li', `${name} p75: ${p75}`);
+          const spark = sparkline(m);
+          if (spark) {
+            li.appendChild(document.createTextNode(' '));
+            li.appendChild(spark);
+          }
+          ul.appendChild(li);
         }
         cruxCard.appendChild(ul);
         const src = srcLine(crux['source']);
@@ -556,7 +660,7 @@ import { WORKER_BASE_URL } from '../data/worker';
       if (ideas.length === 0) {
         card.appendChild(el('p', 'No ideas returned.', 'tryit-dim'));
       } else {
-        const ul = el('ul', undefined, 'tryit-ideas');
+        const ul = el('ol', undefined, 'tryit-ideas');
         for (const raw of ideas) {
           if (typeof raw !== 'object' || raw === null) continue;
           const idea = raw as { term?: unknown; source?: unknown; volume?: unknown; lang?: unknown; estimateLabel?: unknown };

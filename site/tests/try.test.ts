@@ -50,6 +50,13 @@ describe('try-it widget', () => {
     expect(js).toContain('warnings');
   });
 
+  test('built JS renders score bars, CrUX sparklines, and numbered ideas (not verbatim lists)', () => {
+    const js = builtJs();
+    expect(js).toContain('tryit-bar-fill');
+    expect(js).toContain('tryit-spark-bar');
+    expect(js).toContain('histogramBins');
+  });
+
   test('built JS calls the locked REST subset with the BYOK headers', () => {
     const js = builtJs();
     expect(js).toContain('/api/v1/page-report');
