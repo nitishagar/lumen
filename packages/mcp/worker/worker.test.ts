@@ -195,12 +195,16 @@ describe('REST subset (E9)', () => {
       lab: { scores: { performance: number }; source: { provider: string } };
       field: { status: string };
       limitations: string[];
+      warnings: string[];
     };
     expect(body.url).toBe('https://example.com/page');
     expect(body.lab.scores.performance).toBe(92); // real pagespeed provider (trial mode) over the fixture upstream
     expect(body.lab.source.provider).toBe('pagespeed');
     expect(body.field.status).toBe('unavailable'); // no CrUX key sent
     expect(body.limitations.join(' ')).toContain('local-only');
+    // The thin-worker split must be unmissable in every response.
+    expect(body.warnings.join(' ')).toContain('36-rule audit');
+    expect(body.warnings.join(' ')).toContain('npx @lumen-seo/cli audit');
     // The target's host is not on the outbound allowlist: had the route (or
     // any consumed code path) fetched it, the responder would have answered
     // 599 and the PSI/CrUX legs could not have succeeded above (I6/I12).

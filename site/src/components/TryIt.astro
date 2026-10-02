@@ -26,6 +26,14 @@ import { WORKER_BASE_URL } from '../data/worker';
     tooling can call. <a data-try-healthz href="https://nitishagar.github.io/lumen/docs/mcp-onboarding/" target="_blank" rel="noreferrer">Worker health</a>
     opens <code>/healthz</code> in a new tab.
   </p>
+  <div class="tryit-card tryit-notice" data-try-callout>
+    <p>
+      <strong>Demo scope:</strong> this widget shows PSI lab + CrUX field data
+      only. The full 36-rule audit (meta, content, links, performance,
+      AI-search) runs locally — <code>npx @lumen-seo/cli audit &lt;url&gt;</code> —
+      or over MCP stdio for agents.
+    </p>
+  </div>
 
   <div class="tryit-tabs" role="tablist" aria-label="Try lumen" data-try-tabs>
     <button
@@ -312,6 +320,13 @@ import { WORKER_BASE_URL } from '../data/worker';
   .tryit-error {
     border-color: var(--badge-red);
   }
+  .tryit-notice {
+    border-color: var(--badge-amber);
+    margin-top: 1rem;
+  }
+  .tryit-notice p {
+    margin: 0;
+  }
   .tryit-dim {
     color: var(--dim);
   }
@@ -446,6 +461,15 @@ import { WORKER_BASE_URL } from '../data/worker';
       head.appendChild(el('h3', typeof p['url'] === 'string' ? p['url'] : 'Page report'));
       if (typeof p['strategy'] === 'string') head.appendChild(el('p', `strategy: ${p['strategy']}`, 'tryit-dim'));
       box.appendChild(head);
+
+      if (Array.isArray(p['warnings'])) {
+        for (const item of p['warnings']) {
+          if (typeof item !== 'string') continue;
+          const notice = el('div', undefined, 'tryit-card tryit-notice');
+          notice.appendChild(el('p', item));
+          box.appendChild(notice);
+        }
+      }
 
       const lab = p['lab'] as Record<string, unknown> | undefined;
       const labCard = el('div', undefined, 'tryit-card');

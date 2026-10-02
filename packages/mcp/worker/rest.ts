@@ -154,6 +154,11 @@ export const pageReportRoute = async (
       // I6/E9: the honest limitation — meta/HTML analysis is local-only.
       'page meta/HTML analysis is local-only: npx @lumen-seo/cli report <url>',
     ],
+    // The worker is a thin relay by design (it never fetches the target):
+    // call this out where no consumer can miss it, with the local path.
+    warnings: [
+      'Hosted demo API: PSI lab + CrUX field only. The full 36-rule audit (meta, content, links, performance, AI-search) runs locally: npx @lumen-seo/cli audit <url> — or the MCP server over stdio for agents.',
+    ],
     attribution,
   });
 };

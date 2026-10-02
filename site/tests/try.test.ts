@@ -35,6 +35,21 @@ describe('try-it widget', () => {
     expect(html).toMatch(/<input[^>]*name="cruxKey"[^>]*type="password"/);
   });
 
+  test('demo-scope callout names the thin-worker split and the local path', () => {
+    const html = readDist(page);
+    expect(html).toContain('data-try-callout');
+    expect(html).toContain('Demo scope:');
+    expect(html).toContain('36-rule audit');
+    expect(html).toContain('npx @lumen-seo/cli audit');
+    expect(html).toContain('MCP stdio');
+  });
+
+  test('built JS renders the API warnings array as notice cards', () => {
+    const js = builtJs();
+    expect(js).toContain('tryit-notice');
+    expect(js).toContain('warnings');
+  });
+
   test('built JS calls the locked REST subset with the BYOK headers', () => {
     const js = builtJs();
     expect(js).toContain('/api/v1/page-report');
