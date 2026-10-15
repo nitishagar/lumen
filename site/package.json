@@ -21,7 +21,7 @@
     "jest-axe": "^11.0.0",
     "jsdom": "^30.0.1",
     "pagefind": "1.5.2",
-    "vitest": "^4.1.0"
+    "vitest": "^5.0.2"
   },
   "dependencies": {
     "cookie": "^2.0.1"
